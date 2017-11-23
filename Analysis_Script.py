@@ -12,7 +12,7 @@ datasets = ['2017-11-17-aa']
 
 peak_params = {'mph': 80, 'mpd': 50, 'valley': False, 'show': False}
 
-# Test Comment
+# Test Comment 2
 # Rect Intervals
 spikes = mf.rect_intervals_spike_detection(datasets, peak_params)
 mf.rect_intervals_cut_trials(datasets)
