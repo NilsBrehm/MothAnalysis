@@ -18,7 +18,7 @@ INTERVAL_REC = False
 SOUND = True
 
 
-peak_params = {'mph': 50, 'mpd': 100, 'valley': False, 'show': False, 'maxph': 300, 'dynamic': False, 'filter_on': False}
+peak_params = {'mph': 50, 'mpd': 100, 'valley': False, 'show': True, 'maxph': 300, 'dynamic': False, 'filter_on': False}
 
 
 # Rect Intervals
@@ -58,6 +58,7 @@ if FilterSignalShow:
     plt.show()
 
 if SOUND:
+    # mf.quickspikes_detection(datasets)
     # mf.soundfilestimuli_spike_detection(datasets, peak_params)
     # mf.soundfilestimuli_spike_distance(datasets)
     mf.spike_distance_matrix(datasets)

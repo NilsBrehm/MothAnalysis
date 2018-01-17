@@ -3,6 +3,9 @@ import myfunctions as mf
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+import scipy.io.wavfile as wav
+from scipy import signal as sg
 
 start_time = time.time()
 # Data File Name
@@ -14,14 +17,15 @@ PlotRectIntervals = False
 PlotMothIntervals = False
 PlotVS = False
 PlotVSRect = False
-PlotFICurves = True
-PlotFIField = True
+PlotFICurves = False
+PlotFIField = False
+PlotSoundRasterPlot = True
 
 data_name = datasets[0]
 
 for i in range(len(datasets)):  # Loop through all recordings in the list above
     data_name = datasets[i]
-    pathname = "/home/brehm/PycharmProjects/mothanlysis/figs/" + data_name + "/"
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
     try:
         if PlotRectIntervals:
             mf.rect_intervals_plot(data_name)
@@ -82,6 +86,32 @@ for i in range(len(datasets)):  # Loop through all recordings in the list above
         if PlotFIField:
             fifield = np.load(pathname + 'FIField_plotdata.npy')
             mf.plot_fifield(fifield, pathname, savefig=True)
+
+        if PlotSoundRasterPlot:
+            # Load Stimulus Sound File
+            stim_path = '/media/brehm/Data/MasterMoth/batcalls/noisereduced/'
+            stim_name = 'Barbastella_barbastellus_1_n'
+            stimulus = wav.read(stim_path + stim_name + '.wav')
+            stimulus_time = np.linspace(0, len(stimulus[1]) / stimulus[0], len(stimulus[1]))  # in s
+            fs = stimulus[0]
+            # Load Spike Times
+            file_name = pathname + 'batcalls/noisereduced/' + stim_name + '_spike_times.npy'
+            spike_times = np.load(file_name).item()
+
+            # Plot
+            plt.subplot(3, 1, 1)
+            mf.raster_plot(spike_times, stimulus_time)
+            plt.subplot(3, 1, 2)
+            plt.plot(stimulus_time, stimulus[1], 'k')
+            plt.xlim(0, np.max(stimulus_time))
+            plt.subplot(3, 1, 3)
+            plt.specgram(stimulus[1], NFFT=256, Fs=fs, Fc=0, detrend=mlab.detrend_none,
+                    window=mlab.window_hanning, noverlap=250,
+                    cmap='hot', xextent=None, pad_to=None, sides='default',
+                    scale_by_freq=True, mode='default', scale='default')
+            plt.ylim(0, 100000)
+            plt.clim(-20, 100)
+            plt.show()
 
     except FileNotFoundError:
         print('File not found')
