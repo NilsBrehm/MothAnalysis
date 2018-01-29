@@ -8,17 +8,17 @@ from collections import OrderedDict
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2017-12-05-ab']
+datasets = ['2018-01-26-aa']
 
 FilterSignalShow = False
 FIFIELD = False
 INTERVAL_MAS = False
-Bootstrapping = False
+Bootstrapping = True
 INTERVAL_REC = False
-SOUND = True
+SOUND = False
 
 
-peak_params = {'mph': 50, 'mpd': 100, 'valley': False, 'show': True, 'maxph': 300, 'dynamic': False, 'filter_on': False}
+peak_params = {'mph': 50, 'mpd': 100, 'valley': False, 'show': False, 'maxph': 1000, 'dynamic': False, 'filter_on': False}
 
 
 # Rect Intervals

@@ -11,15 +11,15 @@ start_time = time.time()
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2017-12-05-ab']
+datasets = ['2018-01-26-aa']
 
 PlotRectIntervals = False
 PlotMothIntervals = False
 PlotVS = False
 PlotVSRect = False
 PlotFICurves = False
-PlotFIField = False
-PlotSoundRasterPlot = True
+PlotFIField = True
+PlotSoundRasterPlot = False
 
 data_name = datasets[0]
 

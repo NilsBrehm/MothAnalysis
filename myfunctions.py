@@ -228,7 +228,7 @@ def get_session_metadata(datasets):
     for dat in range(len(datasets)):
         data_name = datasets[dat]
         pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-        info_file = '/media/brehm/Data/mothdata/' + data_name + '/' + 'info.dat'
+        info_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + 'info.dat'
 
         copyfile(info_file, pathname+'info.dat')
         print('Copied info.dat of %s' % data_name)
@@ -251,7 +251,7 @@ def square_wave(period, pulse_duration, stimulus_duration, sampling_rate):
     return t, sw
 
 
-def rect_stimulus(period, pulse_duration, stimulus_duration,total_amplitude,  plotting):
+def rect_stimulus(period, pulse_duration, stimulus_duration, total_amplitude,  plotting):
     # Compute square wave stimulus in time.
     # Input needs to be in seconds.
     # plotting = True will plot the stimulus
@@ -356,7 +356,10 @@ def plot_fifield(db_threshold, pathname, savefig):
     plt.plot(db_threshold[:, 0], db_threshold[:, 1], 'k-o')
     plt.xlabel('Frequency [kHz]')
     plt.ylabel('Threshold [dB SPL]')
-    plt.xlim(0, np.max(db_threshold[:, 0])+10)
+    plt.xlim(0, 100)
+    plt.ylim(0, 100)
+    plt.xticks(np.arange(0, 110, 10))
+    plt.yticks(np.arange(0, 100, 10))
     if not savefig:
         plt.show()
 
@@ -638,7 +641,7 @@ def fifield_voltage(data_name, data_file, tag):
 def get_fifield_data(datasets):
     for all_datasets in range(len(datasets)):
         data_name = datasets[all_datasets]
-        nix_file = '/media/brehm/Data/mothdata/' + data_name + '/' + data_name + '.nix'
+        nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
         tag = 'FIField-sine_wave-1'
 
         # Read Voltage Traces from nix file and save it to HDD
@@ -873,7 +876,7 @@ def reconstruct_moth_song(meta):
 def get_soundfilestimuli_data(datasets, tag, plot):
     data_name = datasets[0]
     pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-    nix_file = '/media/brehm/Data/mothdata/' + data_name + '/' + data_name + '.nix'
+    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
     # tag = 'SingleStimulus-file-5'
 
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
@@ -1109,7 +1112,7 @@ def get_moth_intervals_data(datasets):
     for dat in range(len(datasets)):
         data_name = datasets[dat]
         pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-        nix_file = '/media/brehm/Data/mothdata/' + data_name + '/' + data_name + '.nix'
+        nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
 
         # Open the nix file
         f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
@@ -1251,7 +1254,7 @@ def moth_intervals_analysis(datasets):
 
 def moth_intervals_plot(data_name, trial_number, frequency):
     # Load data
-    pathname = "/home/brehm/PycharmProjects/mothanlysis//media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
     fname = pathname + 'intervals_mas_spike_times.npy'
     voltage = np.load(fname).item()
     for i in voltage:
@@ -1317,7 +1320,7 @@ def get_rect_intervals_data(datasets):
     for dat in range(len(datasets)):  # Loop through all recording sessions in the list
         data_name = datasets[dat]
         pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-        nix_file = '/media/brehm/Data/mothdata/' + data_name + '/' + data_name + '.nix'
+        nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
 
         # Open the nix file
         f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
@@ -1439,7 +1442,7 @@ def rect_intervals_cut_trials(datasets):
 
 def rect_intervals_plot(data_name):
     # Load data
-    pathname = "/home/brehm/PycharmProjects/mothanlysis//media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
     fname = pathname + 'intervals_rect_trials.npy'
     spike_times = np.load(fname).item()
     stimulus = np.load(pathname + 'intervals_rect_stimulus.npy').item()
@@ -1504,7 +1507,7 @@ def rect_intervals_plot(data_name):
 def bootstrapping_vs(datasets):
     # Load data
     data_name = datasets[0]
-    pathname = "/media/brehm/Data/MasterMoth//media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
     fname = pathname + 'intervals_mas_spike_times.npy'
     fname2 = pathname + 'intervals_mas_vs.npy'
     spike_times = np.load(fname).item()
@@ -1527,8 +1530,8 @@ def bootstrapping_vs(datasets):
             # Now create resamples
             for n in range(nresamples):
                 # This adds noise in the range of a to b [(b - a) * random() + a]
-                a = -0.04
-                b = 0.04
+                a = -0.001
+                b = 0.001
                 noise = ((b-a) * np.random.random(len(data)) + a)
                 d = data+noise
 
@@ -1539,7 +1542,6 @@ def bootstrapping_vs(datasets):
 
             vs_mean = np.mean(vs_resamples)
             percentile_95 = np.percentile(vs_resamples, 95)
-            embed()
             with open(text_file_name, 'a') as text_file:
                 text_file.write('Gap: %s seconds\n' % gap)
                 text_file.write('Boot. Mean: %s\n' % vs_mean)
@@ -1595,6 +1597,9 @@ def bootstrap_test(datasets):
 # Spike Train Distance
 
 def spike_train_distance(spike_times1, spike_times2, dt, duration, tau, plot):
+    # This function computes the distance between two trains. An exponential tail is added to every event in time
+    # (spike times) and then the difference between both trains is computed.
+
     # tau in seconds
     # sampling rate dt in Hz
     # spike times in seconds
