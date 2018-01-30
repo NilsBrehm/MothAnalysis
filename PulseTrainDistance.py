@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 file_name01 = '/media/brehm/Data/Panama/DataForPaper/Castur/PK1285/sorted/17/call_nr_5/call_nr_5_samples.mat'
 #file_name02 = '/media/brehm/Data/Panama/DataForPaper/Castur/PK1285/sorted/16/call_nr_5//call_nr_5_samples.mat'
 file_name02 = '/media/brehm/Data/Panama/DataForPaper/Castur/PK1285/sorted/17/call_nr_6/call_nr_6_samples.mat'
-file_name03 = '/media/brehm/Data/Panama/DataForPaper/Castur/PK1285/sorted/17/call_nr_8/call_nr_8_samples.mat'
-
+#file_name03 = '/media/brehm/Data/Panama/DataForPaper/Castur/PK1285/sorted/17/call_nr_8/call_nr_8_samples.mat'
+file_name03 = '/media/brehm/Data/Panama/DataForPaper/Melese_incertus/MittenDrin/call_nr_1/call_nr_1_samples.mat'
 mat01 = scipy.io.loadmat(file_name01)
 mat02 = scipy.io.loadmat(file_name02)
 mat03 = scipy.io.loadmat(file_name03)
