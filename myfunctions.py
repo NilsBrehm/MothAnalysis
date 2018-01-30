@@ -9,55 +9,56 @@ from IPython import embed
 from shutil import copyfile
 import quickspikes as qs
 
-def read_tagged_data(m):
-    """ Reads tagged data from nix file
 
-    :param m: tag
-
-    """
-    samplingrate = 20000  # in Hz
-    meta = m.metadata.sections[0]
-    duration = meta["Duration"]
-    frequency = meta["Frequency"]
-    amplitude = m.features[4].data[1]
-    print("\n", "Stimulus: ", m.name, "\n", "Duration: ", duration, "s", "\n", "Frequency: ", frequency, "Hz", "\n",
-          "Amplitude: ", amplitude, "dB SPL")
-    m_N = len(m.positions[:])  # how many stimulus trials
-    m_extent = m.extents[1]  # how long is one stimulus
-    m_datasize = np.round(m_extent * samplingrate)  # how many datapoints will be in the dataset
-    # data = np.zeros((m_N, m_datasize))
-    # for i in range(m_N):
-    # data[i,:] = m.retrieve_data(i, recording)[:]
-    # data = np.mean(data,axis=0)
-    pos = np.delete(m.positions[:], 0)
-    index = m.features[4].data[:] == 67.0  # Look for trials with amplitude 67 db SPL
-    pos = pos[index]
-    count_all = 0
-    for k in range(len(pos)):
-        count = np.sum(m.positions[:] == pos[k])
-        count_all = count + count_all
-    dummy = m.retrieve_data(1, 0)[:].shape[0]
-    data = np.zeros((count_all, dummy))
-    spike_count = np.zeros((count_all, 1))
-    p = 0
-    for i in pos:
-        index = int(np.where(m.positions[:] == i)[0])
-        data[p, :] = m.retrieve_data(index, 0)[:]
-        spikes = m.retrieve_data(index, 1)[:] - m.positions[index]
-        spike_count[p, 0] = spikes.shape[0]
-        p = p + 1
-
-    volt = np.mean(data, axis=0)  # Mean Voltage of all trials with same amplitude
-    spike_count_mean = np.mean(spike_count)  # Mean Spike Count of all trials with same amplitude
-    # data = m.retrieve_data(i,0)[:]
-    # spikes = m.retrieve_data(i,1)[:]-m.positions[i]
-    data_size = data.shape[0]
-    t_max = data_size * (1 / samplingrate)
-    # t_step = t_max/data_size
-    time = np.linspace(0, t_max, data_size)  # (start, end, #indices)
-    y_spikes = np.ones((1, len(spikes))) * (np.max(data) + 10)
-    f.close()
-    return time, data, spikes, y_spikes
+# def read_tagged_data(m):
+#     """ Reads tagged data from nix file
+#
+#     :param m: tag
+#
+#     """
+#     samplingrate = 20000  # in Hz
+#     meta = m.metadata.sections[0]
+#     duration = meta["Duration"]
+#     frequency = meta["Frequency"]
+#     amplitude = m.features[4].data[1]
+#     print("\n", "Stimulus: ", m.name, "\n", "Duration: ", duration, "s", "\n", "Frequency: ", frequency, "Hz", "\n",
+#           "Amplitude: ", amplitude, "dB SPL")
+#     m_N = len(m.positions[:])  # how many stimulus trials
+#     m_extent = m.extents[1]  # how long is one stimulus
+#     m_datasize = np.round(m_extent * samplingrate)  # how many datapoints will be in the dataset
+#     # data = np.zeros((m_N, m_datasize))
+#     # for i in range(m_N):
+#     # data[i,:] = m.retrieve_data(i, recording)[:]
+#     # data = np.mean(data,axis=0)
+#     pos = np.delete(m.positions[:], 0)
+#     index = m.features[4].data[:] == 67.0  # Look for trials with amplitude 67 db SPL
+#     pos = pos[index]
+#     count_all = 0
+#     for k in range(len(pos)):
+#         count = np.sum(m.positions[:] == pos[k])
+#         count_all = count + count_all
+#     dummy = m.retrieve_data(1, 0)[:].shape[0]
+#     data = np.zeros((count_all, dummy))
+#     spike_count = np.zeros((count_all, 1))
+#     p = 0
+#     for i in pos:
+#         index = int(np.where(m.positions[:] == i)[0])
+#         data[p, :] = m.retrieve_data(index, 0)[:]
+#         spikes = m.retrieve_data(index, 1)[:] - m.positions[index]
+#         spike_count[p, 0] = spikes.shape[0]
+#         p = p + 1
+#
+#     volt = np.mean(data, axis=0)  # Mean Voltage of all trials with same amplitude
+#     spike_count_mean = np.mean(spike_count)  # Mean Spike Count of all trials with same amplitude
+#     # data = m.retrieve_data(i,0)[:]
+#     # spikes = m.retrieve_data(i,1)[:]-m.positions[i]
+#     data_size = data.shape[0]
+#     t_max = data_size * (1 / samplingrate)
+#     # t_step = t_max/data_size
+#     time = np.linspace(0, t_max, data_size)  # (start, end, #indices)
+#     y_spikes = np.ones((1, len(spikes))) * (np.max(data) + 10)
+#
+#     return time, data, spikes, y_spikes
 
 
 def same_amp_trials(m):
@@ -207,10 +208,9 @@ def get_spike_count(tag):
     spike_count = np.zeros((tag.features[4].data[:].size, 2))
     # spike_count = {}
     for j in range(tag.features[4].data[:].size):
-        spike_count[j, 0] = tag.retrieve_data(j, 1)[:].size # Is it possible to read all at once like (:,1) ?
-        spike_count[j, 1] = tag.features[4].data[j] # Gets Amp and stores it as well
+        spike_count[j, 0] = tag.retrieve_data(j, 1)[:].size  # Is it possible to read all at once like (:,1) ?
+        spike_count[j, 1] = tag.features[4].data[j]  # Gets Amp and stores it as well
         # spike_count.update({int(tag.features[4].data[j]) : tag.retrieve_data(j, 1)[:].size})
-
 
     return spike_count
 
@@ -237,7 +237,7 @@ def get_session_metadata(datasets):
 
 
 def square_wave(period, pulse_duration, stimulus_duration, sampling_rate):
-    # -- Square Wave -------------------------------------------------------------------------------------------------------
+    # -- Square Wave --------------------------------------------------------------------------------------------------
     # Unit: time in msec, frequency in Hz, dutycycle in %, value = 0: disabled
     # N = 1000  # sample count
     # freq = 0
@@ -373,16 +373,16 @@ def plot_fifield(db_threshold, pathname, savefig):
     return 'FIField saved'
 
 
-def plotting_fifield_data(pathname, freq, fifield, ficurves):
-
-    # Plot FIField and save to HDD
-    plot_fifield(fifield, pathname)
-
-    # Plot FICurves and save to HDD
-    for i in freq:
-        plot_ficurve(ficurves[i], i, pathname)
-
-    return 'Plots saved'
+# def plotting_fifield_data(pathname, freq, fifield, ficurves):
+#
+#     # Plot FIField and save to HDD
+#     plot_fifield(fifield, pathname, savefig=True)
+#
+#     # Plot FICurves and save to HDD
+#     for i in freq:
+#         plot_ficurve(ficurves[i], i, pathname, freq)
+#
+#     return 'Plots saved'
 
 
 def loading_fifield_data(pathname):
@@ -890,7 +890,7 @@ def get_soundfilestimuli_data(datasets, tag, plot):
 
     # Get sound file: 0: sampling rate, 1: sound data
     sound_file_name = meta[2]
-    sound = wav.read(sound_file_name)
+    sound = wav.read('/media/brehm/Data/MasterMoth/' + sound_file_name)
     sound_time = np.linspace(0, len(sound[1]) / sound[0], len(sound[1])) * 1000  # in ms
 
     # Read Voltage Traces from nix file
@@ -1504,7 +1504,7 @@ def rect_intervals_plot(data_name):
 
 
 # Bootsrapping
-def bootstrapping_vs(datasets):
+def bootstrapping_vs(datasets, nresamples, plot_histogram):
     # Load data
     data_name = datasets[0]
     pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
@@ -1513,8 +1513,15 @@ def bootstrapping_vs(datasets):
     spike_times = np.load(fname).item()
     vector_strength = np.load(fname2).item()
     resamples = {}
-    nresamples = 1000  # Number of resamples
-    text_file_name = pathname + 'bootstrap_vs.txt'
+    # nresamples = 1000  # Number of resamples
+
+    # Create Directory
+    directory = os.path.dirname(pathname + 'vs/')
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+
+    text_file_name = pathname + 'vs/bootstrap_vs.txt'
+
     try:
         text_file = open(text_file_name, 'r+')
         text_file.truncate(0)
@@ -1530,8 +1537,8 @@ def bootstrapping_vs(datasets):
             # Now create resamples
             for n in range(nresamples):
                 # This adds noise in the range of a to b [(b - a) * random() + a]
-                a = -0.001
-                b = 0.001
+                a = -0.04
+                b = 0.04
                 noise = ((b-a) * np.random.random(len(data)) + a)
                 d = data+noise
 
@@ -1542,6 +1549,27 @@ def bootstrapping_vs(datasets):
 
             vs_mean = np.mean(vs_resamples)
             percentile_95 = np.percentile(vs_resamples, 95)
+
+            # Histogram
+            if plot_histogram:
+                real_vs = vector_strength[k]['vs']
+                y, binEdges = np.histogram(vs_resamples, bins=20)
+                bincenters = 0.5 * (binEdges[1:] + binEdges[:-1])
+                plt.hist(vs_resamples, bins=20, facecolor='grey')
+                plt.plot(bincenters, y, 'k-')
+                plt.plot([real_vs, real_vs], [0, np.max(y)], 'k--')
+                plt.plot([percentile_95, percentile_95], [0, np.max(y)], 'r--')
+                plt.xlabel('vector strength')
+                plt.ylabel('count')
+                plt.title('gap = %s ms' % str((gap*1000)))
+                # Save Plot to HDD
+                figname = pathname + "vs/vs_hist_" + str(gap*1000) + ".png"
+                fig = plt.gcf()
+                fig.set_size_inches(16, 12)
+                fig.savefig(figname, bbox_inches='tight', dpi=300)
+                plt.close(fig)
+                print('%s %% done' % str(((gap*1000)/15)*100))
+
             with open(text_file_name, 'a') as text_file:
                 text_file.write('Gap: %s seconds\n' % gap)
                 text_file.write('Boot. Mean: %s\n' % vs_mean)

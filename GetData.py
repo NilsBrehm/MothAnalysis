@@ -9,13 +9,13 @@ import os
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2018-01-26-aa']
+datasets = ['2018-01-26-ab']
 
 GetSession = True
-FIFIELD = True
-INTERVAL_MAS = True
+FIFIELD = False
+INTERVAL_MAS = False
 INTERVAL_REC = False
-SOUND = False
+SOUND = True
 
 # Create Directory for Saving Data
 pathname = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/"
@@ -41,6 +41,11 @@ if INTERVAL_REC:
 if SOUND:
     # Create Directory for Saving Data
     pathname = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/mothsongs/"
+    directory = os.path.dirname(pathname)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/batcalls/"
     directory = os.path.dirname(pathname)
     if not os.path.isdir(directory):
         os.mkdir(directory)  # Make Directory

@@ -8,22 +8,22 @@ from collections import OrderedDict
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2018-01-26-aa']
+datasets = ['2018-01-26-ab']
 
 FilterSignalShow = False
 FIFIELD = False
 INTERVAL_MAS = False
-Bootstrapping = True
+Bootstrapping = False
 INTERVAL_REC = False
-SOUND = False
+SOUND = True
 
 
-peak_params = {'mph': 50, 'mpd': 100, 'valley': False, 'show': False, 'maxph': 1000, 'dynamic': False, 'filter_on': False}
+peak_params = {'mph': 50, 'mpd': 100, 'valley': False, 'show': True, 'maxph': 1000, 'dynamic': False, 'filter_on': False}
 
 
 # Rect Intervals
 if INTERVAL_REC:
-    mf.rect_intervals_spike_detection(datasets, peak_params, False)  # Last param = show spike plot?
+    mf.rect_intervals_spike_detection(datasets, peak_params, True)  # Last param = show spike plot?
     mf.rect_intervals_cut_trials(datasets)
 
 # Analyse Intervals MothASongs data stored on HDD
@@ -39,7 +39,8 @@ if FIFIELD:
 
 if Bootstrapping:
     # mf.resampling(datasets)
-    mf.bootstrapping_vs(datasets)
+    nresamples = 10000
+    mf.bootstrapping_vs(datasets, nresamples, plot_histogram=True)
 
 if FilterSignalShow:
     fs = 100*1000
