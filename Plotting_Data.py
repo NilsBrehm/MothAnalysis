@@ -12,7 +12,7 @@ start_time = time.time()
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2018-01-26-ab']
+datasets = ['2018-02-09-aa']
 
 PlotRectIntervals = False
 PlotMothIntervals = False
@@ -101,10 +101,10 @@ for i in range(len(datasets)):  # Loop through all recordings in the list above
         if PlotSoundRasterPlot:
             # Load Stimulus Sound File
             # stim_name = ['Barbastella_barbastellus_1_n', 'Myotis_bechsteinii_1_n', 'Myotis_brandtii_1_n', 'Myotis_nattereri_1_n', 'Nyctalus_leisleri_1_n', 'Pipistrellus_pipistrellus_1_n']
-            stim_name = ['Carales_series', 'Creatonotos03_series', 'Hypocladia_militaris01']
+            stim_name = ['carales_11x11_01']
             # stim_path = '/media/brehm/Data/MasterMoth/batcalls/noisereduced/'
-            stim_path = '/media/brehm/Data/MasterMoth/mothsongs/'
-            pathname_bats = pathname + 'moths/'
+            stim_path = '/media/brehm/Data/MasterMoth/stimuli/naturalmothcalls/'
+            pathname_bats = pathname + 'naturalmothcalls/'
             directory = os.path.dirname(pathname_bats)
             if not os.path.isdir(directory):
                 os.mkdir(directory)  # Make Directory
@@ -115,7 +115,7 @@ for i in range(len(datasets)):  # Loop through all recordings in the list above
                 fs = stimulus[0]
                 # Load Spike Times
                 # file_name = pathname + 'batcalls/noisereduced/' + stim_name[i] + '_spike_times.npy'
-                file_name = pathname + 'mothsongs/' + stim_name[i] + '_spike_times.npy'
+                file_name = pathname + 'naturalmothcalls/' + stim_name[i] + '_spike_times.npy'
                 spike_times = np.load(file_name).item()
 
                 # Plot

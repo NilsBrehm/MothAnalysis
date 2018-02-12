@@ -9,13 +9,14 @@ import os
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2018-01-26-ab']
+datasets = ['2018-02-09-aa']
 
-GetSession = True
+GetSession = False
 FIFIELD = False
 INTERVAL_MAS = False
 INTERVAL_REC = False
-SOUND = True
+SOUND = False
+SOUND2 = True
 
 # Create Directory for Saving Data
 pathname = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/"
@@ -40,7 +41,7 @@ if INTERVAL_REC:
 # Sound Recording Stimuli
 if SOUND:
     # Create Directory for Saving Data
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/mothsongs/"
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/naturalmothcalls/"
     directory = os.path.dirname(pathname)
     if not os.path.isdir(directory):
         os.mkdir(directory)  # Make Directory
@@ -55,7 +56,7 @@ if SOUND:
     if not os.path.isdir(directory):
         os.mkdir(directory)  # Make Directory
 
-    recordings = 21
+    recordings = 59
     for i in range(recordings):
         mf.get_soundfilestimuli_data(datasets, 'SingleStimulus-file-' + str(i+1), False)
         # input("Press Enter to continue...")
@@ -64,5 +65,8 @@ if SOUND:
 # Session info
 if GetSession:
     mf.get_session_metadata(datasets)
+
+if SOUND2:
+    mf.sound_stimulus_voltage(datasets[0], 'SingleStimulus-file-')
 
 print('Overall Data Gathering done')

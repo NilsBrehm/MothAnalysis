@@ -890,7 +890,7 @@ def get_soundfilestimuli_data(datasets, tag, plot):
 
     # Get sound file: 0: sampling rate, 1: sound data
     sound_file_name = meta[2]
-    sound = wav.read('/media/brehm/Data/MasterMoth/' + sound_file_name)
+    sound = wav.read('/media/brehm/Data/MasterMoth/stimuli/' + sound_file_name)
     sound_time = np.linspace(0, len(sound[1]) / sound[0], len(sound[1])) * 1000  # in ms
 
     # Read Voltage Traces from nix file
@@ -944,34 +944,34 @@ def get_soundfilestimuli_data(datasets, tag, plot):
 
 def soundfilestimuli_spike_detection(datasets, peak_params):
     data_name = datasets[0]
-    stim_sets = [['/mothsongs/'], ['/batcalls/noisereduced/']]
-    for p in stim_sets:
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + p
-        file_list = os.listdir(pathname)
-        dt = 100 * 1000
-        # Load voltage data
-        for k in range(len(file_list)):
-            if file_list[k][-11:] == 'voltage.npy':
-                # Load Voltage from HDD
-                file_name = pathname + file_list[k]
-                voltage = np.load(file_name).item()
-                sp = {}
+    # stim_sets = [['/mothsongs/'], ['/batcalls/noisereduced/']]
+    stim_sets = '/naturalmothcalls/'
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + stim_sets
+    file_list = os.listdir(pathname)
+    dt = 100 * 1000
+    # Load voltage data
+    for k in range(len(file_list)):
+        if file_list[k][-11:] == 'voltage.npy':
+            # Load Voltage from HDD
+            file_name = pathname + file_list[k]
+            voltage = np.load(file_name).item()
+            sp = {}
 
-                # Go through all trials and detect spikes
-                trials = len(voltage)
+            # Go through all trials and detect spikes
+            trials = len(voltage)
 
-                for i in range(trials):
-                    x = voltage[i]
-                    spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
-                                               edge='rising', kpsh=False, valley=peak_params['valley'], show=peak_params['show'],
-                                               ax=None, maxph=peak_params['maxph'], dynamic=peak_params['dynamic'],
-                                               filter_on=peak_params['filter_on'])
-                    spike_times = spike_times / dt  # Now spikes are in seconds
-                    sp.update({i: spike_times})
+            for i in range(trials):
+                x = voltage[i]
+                spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
+                                           edge='rising', kpsh=False, valley=peak_params['valley'], show=peak_params['show'],
+                                           ax=None, maxph=peak_params['maxph'], dynamic=peak_params['dynamic'],
+                                           filter_on=peak_params['filter_on'])
+                spike_times = spike_times / dt  # Now spikes are in seconds
+                sp.update({i: spike_times})
 
-                    # Save Spike Times to HDD
-                    # dname = file_name[:-12] + '_spike_times.npy'
-                    # np.save(dname, sp)
+                # Save Spike Times to HDD
+                dname = file_name[:-12] + '_spike_times.npy'
+                np.save(dname, sp)
 
     print('Spike Times saved')
     return 0
@@ -998,8 +998,8 @@ def soundfilestimuli_spike_distance(datasets):
 def spike_distance_matrix(datasets):
     data_name = datasets[0]
     pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/mothsongs/'
-    stim1_name = 'Barbastella_barbastellus_1_n'
-    stim2_name = 'Myotis_brandtii_1_n'
+    stim1_name = 'Creatonotos03_series'
+    stim2_name = 'Carales_series'
 
     file_name1 = stim1_name + '_spike_times.npy'
     file_name2 = stim2_name + '_spike_times.npy'
@@ -1013,7 +1013,7 @@ def spike_distance_matrix(datasets):
     duration = file1[0][-1] + 0.01
     dt = 100 * 1000
     # tau = 0.005
-    tau = float(input('tau in seconds: '))
+    tau = float(input('tau in ms: ')) / 1000
     d1 = np.zeros((len(file1), len(file1)))
     d2 = np.zeros((len(file2), len(file2)))
     dd = np.zeros((len(file1), len(file2)))
@@ -1709,6 +1709,35 @@ def quickspikes_detection(datasets):
                     plt.title(pt)
                     plt.show()
     return 0
+
+
+def sound_stimulus_voltage(dataset, tag):
+
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/"
+    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+    b = f.blocks[0]
+    tag_list = [t.name for t in b.multi_tags if tag in t.name]  # Find Tags
+    sampling_rate = 100*1000
+    voltage = {}
+    for i in range(len(tag_list)):
+        # Get tags
+        mtag = b.multi_tags[tag_list[i]]
+
+        # Get Stimulus Name from MetaData
+        meta = mtag.metadata.sections[0]
+        sound_file_name = meta[2]
+
+        trials = len(mtag.positions[:])  # Get number of trials
+        volt = np.zeros((trials, int(np.ceil(mtag.extents[0]*sampling_rate))))  # allocate memory
+        for k in range(trials):  # Loop through all trials
+            v = mtag.retrieve_data(k, 0)[:]  # Get Voltage for each trial
+            volt[k, :len(v)] = v
+        voltage.update({sound_file_name: volt})  # Store Stimulus Name and voltage traces in dict
+    embed()
+    return 0
+
+
 
 # for i in voltage: print(str(voltage[i][0][1]) + ' --- '  + str(voltage[i]['vs']) + ' --- ' + str(voltage[i]['vs_phase']) + ' ---  ' + str(voltage[i]['gap']))
 # for i in range(34): print(b.multi_tags[i].name)
