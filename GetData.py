@@ -9,6 +9,7 @@ import os
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
+# datasets = ['2018-02-09-aa']
 datasets = ['2018-02-09-aa']
 
 GetSession = False
@@ -16,13 +17,10 @@ FIFIELD = False
 INTERVAL_MAS = False
 INTERVAL_REC = False
 SOUND = False
-SOUND2 = True
+SOUND2 = False
 
 # Create Directory for Saving Data
-pathname = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/"
-directory = os.path.dirname(pathname)
-if not os.path.isdir(directory):
-    os.mkdir(directory)  # Make Directory
+mf.make_directory(datasets[0])
 
 # FIField
 if FIFIELD:
@@ -67,6 +65,9 @@ if GetSession:
     mf.get_session_metadata(datasets)
 
 if SOUND2:
-    mf.sound_stimulus_voltage(datasets[0], 'SingleStimulus-file-')
+
+    # mf.get_metadata(datasets[0], 'MothASongs-moth_song-damped_oscillation*', 'Intervals')
+    # mf.get_metadata(datasets[0], 'SingleStimulus-file-', 'Calls')
+    mf.get_voltage_trace(datasets[0], 'SingleStimulus-file-', 'Calls')
 
 print('Overall Data Gathering done')

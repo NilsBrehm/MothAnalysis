@@ -17,8 +17,8 @@ Bootstrapping = False
 INTERVAL_REC = False
 SOUND = True
 
-
-peak_params = {'mph': 50, 'mpd': 100, 'valley': False, 'show': False, 'maxph': 1000, 'dynamic': False, 'filter_on': False}
+# Parameters for Spike Detection
+peak_params = {'mph': 30, 'mpd': 40, 'valley': False, 'show': False, 'maxph': 1000, 'dynamic': False, 'filter_on': True}
 
 
 # Rect Intervals
@@ -60,8 +60,10 @@ if FilterSignalShow:
 
 if SOUND:
     # mf.quickspikes_detection(datasets)
-    mf.soundfilestimuli_spike_detection(datasets, peak_params)
+    # mf.soundfilestimuli_spike_detection(datasets, peak_params)
     # mf.soundfilestimuli_spike_distance(datasets)
     # mf.spike_distance_matrix(datasets)
+    mf.get_spike_times(datasets[0], 'Calls', peak_params, show_detection=False)
+
 
 print('Analysis done!')

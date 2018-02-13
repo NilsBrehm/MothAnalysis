@@ -20,7 +20,8 @@ PlotVS = False
 PlotVSRect = False
 PlotFICurves = False
 PlotFIField = False
-PlotSoundRasterPlot = True
+PlotSoundRasterPlot = False
+CallsRaster = True
 
 data_name = datasets[0]
 
@@ -140,6 +141,71 @@ for i in range(len(datasets)):  # Loop through all recordings in the list above
                 fig.set_size_inches(16, 12)
                 fig.savefig(figname, bbox_inches='tight', dpi=300)
                 plt.close(fig)
+
+        if CallsRaster:
+            # Load Data
+            file_path = pathname + 'DataFiles/'
+            stimulus_path = '/media/brehm/Data/MasterMoth/stimuli/'
+            spike_times = np.load(file_path + 'Calls_spikes.npy').item()
+            tag_list = np.load(file_path + 'Calls_tag_list.npy')
+
+            # Get mtags and meta data
+            f, mtags = mf.get_metadata(datasets[0], 'SingleStimulus-file-', 'Calls')
+
+            for j in range(len(tag_list)):
+                # Get MetaData
+                stimulus_name = mtags[tag_list[j]].metadata.sections[0][2]
+
+                # Get Stimulus (Sound File): stimulus[0] = fs, stimulus[1] = audio
+                stimulus = wav.read(stimulus_path + stimulus_name)
+                stimulus_time = np.linspace(0, len(stimulus[1]) / stimulus[0], len(stimulus[1]))  # in s
+
+                # Put trials in one vector for PSTH
+                sp = []
+                trials = len(spike_times[tag_list[j]])
+                for k in range(trials):
+                    sp = np.append(sp, spike_times[tag_list[j]][k])
+
+                # PLOT -------------------------------------------------------
+                steps = 0.01  # x-axis step size (time steps in seconds)
+                x_left_end = -0.01
+                # Stimulus
+                plt.subplot(3, 1, 1)
+                stimulus_norm = stimulus[1] / np.max(abs(stimulus[1]))
+                plt.plot(stimulus_time, stimulus_norm, 'k')
+                plt.xticks(np.arange(0, stimulus_time[-1], steps))
+                plt.xlim(x_left_end, stimulus_time[-1])
+                plt.yticks([-1, -0.5, 0, 0.5, 1])
+                plt.ylim(-1, 1)
+                plt.ylabel('Amplitude')
+
+                # Raster Plot
+                plt.subplot(3, 1, 2)
+                mf.raster_plot(spike_times[tag_list[j]], stimulus_time, steps)
+                plt.xticks(np.arange(0, stimulus_time[-1], steps))
+                plt.xlim(x_left_end, stimulus_time[-1])
+
+                # Plot PSTH
+                plt.subplot(3, 1, 3)
+                bin_size = 2  # in ms
+                frate, bin_edges = mf.psth(sp, trials, bin_size/1000, plot=False, return_values=True)
+                plt.plot(bin_edges[:-1], frate, 'k')
+                plt.xlabel('Time [s] ' + '(bin size = ' + str(bin_size) + ' ms)')
+                plt.ylabel('Mean Firing Rate [spikes/s]')
+                plt.ylim(0, np.max(frate)+100)
+                plt.xticks(np.arange(0, stimulus_time[-1], steps))
+                plt.xlim(x_left_end, stimulus_time[-1])
+
+                # Save Plot to HDD
+                # s_name = stimulus_name[stimulus_name.find('/')+1:-4]
+                s_name = stimulus_name[:-4]
+                figname = pathname + s_name + ".png"
+                fig = plt.gcf()
+                fig.set_size_inches(16, 12)
+                fig.savefig(figname, bbox_inches='tight', dpi=300)
+                plt.close(fig)
+
+            f.close()
 
     except FileNotFoundError:
         print('File not found')

@@ -215,12 +215,6 @@ def get_spike_count(tag):
     return spike_count
 
 
-def get_metadata(tag):
-    meta = tag.metadata.sections[0]
-    duration = meta["Duration"]
-    frequency = meta["Frequency"]
-    amplitude = tag.features[4].data[1]
-    return duration, frequency, amplitude
 
 
 def get_session_metadata(datasets):
@@ -708,7 +702,7 @@ def plot_peaks(x, mph, mpd, threshold, edge, valley, ax, ind):
     return 0
 
 
-def detect_peaks(x, mph=None, mpd=1, threshold=0, edge='rising', kpsh=False, valley=False, show=False, ax=None, maxph=None, dynamic=False, filter_on=False):
+def detect_peaks(x, peak_params):
 
     """Detect peaks in data based on their amplitude and other features.
 
@@ -716,6 +710,7 @@ def detect_peaks(x, mph=None, mpd=1, threshold=0, edge='rising', kpsh=False, val
     ----------
     x : 1D array_like
         data.
+    peak_params: All the parameters listed below in a dict.
     mph : {None, number}, optional (default = None)
         detect peaks that are greater than minimum peak height.
     mpd : positive integer, optional (default = 1)
@@ -751,13 +746,25 @@ def detect_peaks(x, mph=None, mpd=1, threshold=0, edge='rising', kpsh=False, val
 
     The function can handle NaN's
 
-    See this IPython Notebook [1]_.
-
     References
     ----------
     .. [1] http://nbviewer.ipython.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.ipynb
 
+    modified by Nils Brehm 2018
     """
+
+    # Set Parameters
+    mph = peak_params['mph']
+    mpd = peak_params['mpd']
+    valley = peak_params['valley']
+    show = peak_params['show']
+    maxph = peak_params['maxph']
+    dynamic = peak_params['dynamic']
+    filter_on = peak_params['filter_on']
+    threshold = 0
+    edge = 'rising'
+    kpsh = False
+    ax = None
 
     # Filter Voltage Trace
     if filter_on:
@@ -962,10 +969,7 @@ def soundfilestimuli_spike_detection(datasets, peak_params):
 
             for i in range(trials):
                 x = voltage[i]
-                spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
-                                           edge='rising', kpsh=False, valley=peak_params['valley'], show=peak_params['show'],
-                                           ax=None, maxph=peak_params['maxph'], dynamic=peak_params['dynamic'],
-                                           filter_on=peak_params['filter_on'])
+                spike_times = detect_peaks(x, peak_params)
                 spike_times = spike_times / dt  # Now spikes are in seconds
                 sp.update({i: spike_times})
 
@@ -1070,34 +1074,26 @@ def spike_distance_matrix(datasets):
 
 # PSTH
 
-def psth(spike_times, n, bins, plot, return_values):
+def psth(spike_times, n, bin_size, plot, return_values):
     # spike times must be seconds!
     # Compute histogram and calculate time dependent firing rate (binned PSTH)
     # n: number of trials
-    # bins: number of bins
-
+    # bin_size: bin size in seconds
+    bins = int(np.max(spike_times) / bin_size)
     hist, bin_edges = np.histogram(spike_times, bins)
-    bin_width = bin_edges[1] - bin_edges[0]
-    frate = hist / bin_width / n
-
+    # bin_width = bin_edges[1] - bin_edges[0]
+    frate = hist / bin_size / n
     if plot:
         # Plot PSTH
         plt.plot(bin_edges[:-1], frate, 'k')
 
     if return_values:
-        return frate, bin_edges, bin_width
+        return frate, bin_edges
     else:
         return 0
 
 
-def raster_plot(sp_times, stimulus_time):
-    for k in range(len(sp_times)):
-        plt.plot(sp_times[k]*1000, np.ones(len(sp_times[k])) + k, 'k|')
 
-    plt.xlim(0, stimulus_time[-1]*1000)
-    plt.ylabel('Trial Number')
-
-    return 0
 
 # Interval MothASongs functions:
 
@@ -1710,10 +1706,30 @@ def quickspikes_detection(datasets):
                     plt.show()
     return 0
 
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
-def sound_stimulus_voltage(dataset, tag):
+def get_voltage_trace(dataset, tag, protocol_name):
+    """Get Voltage Trace from nix file.
 
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/"
+    Notes
+    ----------
+    This function reads out the voltage traces for the given tag names stored in the nix file
+
+    Parameters
+    ----------
+    dataset :       Data set name (string)
+    tag:            Tag name (string)
+    protocol_name:  protocol name (string)
+
+    Returns
+    -------
+    voltage: Saves Voltage Traces to HDD in a .npy file (dict)
+
+    """
+
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
     nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
     b = f.blocks[0]
@@ -1724,20 +1740,162 @@ def sound_stimulus_voltage(dataset, tag):
         # Get tags
         mtag = b.multi_tags[tag_list[i]]
 
-        # Get Stimulus Name from MetaData
-        meta = mtag.metadata.sections[0]
-        sound_file_name = meta[2]
-
         trials = len(mtag.positions[:])  # Get number of trials
         volt = np.zeros((trials, int(np.ceil(mtag.extents[0]*sampling_rate))))  # allocate memory
         for k in range(trials):  # Loop through all trials
             v = mtag.retrieve_data(k, 0)[:]  # Get Voltage for each trial
             volt[k, :len(v)] = v
-        voltage.update({sound_file_name: volt})  # Store Stimulus Name and voltage traces in dict
-    embed()
+        voltage.update({tag_list[i]: volt})  # Store Stimulus Name and voltage traces in dict
+
+    # Save to HDD
+    file_name = file_pathname + protocol_name + '_voltage.npy'
+    np.save(file_name, voltage)
+    print('Voltage Traces saved (protocol: ' + protocol_name + ')')
+
+    file_name2 = file_pathname + protocol_name + '_tag_list.npy'
+    np.save(file_name2, tag_list)
+    print('Tag List saved (protocol: ' + protocol_name + ')')
+    f.close()
     return 0
 
 
+def get_metadata(dataset, tag, protocol_name):
+    """Get MetaData.
+
+    Notes
+    ----------
+    This function reads out the metadata for a given protocol (list of tag names)
+    Metadata is then saved as a .npy file in the nix data structure:
+    mtags.metadata.sections[0][x]
+
+    Parameters
+    ----------
+    dataset :       Data set name (string)
+    tag:            Tag name (string)
+    protocol_name:  protocol name (string)
+
+    Returns
+    -------
+    mtags: nix mtag is saved which includes all the meta data in a .npy file (nix format)
+
+    """
+
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+    b = f.blocks[0]
+    tag_list = [t.name for t in b.multi_tags if tag in t.name]  # Find Tags
+    mtags = {}
+    for k in range(len(tag_list)):
+        mtags.update({tag_list[k]: b.multi_tags[tag_list[k]]})
+
+    # This function does not close the nix file! Make sure that you close the nix file after using this function
+    # Save to HDD
+    #file_name = file_pathname + protocol_name + '_metadata.npy'
+    #np.save(file_name, mtags)
+    #print('Metadata saved (protocol: ' + protocol_name + ')')
+
+    return f, mtags
+
+
+def get_spike_times(dataset, protocol_name, peak_params, show_detection):
+    """Get Spike Times using the detect_peak() function.
+
+    Notes
+    ----------
+    This function gets all the spike times in the voltage traces loaded from HDD.
+
+    Parameters
+    ----------
+    dataset :       Data set name (string)
+    protocol_name:  protocol name (string)
+    peak_params:    Parameters for spike detection (dict)
+    show_detection: If true spike detection of first trial is shown (boolean)
+
+    Returns
+    -------
+    spikes: Saves spike times (in seconds) to HDD in a .npy file (dict).
+
+    """
+
+    # Load Voltage Traces
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    file_name = file_pathname + protocol_name + '_voltage.npy'
+    tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
+    voltage = np.load(file_name).item()
+    tag_list = np.load(tag_list_path)
+    spikes = {}
+    fs = 100*1000  # Sampling Rate of Ephys Recording
+
+    # Loop trough all tags in tag_list
+    for i in range(len(tag_list)):
+        trials = len(voltage[tag_list[i]])
+        spike_times = [list()] * trials
+        for k in range(trials):  # loop trough all trials
+            if k == 0 & show_detection is True:  # For all tags plot the first trial spike detection
+                peak_params['show'] = True
+                spike_times[k] = detect_peaks(voltage[tag_list[i]][k], peak_params) / fs  # in seconds
+            else:
+                peak_params['show'] = False
+                spike_times[k] = detect_peaks(voltage[tag_list[i]][k], peak_params) / fs  # in seconds
+        spikes.update({tag_list[i]: spike_times})
+    # Save to HDD
+    file_name = file_pathname + protocol_name + '_spikes.npy'
+    np.save(file_name, spikes)
+    print('Spike Times saved (protocol: ' + protocol_name + ')')
+
+    return 0
+
+
+def raster_plot(sp_times, stimulus_time, steps):
+    for k in range(len(sp_times)):
+        plt.plot(sp_times[k], np.ones(len(sp_times[k])) + k, 'k|')
+
+    # plt.xlim(0, stimulus_time[-1])
+    plt.xticks(np.arange(0, stimulus_time[-1], steps))
+    plt.yticks(np.arange(0, len(sp_times)+1, 5))
+    plt.ylabel('Trial Number')
+
+    return 0
+
+
+def make_directory(dataset):
+
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/"
+    directory = os.path.dirname(pathname)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    directory = os.path.dirname(pathname)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/naturalmothcalls/"
+    directory = os.path.dirname(pathname)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/batcalls/"
+    directory = os.path.dirname(pathname)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/callseries/"
+    directory = os.path.dirname(pathname)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/callseries/bats/"
+    directory = os.path.dirname(pathname)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/callseries/moths/"
+    directory = os.path.dirname(pathname)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+    return 0
 
 # for i in voltage: print(str(voltage[i][0][1]) + ' --- '  + str(voltage[i]['vs']) + ' --- ' + str(voltage[i]['vs_phase']) + ' ---  ' + str(voltage[i]['gap']))
 # for i in range(34): print(b.multi_tags[i].name)
