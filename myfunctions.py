@@ -8,6 +8,7 @@ from scipy import signal as sg
 from IPython import embed
 from shutil import copyfile
 import quickspikes as qs
+import itertools as itertools
 
 
 # def read_tagged_data(m):
@@ -713,6 +714,7 @@ def detect_peaks(x, peak_params):
     peak_params: All the parameters listed below in a dict.
     mph : {None, number}, optional (default = None)
         detect peaks that are greater than minimum peak height.
+        if mph = 'dynamic': this value will be computed automatically
     mpd : positive integer, optional (default = 1)
         detect peaks that are at least separated by minimum peak distance (in
         number of data).
@@ -730,8 +732,7 @@ def detect_peaks(x, peak_params):
     show : bool, optional (default = False)
         if True (1), plot data in matplotlib figure.
     ax : a matplotlib.axes.Axes instance, optional (default = None).
-    maxph: maximal peak height
-    dynamic: Dynamically calculate maximal peak height (default = False)
+    maxph: maximal peak height: Peaks > maxph are removed. maxph = 'dynamic': maxph is computed automatically
     filter_on: Bandpass filter
 
     Returns
@@ -759,12 +760,12 @@ def detect_peaks(x, peak_params):
     valley = peak_params['valley']
     show = peak_params['show']
     maxph = peak_params['maxph']
-    dynamic = peak_params['dynamic']
     filter_on = peak_params['filter_on']
     threshold = 0
     edge = 'rising'
     kpsh = False
     ax = None
+
 
     # Filter Voltage Trace
     if filter_on:
@@ -774,7 +775,11 @@ def detect_peaks(x, peak_params):
         highcut = 2000
         low = lowcut / nyqst
         high = highcut / nyqst
-        x = voltage_trace_filter(x, [low, high], ftype='band', order=3, filter_on=True)
+        x = voltage_trace_filter(x, [low, high], ftype='band', order=4, filter_on=True)
+
+    # Dynamic mph
+    if mph == 'dynamic':
+        mph = 2 * np.median(abs(x)/0.6745)
 
     x = np.atleast_1d(x).astype('float64')
     if x.size < 3:
@@ -812,7 +817,7 @@ def detect_peaks(x, peak_params):
 
     # remove peaks > maximum peak height
     if ind.size and maxph is not None:
-        if dynamic:
+        if maxph == 'dynamic':
             hist, bins = np.histogram(x[ind])
             # maxph = np.round(np.max(x)-50)
             # idx = np.where(hist > 10)[0][-1]
@@ -1620,16 +1625,50 @@ def bootstrap_test(datasets):
 
 # Spike Train Distance
 
-def spike_train_distance(spike_times1, spike_times2, dt, duration, tau, plot):
+def spike_e_pulses(spike_times, dt_factor, tau):
+    # tau in seconds
+    # dt_factor: dt = tau/dt_factor
+    # spike times in seconds
+    # duration in seconds
+    dt = tau / dt_factor
+    duration = np.max(spike_times) + 5 * tau
+    t = np.arange(0, duration, dt)
+    f = np.zeros(len(t))
+
+    for ti in spike_times:
+        dummy = np.heaviside(t - ti, 0) * np.exp(-(t - ti) / tau)
+        f = f + dummy
+
+    return f
+
+
+def vanrossum_distance(f, g, dt_factor, tau):
+
+    # Make sure both trains have same length
+    difference = abs(len(f) - len(g))
+    if len(f) > len(g):
+        g = np.append(g, np.zeros(difference))
+    elif len(f) < len(g):
+        f = np.append(f, np.zeros(difference))
+
+    # Compute VanRossum Distance
+    dt = tau/dt_factor
+    d = np.sum((f - g) ** 2) * (dt / tau)
+    # f_count = np.sum(f)* (dt / tau)
+    # g_count = np.sum(g) * (dt / tau)
+    return d
+
+def spike_train_distance(spike_times1, spike_times2, dt_factor, tau, plot):
     # This function computes the distance between two trains. An exponential tail is added to every event in time
     # (spike times) and then the difference between both trains is computed.
 
     # tau in seconds
-    # sampling rate dt in Hz
+    # dt_factor: dt = tau/dt_factor
     # spike times in seconds
     # duration in seconds
-
-    t = np.arange(0, duration, 1 / dt)
+    dt = tau/dt_factor
+    duration = np.max([np.max(spike_times1), np.max(spike_times2)]) + 5 * tau
+    t = np.arange(0, duration, dt)
     f = np.zeros(len(t))
     g = np.zeros(len(t))
 
@@ -1642,7 +1681,10 @@ def spike_train_distance(spike_times1, spike_times2, dt, duration, tau, plot):
         g = g + dummy
 
     # Compute Difference
-    d = np.sum((f - g) ** 2) / (tau * dt)  # For this formula tau must be in samples!
+    d = np.sum((f - g) ** 2) * (dt / tau)
+    # f_count = np.sum(f)* (dt / tau)
+    # g_count = np.sum(g) * (dt / tau)
+
     # print('Spike Train Difference: %s' % d)
     # print('Tau = %s' % tau)
 
@@ -1896,6 +1938,114 @@ def make_directory(dataset):
     if not os.path.isdir(directory):
         os.mkdir(directory)  # Make Directory
     return 0
+
+
+def spike_detection(voltage):
+
+    # BandPass Filter
+    fs = 100 * 1000
+    nyqst = 0.5 * fs
+    lowcut = 300
+    highcut = 2000
+    low = lowcut / nyqst
+    high = highcut / nyqst
+    x = voltage_trace_filter(voltage, [low, high], ftype='band', order=4, filter_on=True)
+
+    # Set Threshold
+    thr = 4 * np.median(abs(x)/0.6745)
+    spike_times = 1
+
+    idx = x > thr
+    embed()
+
+
+    return spike_times
+
+
+def vanrossum_matrix(dataset, tau, dt_factor):
+
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    spikes = np.load(pathname + 'Calls_spikes.npy').item()
+    # tag_list = np.load(pathname + 'Calls_tag_list.npy')
+
+    stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+             'naturalmothcalls/agaraea_semivitrea_07x07.wav', 'naturalmothcalls/carales_11x11_01.wav',
+             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
+             'naturalmothcalls/elysius_conspersus_05x05.wav', 'naturalmothcalls/epidesma_oceola_05x05.wav',
+             'naturalmothcalls/eucereon_appunctata_11x11.wav', 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+             'naturalmothcalls/eucereon_obscurum_10x10.wav', 'naturalmothcalls/gl005_05x05.wav',
+             'naturalmothcalls/gl116_05x05.wav', 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+             'naturalmothcalls/idalu_fasciipuncta_05x05.wav', 'naturalmothcalls/idalus_daga_18x18.wav',
+             'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
+             'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav']
+
+    # Tags and Stimulus names
+    connection = tagtostimulus(dataset)
+    stimulus_tags = [''] * len(stims)
+    for p in range(len(stims)):
+        stimulus_tags[p] = connection[stims[p]]
+
+    call_count = len(stimulus_tags)
+    match_matrix = np.zeros((call_count, call_count))
+
+    # Select templates
+    rand_ids = np.random.randint(20, size=call_count)
+    templates = {}
+    for i in range(call_count):
+        x = spikes[stimulus_tags[i]][rand_ids[i]]
+        templates.update({i: spike_e_pulses(x, dt_factor, tau)})
+
+    # Convert all other trains into e-pulses
+    probes = {}
+    count = 1
+    for k in range(call_count):
+        idx = np.arange(0, 20, 1)
+        idx = np.delete(idx, rand_ids[k])
+        for j in range(len(idx)):
+            x = spikes[stimulus_tags[k]][idx[j]]
+            probes.update({count: [spike_e_pulses(x, dt_factor, tau), k]})
+            count += 1
+        print(str(k) + ': ' + stims[k])
+
+    # Compute VanRossum Distance
+    for pr in range(len(probes)):
+        d = np.zeros(len(templates))
+        for tmp in range(len(templates)):
+            d[tmp] = vanrossum_distance(templates[tmp], probes[pr+1][0], dt_factor, tau)
+
+        template_match = np.where(d == np.min(d))[0][0]
+        song_id = probes[pr+1][1]
+        match_matrix[template_match, song_id] += 1
+
+    # Plot Matrix
+    plt.imshow(match_matrix)
+    plt.xlabel('Original Calls')
+    plt.ylabel('Matched Calls')
+    plt.colorbar()
+    plt.xticks(np.arange(0, len(match_matrix), 1))
+    plt.yticks(np.arange(0, len(match_matrix), 1))
+    plt.show()
+
+    return 0
+
+
+def tagtostimulus(dataset):
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    tag_list = np.load(pathname + 'Calls_tag_list.npy')
+    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+    b = f.blocks[0]
+    # mtags = {}
+    connection = {}
+    for k in range(len(tag_list)):
+        # mtags.update({tag_list[k]: b.multi_tags[tag_list[k]]})
+        mtag = b.multi_tags[tag_list[k]]
+        sound_name = mtag.metadata.sections[0][2]
+        connection.update({sound_name: tag_list[k]})
+
+    f.close()
+    return connection
+
 
 # for i in voltage: print(str(voltage[i][0][1]) + ' --- '  + str(voltage[i]['vs']) + ' --- ' + str(voltage[i]['vs_phase']) + ' ---  ' + str(voltage[i]['gap']))
 # for i in range(34): print(b.multi_tags[i].name)

@@ -15,10 +15,13 @@ FIFIELD = False
 INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
-SOUND = True
+SOUND = False
+TEST = False
+TEST2 = False
+VANROSSUM = True
 
 # Parameters for Spike Detection
-peak_params = {'mph': 30, 'mpd': 40, 'valley': False, 'show': False, 'maxph': 1000, 'dynamic': False, 'filter_on': True}
+peak_params = {'mph': 'dynamic', 'mpd': 40, 'valley': False, 'show': True, 'maxph': None, 'filter_on': True}
 
 
 # Rect Intervals
@@ -65,5 +68,25 @@ if SOUND:
     # mf.spike_distance_matrix(datasets)
     mf.get_spike_times(datasets[0], 'Calls', peak_params, show_detection=False)
 
+if TEST:
+    voltage = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-09-aa/DataFiles/Calls_voltage.npy').item()
+    for k in range(80, len(voltage)):
+        volt = voltage['SingleStimulus-file-'+str(k+1)][0]
+        sp = mf.detect_peaks(volt, peak_params)
+
+if TEST2:
+    spikes = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-09-aa/DataFiles/Calls_spikes.npy').item()
+    sp_1 = spikes['SingleStimulus-file-1'][0]
+    sp_2 = spikes['SingleStimulus-file-10'][0]
+    tau = 4
+    dt_factor = 100
+    d = mf.spike_train_distance(sp_1, sp_2, dt_factor, tau/1000, plot=True)
+    print('Spike Train Distance = ' + str(d))
+
+if VANROSSUM:
+    dt_factor = 1000
+    tau = 4
+    mf.vanrossum_matrix(datasets[0], tau/1000, dt_factor)
+    # mf.tagtostimulus(datasets[0])
 
 print('Analysis done!')
