@@ -84,9 +84,11 @@ if TEST2:
     print('Spike Train Distance = ' + str(d))
 
 if VANROSSUM:
-    dt_factor = 1000
-    tau = 4
-    mf.vanrossum_matrix(datasets[0], tau/1000, dt_factor)
+    dt_factor = 100
+    # tau = 3
+    for tau in np.arange(1, 21, 1):
+        mf.vanrossum_matrix(datasets[0], tau/1000, dt_factor, template_choice=0)
+
     # mf.tagtostimulus(datasets[0])
 
 print('Analysis done!')

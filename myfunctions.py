@@ -1962,7 +1962,7 @@ def spike_detection(voltage):
     return spike_times
 
 
-def vanrossum_matrix(dataset, tau, dt_factor):
+def vanrossum_matrix(dataset, tau, dt_factor, template_choice):
 
     pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
     spikes = np.load(pathname + 'Calls_spikes.npy').item()
@@ -1989,7 +1989,11 @@ def vanrossum_matrix(dataset, tau, dt_factor):
     match_matrix = np.zeros((call_count, call_count))
 
     # Select templates
-    rand_ids = np.random.randint(20, size=call_count)
+    if template_choice == 'random':
+        rand_ids = np.random.randint(20, size=call_count)
+    else:
+        rand_ids = [int(template_choice)] * call_count
+
     templates = {}
     for i in range(call_count):
         x = spikes[stimulus_tags[i]][rand_ids[i]]
@@ -2005,7 +2009,7 @@ def vanrossum_matrix(dataset, tau, dt_factor):
             x = spikes[stimulus_tags[k]][idx[j]]
             probes.update({count: [spike_e_pulses(x, dt_factor, tau), k]})
             count += 1
-        print(str(k) + ': ' + stims[k])
+        # print(str(k) + ': ' + stims[k])
 
     # Compute VanRossum Distance
     for pr in range(len(probes)):
@@ -2024,7 +2028,15 @@ def vanrossum_matrix(dataset, tau, dt_factor):
     plt.colorbar()
     plt.xticks(np.arange(0, len(match_matrix), 1))
     plt.yticks(np.arange(0, len(match_matrix), 1))
-    plt.show()
+    plt.title('tau = ' + str(tau*1000) + ' ms')
+
+    # Save Plot to HDD
+    figname = "/media/brehm/Data/MasterMoth/figs/" + dataset + '/VanRossumMatrix_' + str(tau*1000) + '.png'
+    fig = plt.gcf()
+    fig.set_size_inches(10, 10)
+    fig.savefig(figname, bbox_inches='tight', dpi=300)
+    plt.close(fig)
+    print('tau = ' + str(tau*1000) + ' ms done')
 
     return 0
 
