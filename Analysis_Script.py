@@ -8,7 +8,7 @@ from collections import OrderedDict
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2018-02-09-aa']
+datasets = ['2018-02-20-aa']
 
 FilterSignalShow = False
 FIFIELD = False
@@ -18,7 +18,8 @@ INTERVAL_REC = False
 SOUND = False
 TEST = False
 TEST2 = False
-VANROSSUM = True
+VANROSSUM = False
+GAP = True
 
 # Parameters for Spike Detection
 peak_params = {'mph': 'dynamic', 'mpd': 40, 'valley': False, 'show': True, 'maxph': None, 'filter_on': True}
@@ -90,5 +91,8 @@ if VANROSSUM:
         mf.vanrossum_matrix(datasets[0], tau/1000, dt_factor, template_choice=0)
 
     # mf.tagtostimulus(datasets[0])
+
+if GAP:
+    mf.gap_analysis(datasets[0], 'Gap')
 
 print('Analysis done!')

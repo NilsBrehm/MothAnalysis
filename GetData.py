@@ -10,7 +10,7 @@ import os
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
 # datasets = ['2018-02-09-aa']
-datasets = ['2018-02-09-aa']
+datasets = ['2018-02-20-aa']
 
 GetSession = False
 FIFIELD = False
@@ -18,6 +18,9 @@ INTERVAL_MAS = False
 INTERVAL_REC = False
 SOUND = False
 SOUND2 = False
+PYTOMAT = False
+CHECKPROTOCOLS = False
+TEST = True
 
 # Create Directory for Saving Data
 mf.make_directory(datasets[0])
@@ -68,6 +71,19 @@ if SOUND2:
 
     # mf.get_metadata(datasets[0], 'MothASongs-moth_song-damped_oscillation*', 'Intervals')
     # mf.get_metadata(datasets[0], 'SingleStimulus-file-', 'Calls')
-    mf.get_voltage_trace(datasets[0], 'SingleStimulus-file-', 'Calls')
+    mf.get_voltage_trace(datasets[0], 'SingleStimulus-file-', 'Calls', multi_tag=True ,search_for_tags=True)
+
+if PYTOMAT:
+    mf.pytomat(datasets[0], 'Calls')
+
+
+if CHECKPROTOCOLS:
+    gaps, p = mf.list_protocols(datasets[0], 'Gap')
+    voltage, tag_list = mf.get_voltage_trace(datasets[0], gaps, 'Gap', multi_tag=False ,search_for_tags=False)
+
+if TEST:
+    v = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-20-aa/DataFiles/Gap_voltage.npy').item()
+    x = v['SingleStimulus_112']
+    mf.peak_seek(x, 100, 100)
 
 print('Overall Data Gathering done')

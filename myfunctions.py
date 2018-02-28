@@ -4,6 +4,7 @@ import numpy as np
 import os
 import time
 import scipy.io.wavfile as wav
+import scipy as scipy
 from scipy import signal as sg
 from IPython import embed
 from shutil import copyfile
@@ -1752,7 +1753,7 @@ def quickspikes_detection(datasets):
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 
-def get_voltage_trace(dataset, tag, protocol_name):
+def get_voltage_trace(dataset, tag, protocol_name, multi_tag, search_for_tags):
     """Get Voltage Trace from nix file.
 
     Notes
@@ -1764,6 +1765,8 @@ def get_voltage_trace(dataset, tag, protocol_name):
     dataset :       Data set name (string)
     tag:            Tag name (string)
     protocol_name:  protocol name (string)
+    search_for_tags: search for all tags containing the string in tag. If set to false, the list in 'tag' is used.
+    multi_tag: If true then function treats tags as multi tags and looks for all trials.
 
     Returns
     -------
@@ -1775,19 +1778,35 @@ def get_voltage_trace(dataset, tag, protocol_name):
     nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
     b = f.blocks[0]
-    tag_list = [t.name for t in b.multi_tags if tag in t.name]  # Find Tags
+    if search_for_tags:
+        if multi_tag:
+            tag_list = [t.name for t in b.multi_tags if tag in t.name]  # Find Multi-Tags
+        else:
+            tag_list = [t.name for t in b.tags if tag in t.name]  # Find Tags
+    else:
+        tag_list = tag
+
     sampling_rate = 100*1000
     voltage = {}
-    for i in range(len(tag_list)):
-        # Get tags
-        mtag = b.multi_tags[tag_list[i]]
 
-        trials = len(mtag.positions[:])  # Get number of trials
-        volt = np.zeros((trials, int(np.ceil(mtag.extents[0]*sampling_rate))))  # allocate memory
-        for k in range(trials):  # Loop through all trials
-            v = mtag.retrieve_data(k, 0)[:]  # Get Voltage for each trial
-            volt[k, :len(v)] = v
-        voltage.update({tag_list[i]: volt})  # Store Stimulus Name and voltage traces in dict
+    if multi_tag:
+        for i in range(len(tag_list)):
+            # Get tags
+            mtag = b.multi_tags[tag_list[i]]
+
+            trials = len(mtag.positions[:])  # Get number of trials
+            volt = np.zeros((trials, int(np.ceil(mtag.extents[0]*sampling_rate))))  # allocate memory
+            for k in range(trials):  # Loop through all trials
+                v = mtag.retrieve_data(k, 0)[:]  # Get Voltage for each trial
+                volt[k, :len(v)] = v
+            voltage.update({tag_list[i]: volt})  # Store Stimulus Name and voltage traces in dict
+    else:
+        for i in range(len(tag_list)):
+            # Get tags
+            mtag = b.tags[tag_list[i]]
+            volt = mtag.retrieve_data(0)[:]  # Get Voltage
+            voltage.update({tag_list[i]: volt})  # Store Stimulus Name and voltage traces in dict
+
 
     # Save to HDD
     file_name = file_pathname + protocol_name + '_voltage.npy'
@@ -1798,7 +1817,7 @@ def get_voltage_trace(dataset, tag, protocol_name):
     np.save(file_name2, tag_list)
     print('Tag List saved (protocol: ' + protocol_name + ')')
     f.close()
-    return 0
+    return voltage, tag_list
 
 
 def get_metadata(dataset, tag, protocol_name):
@@ -1940,28 +1959,6 @@ def make_directory(dataset):
     return 0
 
 
-def spike_detection(voltage):
-
-    # BandPass Filter
-    fs = 100 * 1000
-    nyqst = 0.5 * fs
-    lowcut = 300
-    highcut = 2000
-    low = lowcut / nyqst
-    high = highcut / nyqst
-    x = voltage_trace_filter(voltage, [low, high], ftype='band', order=4, filter_on=True)
-
-    # Set Threshold
-    thr = 4 * np.median(abs(x)/0.6745)
-    spike_times = 1
-
-    idx = x > thr
-    embed()
-
-
-    return spike_times
-
-
 def vanrossum_matrix(dataset, tau, dt_factor, template_choice):
 
     pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
@@ -2057,6 +2054,79 @@ def tagtostimulus(dataset):
 
     f.close()
     return connection
+
+
+def pytomat(dataset, protocol_name):
+    # Load Voltage Traces
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    file_name = file_pathname + protocol_name + '_voltage.npy'
+    tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
+    voltage = np.load(file_name).item()
+    # tag_list = np.load(tag_list_path)
+    for i in range(1, 90):
+        volt = voltage['SingleStimulus-file-'+str(i)][0]
+        scipy.io.savemat('/media/brehm/Data/volt_test/volt' + str(i) + '.mat', {'volt': volt})
+    return 0
+
+
+def list_protocols(dataset, protocol_name):
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+    b = f.blocks[0]
+
+    tag_list = [t.name for t in b.tags if 'SingleStimulus_' in t.name]
+    gaps = []
+    p = [''] * len(tag_list)
+
+    for i in range(len(tag_list)):
+        p[i] = b.tags[tag_list[i]].metadata.sections[0].sections[0].props[1].name
+        if p[i] == protocol_name:
+            gaps.append(tag_list[i])
+
+    f.close()
+
+    return gaps, p
+
+def gap_analysis(dataset, protocol_name):
+    # Load Voltage Traces
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    file_name = file_pathname + protocol_name + '_voltage.npy'
+    tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
+    voltage = np.load(file_name).item()
+    tag_list = np.load(tag_list_path)
+    fs = 100*1000  # Sampling Rate of Ephys Recording
+
+    # Set time range of single trials
+    cut = np.arange(0, 16, 1.5)
+    cut_samples = cut * fs
+
+    voltage_new = {}
+    for k in range(len(tag_list)):
+        v = {}
+        volt = voltage[tag_list[k]]
+        # Now cut out the single trials
+        for i in range(len(cut_samples)-1):
+            v.update({i: volt[int(cut_samples[i]):int(cut_samples[i+1])]})
+        voltage_new.update({tag_list[k]: v})
+
+    embed()
+    return voltage_new
+
+
+def peak_seek(x, mpd, mph):
+    # Find all maxima and ties
+    localmax = (np.diff(np.sign(np.diff(x))) < 0).nonzero()[0] + 1
+    locs = localmax[x[localmax] > mph]
+
+    pks = x[locs]
+    idx = np.where(np.diff(locs) < mpd)
+    idx = idx[0]
+    new = locs[idx[pks[idx] > pks[idx + 1]]]
+
+    embed()
+    #locs = find(x(2:end - 1) >= x(1: end - 2) & x(2: end - 1) >= x(3: end))+1;
+
 
 
 # for i in voltage: print(str(voltage[i][0][1]) + ' --- '  + str(voltage[i]['vs']) + ' --- ' + str(voltage[i]['vs_phase']) + ' ---  ' + str(voltage[i]['gap']))
