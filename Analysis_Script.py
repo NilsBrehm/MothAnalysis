@@ -93,6 +93,8 @@ if VANROSSUM:
     # mf.tagtostimulus(datasets[0])
 
 if GAP:
-    mf.gap_analysis(datasets[0], 'Gap')
+    tag_list = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-20-aa/DataFiles/Gap_tag_list.npy')
+    sp = mf.spike_times_indexes(datasets[0], 'Gap', th_factor=2, min_dist=50, maxph=0.75, show=False)
+    embed()
 
 print('Analysis done!')

@@ -11,6 +11,7 @@ from shutil import copyfile
 import quickspikes as qs
 import itertools as itertools
 
+# ----------------------------------------------------------------------------------------------------------------------
 # PEAK DETECTION
 
 
@@ -193,51 +194,104 @@ def detect_peaks(x, peak_params):
     return ind
 
 
-def quickspikes_detection(datasets):
-    data_name = datasets[0]
-    stim_set = [['/mothsongs/'], ['/batcalls/noisereduced/']]
+def peak_seek(x, mpd, mph):
+    # Find all maxima and ties
+    localmax = (np.diff(np.sign(np.diff(x))) < 0).nonzero()[0] + 1
+    locs = localmax[x[localmax] > mph]
 
-    for p in stim_set[1]:
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + p
-        file_list = os.listdir(pathname)
-        dt = 100 * 1000
-        # Load voltage data
-        for k in range(len(file_list)):
-            if file_list[k][-11:] == 'voltage.npy':
-                # Load Voltage from HDD
-                file_name = pathname + file_list[k]
-                voltage = np.load(file_name).item()
-                sp = {}
+    while 1:
+        idx = np.where(np.diff(locs) < mpd)
+        idx = idx[0]
+        if not idx.any():
+            break
+        rmv = list()
+        for i in range(len(idx)):
+            a = x[locs[idx[i]]]
+            b = x[locs[idx[i]+1]]
+            if a > b:
+                rmv.append(True)
+            else:
+                rmv.append(False)
+        locs = locs[idx[rmv]]
 
-                # Go through all trials and detect spikes
-                trials = len(voltage)
-                peak_params = {'mph': 50, 'mpd': 100, 'valley': False, 'show': False, 'maxph': 300, 'dynamic': False,
-                               'filter_on': False}
+    embed()
+    #locs = find(x(2:end - 1) >= x(1: end - 2) & x(2: end - 1) >= x(3: end))+1;
 
-                for j in range(trials):
-                    x = voltage[j]
-                    plot_title = ' - peaks'
-                    if abs(np.max(x)) < abs(np.min(x)):
-                        x = -x
-                        plot_title = ' - valleys'
 
-                    spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
-                                               edge='rising', kpsh=False, valley=peak_params['valley'],
-                                               show=peak_params['show'],
-                                               ax=None, maxph=peak_params['maxph'], dynamic=peak_params['dynamic'],
-                                               filter_on=peak_params['filter_on'])
-                    reldet = qs.detector(2.0, 50)
-                    reldet.scale_thresh(x.mean(), x.std())
-                    times = reldet.send(x)
-                    peaks = x[times]
-                    peaks2 = x[spike_times]
-                    plt.plot(x)
-                    plt.plot(times, peaks, 'ro')
-                    plt.plot(spike_times, peaks2, 'bo')
-                    pt = 'Data #' + str(k) + ' - ' + str(j) + plot_title
-                    plt.title(pt)
-                    plt.show()
-    return 0
+def indexes(y, th_factor=2, min_dist=50, maxph=0.8):
+    """Peak detection routine.
+    Finds the numeric index of the peaks in *y* by taking its first order difference. By using
+    *thres* and *min_dist* parameters, it is possible to reduce the number of
+    detected peaks. *y* must be signed.
+    Parameters
+    ----------
+    y : ndarray (signed)
+        1D amplitude data to search for peaks.
+    th_factor : trheshold = th_factor * median(y / 0.6745)
+        Only the peaks with amplitude higher than the threshold will be detected.
+    min_dist : int
+        Minimum distance between each detected peak. The peak with the highest
+        amplitude is preferred to satisfy this constraint.
+    maxph: All peaks larger than maxph * max(y) are removed.
+
+    Returns
+    -------
+    ndarray
+        Array containing the numeric indexes of the peaks that were detected
+    """
+    thres = th_factor * np.median(abs(y) / 0.6745)
+    maxph = np.max(abs(y)) * maxph
+
+    if isinstance(y, np.ndarray) and np.issubdtype(y.dtype, np.unsignedinteger):
+        raise ValueError("y must be signed")
+
+    # thres = thres * (np.max(y) - np.min(y)) + np.min(y)
+    min_dist = int(min_dist)
+
+    # compute first order difference
+    dy = np.diff(y)
+
+    # propagate left and right values successively to fill all plateau pixels (0-value)
+    zeros, = np.where(dy == 0)
+
+    # check if the singal is totally flat
+    if len(zeros) == len(y) - 1:
+        return np.array([])
+
+    while len(zeros):
+        # add pixels 2 by 2 to propagate left and right value onto the zero-value pixel
+        zerosr = np.hstack([dy[1:], 0.])
+        zerosl = np.hstack([0., dy[:-1]])
+
+        # replace 0 with right value if non zero
+        dy[zeros] = zerosr[zeros]
+        zeros, = np.where(dy == 0)
+
+        # replace 0 with left value if non zero
+        dy[zeros] = zerosl[zeros]
+        zeros, = np.where(dy == 0)
+
+    # find the peaks by using the first order difference
+    peaks = np.where((np.hstack([dy, 0.]) < 0.)
+                     & (np.hstack([0., dy]) > 0.)
+                     & (y > thres)
+                     & (y < maxph))[0]
+
+    # handle multiple peaks, respecting the minimum distance
+    if peaks.size > 1 and min_dist > 1:
+        highest = peaks[np.argsort(y[peaks])][::-1]
+        rem = np.ones(y.size, dtype=bool)
+        rem[peaks] = False
+
+        for peak in highest:
+            if not rem[peak]:
+                sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
+                rem[sl] = True
+                rem[peak] = False
+
+        peaks = np.arange(y.size)[~rem]
+
+    return peaks
 
 
 def get_spike_times(dataset, protocol_name, peak_params, show_detection):
@@ -289,103 +343,57 @@ def get_spike_times(dataset, protocol_name, peak_params, show_detection):
     return 0
 
 
-def peak_seek(x, mpd, mph):
-    # Find all maxima and ties
-    localmax = (np.diff(np.sign(np.diff(x))) < 0).nonzero()[0] + 1
-    locs = localmax[x[localmax] > mph]
+def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show):
+    """Get Spike Times using the indexes() function.
 
-    while 1:
-        idx = np.where(np.diff(locs) < mpd)
-        idx = idx[0]
-        if not idx.any():
-            break
-        rmv = list()
-        for i in range(len(idx)):
-            a = x[locs[idx[i]]]
-            b = x[locs[idx[i]+1]]
-            if a > b:
-                rmv.append(True)
-            else:
-                rmv.append(False)
-        locs = locs[idx[rmv]]
+    Notes
+    ----------
+    This function gets all the spike times in the voltage traces loaded from HDD.
 
-    embed()
-    #locs = find(x(2:end - 1) >= x(1: end - 2) & x(2: end - 1) >= x(3: end))+1;
-
-
-def indexes(y, th_factor, min_dist=1):
-    """Peak detection routine.
-    Finds the numeric index of the peaks in *y* by taking its first order difference. By using
-    *thres* and *min_dist* parameters, it is possible to reduce the number of
-    detected peaks. *y* must be signed.
     Parameters
     ----------
-    y : ndarray (signed)
-        1D amplitude data to search for peaks.
-    th_factor : trheshold = th_factor * median(y / 0.6745)
-        Only the peaks with amplitude higher than the threshold will be detected.
-    min_dist : int
-        Minimum distance between each detected peak. The peak with the highest
-        amplitude is preferred to satisfy this constraint.
+    dataset :       Data set name (string)
+    protocol_name:  protocol name (string)
+    th_factor: threshold = 2 * median(abs(x)/0.6745)
+    min_dist: Min. allowed distance between two spikes
+    maxph: Peaks larger than maxph * max(x) are removed
+
     Returns
     -------
-    ndarray
-        Array containing the numeric indexes of the peaks that were detected
+    spikes: Saves spike times (in seconds) to HDD in a .npy file (dict).
+
     """
-    thres = th_factor * np.median(abs(y) / 0.6745)
 
-    if isinstance(y, np.ndarray) and np.issubdtype(y.dtype, np.unsignedinteger):
-        raise ValueError("y must be signed")
+    # Load Voltage Traces
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    file_name = file_pathname + protocol_name + '_voltage.npy'
+    tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
+    voltage = np.load(file_name).item()
+    tag_list = np.load(tag_list_path)
+    spikes = {}
+    fs = 100*1000  # Sampling Rate of Ephys Recording
 
-    # thres = thres * (np.max(y) - np.min(y)) + np.min(y)
-    min_dist = int(min_dist)
+    # Loop trough all tags in tag_list
+    for i in range(len(tag_list)):
+        trials = len(voltage[tag_list[i]])
+        spike_times = [list()] * trials
+        for k in range(trials):  # loop trough all trials
+            spike_times[k] = indexes(voltage[tag_list[i]][k], th_factor=th_factor, min_dist=min_dist, maxph=maxph)
+            if k == 0 and show:
+                plt.plot(voltage[tag_list[i]][k], 'k')
+                plt.plot(spike_times[k], voltage[tag_list[i]][k][spike_times[k]], 'ro')
+                plt.show()
+            spike_times[k] = spike_times[k] / fs  # in seconds
+        spikes.update({tag_list[i]: spike_times})
 
-    # compute first order difference
-    dy = np.diff(y)
+    # Save to HDD
+    file_name = file_pathname + protocol_name + '_spikes.npy'
+    np.save(file_name, spikes)
+    print('Spike Times saved (protocol: ' + protocol_name + ')')
 
-    # propagate left and right values successively to fill all plateau pixels (0-value)
-    zeros, = np.where(dy == 0)
+    return spikes
 
-    # check if the singal is totally flat
-    if len(zeros) == len(y) - 1:
-        return np.array([])
-
-    while len(zeros):
-        # add pixels 2 by 2 to propagate left and right value onto the zero-value pixel
-        zerosr = np.hstack([dy[1:], 0.])
-        zerosl = np.hstack([0., dy[:-1]])
-
-        # replace 0 with right value if non zero
-        dy[zeros] = zerosr[zeros]
-        zeros, = np.where(dy == 0)
-
-        # replace 0 with left value if non zero
-        dy[zeros] = zerosl[zeros]
-        zeros, = np.where(dy == 0)
-
-    # find the peaks by using the first order difference
-    peaks = np.where((np.hstack([dy, 0.]) < 0.)
-                     & (np.hstack([0., dy]) > 0.)
-                     & (y > thres))[0]
-
-    # handle multiple peaks, respecting the minimum distance
-    if peaks.size > 1 and min_dist > 1:
-        highest = peaks[np.argsort(y[peaks])][::-1]
-        rem = np.ones(y.size, dtype=bool)
-        rem[peaks] = False
-
-        for peak in highest:
-            if not rem[peak]:
-                sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
-                rem[sl] = True
-                rem[peak] = False
-
-        peaks = np.arange(y.size)[~rem]
-
-
-    return peaks
-
-
+# ----------------------------------------------------------------------------------------------------------------------
 # FILTER
 
 
@@ -398,18 +406,7 @@ def voltage_trace_filter(voltage, cutoff, order, ftype, filter_on=True):
     return y
 
 
-def get_session_metadata(datasets):
-    # Copies info.dat to the analysis folder
-    for dat in range(len(datasets)):
-        data_name = datasets[dat]
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-        info_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + 'info.dat'
-
-        copyfile(info_file, pathname+'info.dat')
-        print('Copied info.dat of %s' % data_name)
-
-    return 0
-
+# ----------------------------------------------------------------------------------------------------------------------
 # Reconstruct Stimuli
 
 
@@ -468,6 +465,7 @@ def rect_stimulus(period, pulse_duration, stimulus_duration, total_amplitude,  p
     return stimulus_time, stimulus
 
 
+# ----------------------------------------------------------------------------------------------------------------------
 # NIX Functions
 
 
@@ -614,6 +612,7 @@ def list_protocols(dataset, protocol_name):
     return gaps, p
 
 
+# ----------------------------------------------------------------------------------------------------------------------
 # SPIKE STATISTICS
 
 
@@ -641,6 +640,8 @@ def psth(spike_times, n, bin_size, plot, return_values):
     # Compute histogram and calculate time dependent firing rate (binned PSTH)
     # n: number of trials
     # bin_size: bin size in seconds
+    spike_times = np.concatenate(spike_times)
+
     bins = int(np.max(spike_times) / bin_size)
     hist, bin_edges = np.histogram(spike_times, bins)
     # bin_width = bin_edges[1] - bin_edges[0]
@@ -667,7 +668,8 @@ def raster_plot(sp_times, stimulus_time, steps):
     return 0
 
 
-# FI Field functions:
+# ----------------------------------------------------------------------------------------------------------------------
+# FI FIELD:
 
 
 def plot_ficurve(amplitude_sorted, mean_spike_count, std_spike_count, freq, spike_threshold, pathname, savefig):
@@ -982,8 +984,8 @@ def get_fifield_data(datasets):
     return 0
 
 
-
-# Moth and Bat songs functions:
+# ----------------------------------------------------------------------------------------------------------------------
+# MOTH AND BAT CALLS:
 
 def reconstruct_moth_song(meta):
     # Get metadata
@@ -1138,6 +1140,7 @@ def soundfilestimuli_spike_distance(datasets):
                 print('\n')
 
 
+# ----------------------------------------------------------------------------------------------------------------------
 # SPIKE TRAIN DISTANCE
 
 
@@ -1373,6 +1376,7 @@ def vanrossum_matrix(dataset, tau, dt_factor, template_choice):
     return 0
 
 
+# ----------------------------------------------------------------------------------------------------------------------
 # Interval MothASongs functions:
 
 
@@ -1588,6 +1592,7 @@ def moth_intervals_plot(data_name, trial_number, frequency):
     return 0
 
 
+# ----------------------------------------------------------------------------------------------------------------------
 # Rect Intervals
 
 
@@ -1779,6 +1784,7 @@ def rect_intervals_plot(data_name):
     print('RectInterval Plots saved!')
 
 
+# ----------------------------------------------------------------------------------------------------------------------
 # VECTOR STRENGTH AND BOOTSTRAPPING
 
 
@@ -1900,6 +1906,7 @@ def bootstrap_test(datasets):
     return 0
 
 
+# ----------------------------------------------------------------------------------------------------------------------
 # MISC
 
 
@@ -1960,7 +1967,6 @@ def tagtostimulus(dataset):
     return connection
 
 
-
 def pytomat(dataset, protocol_name):
     # Load Voltage Traces
     file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
@@ -1974,6 +1980,20 @@ def pytomat(dataset, protocol_name):
     return 0
 
 
+def get_session_metadata(datasets):
+    # Copies info.dat to the analysis folder
+    for dat in range(len(datasets)):
+        data_name = datasets[dat]
+        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+        info_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + 'info.dat'
+
+        copyfile(info_file, pathname+'info.dat')
+        print('Copied info.dat of %s' % data_name)
+
+    return 0
+
+
+# ----------------------------------------------------------------------------------------------------------------------
 # GAP PARADIGM
 
 
@@ -1999,6 +2019,10 @@ def gap_analysis(dataset, protocol_name):
             v.update({i: volt[int(cut_samples[i]):int(cut_samples[i+1])]})
         voltage_new.update({tag_list[k]: v})
 
-    embed()
+    # Save Voltage to HDD (This overwrites the input voltage data)
+    dname = file_pathname + protocol_name + '_voltage.npy'
+    np.save(dname, voltage_new)
+    print('Saved voltage (Overwrite Input Voltage)')
+
     return voltage_new
 

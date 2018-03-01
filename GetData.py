@@ -9,8 +9,8 @@ import os
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2018-02-09-aa']
-# datasets = ['2018-02-20-aa']
+# datasets = ['2018-02-09-aa']
+datasets = ['2018-02-20-aa']
 
 GetSession = False
 FIFIELD = False
@@ -19,8 +19,8 @@ INTERVAL_REC = False
 SOUND = False
 SOUND2 = False
 PYTOMAT = False
-CHECKPROTOCOLS = False
-TEST = True
+CHECKPROTOCOLS = True
+TEST = False
 
 # Create Directory for Saving Data
 mf.make_directory(datasets[0])
@@ -79,7 +79,9 @@ if PYTOMAT:
 
 if CHECKPROTOCOLS:
     gaps, p = mf.list_protocols(datasets[0], 'Gap')
-    voltage, tag_list = mf.get_voltage_trace(datasets[0], gaps, 'Gap', multi_tag=False ,search_for_tags=False)
+    # voltage, tag_list = mf.get_voltage_trace(datasets[0], gaps, 'Gap', multi_tag=False ,search_for_tags=False)
+    # mf.gap_analysis(datasets[0], 'Gap')
+    embed()
 
 if TEST:
     v = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-20-aa/DataFiles/Gap_voltage.npy').item()
