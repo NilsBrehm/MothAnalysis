@@ -9,8 +9,8 @@ import os
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-# datasets = ['2018-02-09-aa']
-datasets = ['2018-02-20-aa']
+datasets = ['2018-02-09-aa']
+# datasets = ['2018-02-20-aa']
 
 GetSession = False
 FIFIELD = False
@@ -83,7 +83,13 @@ if CHECKPROTOCOLS:
 
 if TEST:
     v = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-20-aa/DataFiles/Gap_voltage.npy').item()
-    x = v['SingleStimulus_112']
+    # x = v['SingleStimulus_112']
+
+    voltage = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-09-aa/DataFiles/Calls_voltage.npy').item()
+    x = voltage['SingleStimulus-file-2'][0]
+    locs = mf.indexes(x, th_factor=2, min_dist=50)
+    embed()
+    exit()
     mf.peak_seek(x, 100, 100)
 
 print('Overall Data Gathering done')
