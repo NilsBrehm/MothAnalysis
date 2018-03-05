@@ -10,20 +10,51 @@ import os
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
 # datasets = ['2018-02-09-aa']
-datasets = ['2018-02-20-aa']
+datasets = ['2017-06-19-ac']
 
-GetSession = False
+VIEWNIX = False
+GetSession = True
 FIFIELD = False
 INTERVAL_MAS = False
 INTERVAL_REC = False
 SOUND = False
 SOUND2 = False
 PYTOMAT = False
-CHECKPROTOCOLS = True
+CHECKPROTOCOLS = False
 TEST = False
+MAKEDIR = False
 
 # Create Directory for Saving Data
-mf.make_directory(datasets[0])
+if MAKEDIR:
+    mf.make_directory(datasets[0])
+
+# Session info
+if GetSession:
+    # Get all Recordings in "/mothdata/"
+    file_list = os.listdir('/media/brehm/Data/MasterMoth/mothdata/')
+    file_list = sorted([st for st in file_list if '20' in st])
+    mf.get_session_metadata(file_list)
+
+if VIEWNIX:
+    # Get all Recordings in "/mothdata/"
+    file_list = os.listdir('/media/brehm/Data/MasterMoth/mothdata/')
+    file_list = sorted([st for st in file_list if '20' in st])
+
+    # Get all stimulus information
+    for i in range(len(file_list)):
+        data_set = file_list[i]
+
+        mf.make_directory(data_set)
+
+        # List all tags and multi tags
+        r = mf.view_nix(data_set)
+        if r == 1:
+            continue
+
+        # Closer look at tags
+        target, stim_list, _, songs = mf.list_protocols(data_set, protocol_name='Gap',
+                                                        tag_name=['SingleStimulus_', 'SingleStimulus-file-'])
+    print('All stimulus infos saved')
 
 # FIField
 if FIFIELD:
@@ -63,9 +94,6 @@ if SOUND:
         # input("Press Enter to continue...")
     print('Files saved')
 
-# Session info
-if GetSession:
-    mf.get_session_metadata(datasets)
 
 if SOUND2:
 

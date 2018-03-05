@@ -4,11 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from collections import OrderedDict
+import time
 
+start_time = time.time()
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2018-02-20-aa']
+datasets = ['2018-02-09-aa']
 
 FilterSignalShow = False
 FIFIELD = False
@@ -18,8 +20,8 @@ INTERVAL_REC = False
 SOUND = False
 TEST = False
 TEST2 = False
-VANROSSUM = False
-GAP = True
+VANROSSUM = True
+GAP = False
 
 # Parameters for Spike Detection
 peak_params = {'mph': 'dynamic', 'mpd': 40, 'valley': False, 'show': True, 'maxph': None, 'filter_on': True}
@@ -86,10 +88,12 @@ if TEST2:
 
 if VANROSSUM:
     dt_factor = 100
-    # tau = 3
-    for tau in np.arange(1, 21, 1):
-        mf.vanrossum_matrix(datasets[0], tau/1000, dt_factor, template_choice=0)
-
+    tau = 5
+    nsamples = 50
+    mm = mf.vanrossum_matrix(datasets[0], tau/1000, dt_factor, template_choice='random', boot_sample=nsamples)
+    mm_mean = sum(mm.values()) / len(mm)
+    print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
+    embed()
     # mf.tagtostimulus(datasets[0])
 
 if GAP:
@@ -98,3 +102,4 @@ if GAP:
     embed()
 
 print('Analysis done!')
+print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))

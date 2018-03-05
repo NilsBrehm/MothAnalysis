@@ -469,6 +469,62 @@ def rect_stimulus(period, pulse_duration, stimulus_duration, total_amplitude,  p
 # NIX Functions
 
 
+def view_nix(dataset):
+    # Open Nix File
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    try:
+        f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+        print('".nix" extension found')
+        print(dataset)
+    except OSError:
+        print('File is damaged!')
+        return 1
+    except RuntimeError:
+        try:
+            f = nix.File.open(nix_file + '.h5', nix.FileMode.ReadOnly)
+            print('".nix.h5" extension found')
+            print(dataset)
+        except RuntimeError:
+            print(dataset)
+            print('File not found')
+            return 1
+
+    b = f.blocks[0]
+
+    # Create Text File:
+    text_file_name = file_pathname + 'stimulus.txt'
+
+    try:
+        text_file = open(text_file_name, 'r+')
+        text_file.truncate(0)
+    except FileNotFoundError:
+        print('create new stimulus.txt file')
+
+    # Get all multi tags
+    mtags = b.multi_tags
+
+    # print('\nMulti Tags found:')
+    with open(text_file_name, 'a') as text_file:
+        text_file.write(dataset + '\n\n')
+        text_file.write('Multi Tags found: \n')
+        for i in range(len(mtags)):
+            # print(mtags[i].name)
+            text_file.write(mtags[i].name + '\n')
+
+    # Get all tags
+    tags = b.tags
+    with open(text_file_name, 'a') as text_file:
+        # print('\nTags found:')
+        text_file.write('\nTags found: \n')
+        for i in range(len(tags)):
+            # print(tags[i].name)
+            text_file.write(tags[i].name + '\n')
+
+    f.close()
+    return 0
+
+
 def get_spiketimes(tag,mtag,dataset):
     if mtag == 1:
         spike_times = tag.retrieve_data(dataset, 1)  # from multi tag get spiketimes (dataset,datatype)
@@ -592,24 +648,78 @@ def get_metadata(dataset, tag, protocol_name):
     return f, mtags
 
 
-def list_protocols(dataset, protocol_name):
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+def list_protocols(dataset, protocol_name, tag_name):
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
     nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
-    f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+
+    try:
+        f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+        print('".nix" extension found')
+        print(dataset)
+    except RuntimeError:
+        try:
+            f = nix.File.open(nix_file + '.h5', nix.FileMode.ReadOnly)
+            print('".nix.h5" extension found')
+            print(dataset)
+        except RuntimeError:
+            print(dataset)
+            print('File not found')
+            return 1
+
     b = f.blocks[0]
 
-    tag_list = [t.name for t in b.tags if 'SingleStimulus_' in t.name]
-    gaps = []
-    p = [''] * len(tag_list)
+    tag_list = [t.name for t in b.tags if tag_name[0] in t.name]
+    mtag_list = [t.name for t in b.multi_tags if tag_name[1] in t.name]
+    target = []
+    mtarget = []
 
-    for i in range(len(tag_list)):
-        p[i] = b.tags[tag_list[i]].metadata.sections[0].sections[0].props[1].name
-        if p[i] == protocol_name:
-            gaps.append(tag_list[i])
+    # Create Text File:
+    text_file_name = file_pathname + 'stimulus_protocols.txt'
+    text_file_name2 = file_pathname + 'stimulus_songs.txt'
+
+    try:
+        text_file = open(text_file_name, 'r+')
+        text_file2 = open(text_file_name2, 'r+')
+        text_file.truncate(0)
+        text_file2.truncate(0)
+    except FileNotFoundError:
+        print('create new txt files')
+
+    # Tags:
+    p = [''] * len(tag_list)
+    try:
+        for i in range(len(tag_list)):
+            p[i] = b.tags[tag_list[i]].metadata.sections[0].sections[0].props[1].name
+            if p[i] == protocol_name:
+                target.append(tag_list[i])
+
+        # Write to txt file
+        with open(text_file_name, 'a') as text_file:
+            text_file.write(dataset + '\n')
+            text_file.write(tag_name[0] + '\n\n')
+            for k in range(len(p)):
+                text_file.write(p[k] + '\n')
+    except KeyError:
+        print('No Protocols found')
+
+    # Multi Tags:
+    mp = [''] * len(mtag_list)
+    try:
+        for i in range(len(mtag_list)):
+            mp[i] = b.multi_tags[mtag_list[i]].metadata.sections[0][2]  # This is the sound file name
+            if mp[i] == protocol_name:
+                mtarget.append(mtag_list[i])
+        # Write to txt file
+        with open(text_file_name2, 'a') as text_file:
+            text_file.write(dataset + '\n')
+            text_file.write(tag_name[1] + '\n\n')
+            for k in range(len(mp)):
+                text_file.write(mp[k] + '\n')
+    except KeyError:
+        print('No Songs found')
 
     f.close()
-
-    return gaps, p
+    return target, p, mtarget, mp
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -1297,7 +1407,7 @@ def spike_train_distance(spike_times1, spike_times2, dt_factor, tau, plot):
     return d
 
 
-def vanrossum_matrix(dataset, tau, dt_factor, template_choice):
+def vanrossum_matrix(dataset, tau, dt_factor, template_choice, boot_sample):
 
     pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
     spikes = np.load(pathname + 'Calls_spikes.npy').item()
@@ -1321,41 +1431,45 @@ def vanrossum_matrix(dataset, tau, dt_factor, template_choice):
         stimulus_tags[p] = connection[stims[p]]
 
     call_count = len(stimulus_tags)
-    match_matrix = np.zeros((call_count, call_count))
+    mm = {}
+    for boot in range(boot_sample):
+        match_matrix = np.zeros((call_count, call_count))
+        # Select templates
+        if template_choice == 'random':
+            rand_ids = np.random.randint(20, size=call_count)
+        else:
+            print('Please select "random"')
+            # rand_ids = [int(template_choice)] * call_count
 
-    # Select templates
-    if template_choice == 'random':
-        rand_ids = np.random.randint(20, size=call_count)
-    else:
-        rand_ids = [int(template_choice)] * call_count
+        templates = {}
+        for i in range(call_count):
+            x = spikes[stimulus_tags[i]][rand_ids[i]]
+            templates.update({i: spike_e_pulses(x, dt_factor, tau)})
 
-    templates = {}
-    for i in range(call_count):
-        x = spikes[stimulus_tags[i]][rand_ids[i]]
-        templates.update({i: spike_e_pulses(x, dt_factor, tau)})
+        # Convert all other trains into e-pulses
+        probes = {}
+        count = 1
+        for k in range(call_count):
+            idx = np.arange(0, 20, 1)
+            idx = np.delete(idx, rand_ids[k])
+            for j in range(len(idx)):
+                x = spikes[stimulus_tags[k]][idx[j]]
+                probes.update({count: [spike_e_pulses(x, dt_factor, tau), k]})
+                count += 1
+            # print(str(k) + ': ' + stims[k])
 
-    # Convert all other trains into e-pulses
-    probes = {}
-    count = 1
-    for k in range(call_count):
-        idx = np.arange(0, 20, 1)
-        idx = np.delete(idx, rand_ids[k])
-        for j in range(len(idx)):
-            x = spikes[stimulus_tags[k]][idx[j]]
-            probes.update({count: [spike_e_pulses(x, dt_factor, tau), k]})
-            count += 1
-        # print(str(k) + ': ' + stims[k])
+        # Compute VanRossum Distance
+        for pr in range(len(probes)):
+            d = np.zeros(len(templates))
+            for tmp in range(len(templates)):
+                d[tmp] = vanrossum_distance(templates[tmp], probes[pr+1][0], dt_factor, tau)
 
-    # Compute VanRossum Distance
-    for pr in range(len(probes)):
-        d = np.zeros(len(templates))
-        for tmp in range(len(templates)):
-            d[tmp] = vanrossum_distance(templates[tmp], probes[pr+1][0], dt_factor, tau)
+            template_match = np.where(d == np.min(d))[0][0]
+            song_id = probes[pr+1][1]
+            match_matrix[template_match, song_id] += 1
 
-        template_match = np.where(d == np.min(d))[0][0]
-        song_id = probes[pr+1][1]
-        match_matrix[template_match, song_id] += 1
-
+        mm.update({boot: match_matrix})
+    '''
     # Plot Matrix
     plt.imshow(match_matrix)
     plt.xlabel('Original Calls')
@@ -1372,8 +1486,8 @@ def vanrossum_matrix(dataset, tau, dt_factor, template_choice):
     fig.savefig(figname, bbox_inches='tight', dpi=300)
     plt.close(fig)
     print('tau = ' + str(tau*1000) + ' ms done')
-
-    return 0
+    '''
+    return mm
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -1983,12 +2097,15 @@ def pytomat(dataset, protocol_name):
 def get_session_metadata(datasets):
     # Copies info.dat to the analysis folder
     for dat in range(len(datasets)):
-        data_name = datasets[dat]
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-        info_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + 'info.dat'
+        try:
+            data_name = datasets[dat]
+            pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+            info_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + 'info.dat'
 
-        copyfile(info_file, pathname+'info.dat')
-        print('Copied info.dat of %s' % data_name)
+            copyfile(info_file, pathname+'info.dat')
+            print('Copied info.dat of %s' % data_name)
+        except FileNotFoundError:
+            print('File Not Found: %s' % data_name)
 
     return 0
 
