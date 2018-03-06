@@ -10,16 +10,13 @@ start_time = time.time()
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2018-02-09-aa']
+datasets = ['2018-02-20-aa']
 
-FilterSignalShow = False
 FIFIELD = False
 INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
 SOUND = False
-TEST = False
-TEST2 = False
 VANROSSUM = True
 GAP = False
 
@@ -48,52 +45,21 @@ if Bootstrapping:
     nresamples = 10000
     mf.bootstrapping_vs(datasets, nresamples, plot_histogram=True)
 
-if FilterSignalShow:
-    fs = 100*1000
-    nyqst = 0.5*fs
-    lowcut = 500
-    highcut = 2000
-    low = lowcut/nyqst
-    high = highcut/nyqst
-
-    y = mf.voltage_filter(datasets[0], [low, high], ftype='band', order=5, filter_on=True)
-    y2 = mf.voltage_filter(datasets[0], [low, high], ftype='band', order=5, filter_on=False)
-    plt.subplot(2, 1, 1)
-    plt.plot(y2, 'k')
-    plt.subplot(2, 1, 2)
-    plt.plot(y, 'k')
-    plt.show()
-
 if SOUND:
-    # mf.quickspikes_detection(datasets)
     # mf.soundfilestimuli_spike_detection(datasets, peak_params)
-    # mf.soundfilestimuli_spike_distance(datasets)
-    # mf.spike_distance_matrix(datasets)
-    mf.get_spike_times(datasets[0], 'Calls', peak_params, show_detection=False)
+    # mf.get_spike_times(datasets[0], 'Calls', peak_params, show_detection=False)
+    spikes = mf.spike_times_indexes(datasets[0], 'Calls', th_factor=4, min_dist=50, maxph=0.8, show=False, save_data=True)
 
-if TEST:
-    voltage = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-09-aa/DataFiles/Calls_voltage.npy').item()
-    for k in range(80, len(voltage)):
-        volt = voltage['SingleStimulus-file-'+str(k+1)][0]
-        sp = mf.detect_peaks(volt, peak_params)
-
-if TEST2:
-    spikes = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-09-aa/DataFiles/Calls_spikes.npy').item()
-    sp_1 = spikes['SingleStimulus-file-1'][0]
-    sp_2 = spikes['SingleStimulus-file-10'][0]
-    tau = 4
-    dt_factor = 100
-    d = mf.spike_train_distance(sp_1, sp_2, dt_factor, tau/1000, plot=True)
-    print('Spike Train Distance = ' + str(d))
 
 if VANROSSUM:
     dt_factor = 100
-    tau = 5
-    nsamples = 50
-    mm = mf.vanrossum_matrix(datasets[0], tau/1000, dt_factor, template_choice='random', boot_sample=nsamples)
-    mm_mean = sum(mm.values()) / len(mm)
+    taus = [0.5, 1, 2, 5, 10, 20]  # in ms
+    duration = [5, 10, 20, 30, 40, 50, 80, 100]  # in ms
+    nsamples = 100
+    for tt in taus:
+        for dur in duration:
+            mm = mf.vanrossum_matrix(datasets[0], tt/1000, dur/1000, dt_factor, boot_sample=nsamples, save_fig=True)
     print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
-    embed()
     # mf.tagtostimulus(datasets[0])
 
 if GAP:

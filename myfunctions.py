@@ -343,7 +343,7 @@ def get_spike_times(dataset, protocol_name, peak_params, show_detection):
     return 0
 
 
-def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show):
+def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show, save_data):
     """Get Spike Times using the indexes() function.
 
     Notes
@@ -354,7 +354,7 @@ def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show
     ----------
     dataset :       Data set name (string)
     protocol_name:  protocol name (string)
-    th_factor: threshold = 2 * median(abs(x)/0.6745)
+    th_factor: threshold = th_factor * median(abs(x)/0.6745)
     min_dist: Min. allowed distance between two spikes
     maxph: Peaks larger than maxph * max(x) are removed
 
@@ -387,9 +387,10 @@ def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show
         spikes.update({tag_list[i]: spike_times})
 
     # Save to HDD
-    file_name = file_pathname + protocol_name + '_spikes.npy'
-    np.save(file_name, spikes)
-    print('Spike Times saved (protocol: ' + protocol_name + ')')
+    if save_data:
+        file_name = file_pathname + protocol_name + '_spikes.npy'
+        np.save(file_name, spikes)
+        print('Spike Times saved (protocol: ' + protocol_name + ')')
 
     return spikes
 
@@ -525,7 +526,7 @@ def view_nix(dataset):
     return 0
 
 
-def get_spiketimes(tag,mtag,dataset):
+def get_spiketimes_from_nix(tag,mtag,dataset):
     if mtag == 1:
         spike_times = tag.retrieve_data(dataset, 1)  # from multi tag get spiketimes (dataset,datatype)
     else:
@@ -745,12 +746,13 @@ def inst_firing_rate(spikes: object, tmax: object, dt: object) -> object:
     return time, rate
 
 
-def psth(spike_times, n, bin_size, plot, return_values):
+def psth(spike_times, n, bin_size, plot, return_values, separate_trials):
     # spike times must be seconds!
     # Compute histogram and calculate time dependent firing rate (binned PSTH)
     # n: number of trials
     # bin_size: bin size in seconds
-    spike_times = np.concatenate(spike_times)
+    if separate_trials:
+        spike_times = np.concatenate(spike_times)
 
     bins = int(np.max(spike_times) / bin_size)
     hist, bin_edges = np.histogram(spike_times, bins)
@@ -1328,14 +1330,25 @@ def spike_distance_matrix(datasets):
     return 0
 
 
-def spike_e_pulses(spike_times, dt_factor, tau):
+def spike_e_pulses(spike_times, dt_factor, tau, duration):
     # tau in seconds
     # dt_factor: dt = tau/dt_factor
     # spike times in seconds
     # duration in seconds
+
     dt = tau / dt_factor
-    duration = np.max(spike_times) + 5 * tau
-    t = np.arange(0, duration, dt)
+
+    # Remove spikes that are not of interest
+    '''
+    spike_times = spike_times[spike_times <= duration]
+    if not spike_times.any():
+        f = np.array([0])
+        return f
+    dur = np.max(spike_times) + 5 * tau
+    '''
+
+    dur = duration
+    t = np.arange(0, dur, dt)
     f = np.zeros(len(t))
 
     for ti in spike_times:
@@ -1407,12 +1420,12 @@ def spike_train_distance(spike_times1, spike_times2, dt_factor, tau, plot):
     return d
 
 
-def vanrossum_matrix(dataset, tau, dt_factor, template_choice, boot_sample):
+def vanrossum_matrix(dataset, tau, duration, dt_factor, boot_sample, save_fig):
 
     pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
     spikes = np.load(pathname + 'Calls_spikes.npy').item()
     # tag_list = np.load(pathname + 'Calls_tag_list.npy')
-
+    '''
     stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
              'naturalmothcalls/agaraea_semivitrea_07x07.wav', 'naturalmothcalls/carales_11x11_01.wav',
              'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
@@ -1424,70 +1437,104 @@ def vanrossum_matrix(dataset, tau, dt_factor, template_choice, boot_sample):
              'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
              'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav']
 
+    
+    stims = ['naturalmothcalls/BCI1062_07x07.wav',
+             'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+             'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+             'naturalmothcalls/neritos_cotes_07x07.wav']
+    
+
+    stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+             'naturalmothcalls/carales_11x11_01.wav',
+             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
+             'naturalmothcalls/eucereon_obscurum_10x10.wav',
+             'naturalmothcalls/hypocladia_militaris_09x09.wav',
+             'naturalmothcalls/idalus_daga_18x18.wav',
+             'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav']
+    '''
+
+    stims = ['batcalls/Barbastella_barbastellus_1_n.wav',
+                'batcalls/Eptesicus_nilssonii_1_s.wav',
+                'batcalls/Myotis_bechsteinii_1_n.wav',
+                'batcalls/Myotis_brandtii_1_n.wav',
+                'batcalls/Myotis_nattereri_1_n.wav',
+                'batcalls/Nyctalus_leisleri_1_n.wav',
+                'batcalls/Nyctalus_noctula_2_s.wav',
+                'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+                'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+                'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+                'batcalls/Vespertilio_murinus_1_s.wav']
+
     # Tags and Stimulus names
     connection = tagtostimulus(dataset)
     stimulus_tags = [''] * len(stims)
     for p in range(len(stims)):
         stimulus_tags[p] = connection[stims[p]]
 
+    # Convert all Spike Trains to e-pulses
+    trains = {}
+    for k in range(len(stimulus_tags)):
+        tr = [[]]*20
+        for j in range(20):
+            x = spikes[stimulus_tags[k]][j]
+            # tr.update({j: spike_e_pulses(x, dt_factor, tau)})
+            tr[j] = spike_e_pulses(x, dt_factor, tau, duration)
+        trains.update({stimulus_tags[k]: tr})
+
+    # for i in range(len(stims)):
+        # print(str(i) + ': ' + stims[i])
+
     call_count = len(stimulus_tags)
+    # Select Template and Probes and bootstrap this process
     mm = {}
     for boot in range(boot_sample):
+        count = 0
         match_matrix = np.zeros((call_count, call_count))
-        # Select templates
-        if template_choice == 'random':
-            rand_ids = np.random.randint(20, size=call_count)
-        else:
-            print('Please select "random"')
-            # rand_ids = [int(template_choice)] * call_count
-
         templates = {}
-        for i in range(call_count):
-            x = spikes[stimulus_tags[i]][rand_ids[i]]
-            templates.update({i: spike_e_pulses(x, dt_factor, tau)})
-
-        # Convert all other trains into e-pulses
         probes = {}
-        count = 1
-        for k in range(call_count):
+        rand_ids = np.random.randint(20, size=call_count)
+        for i in range(call_count):
             idx = np.arange(0, 20, 1)
             idx = np.delete(idx, rand_ids[k])
-            for j in range(len(idx)):
-                x = spikes[stimulus_tags[k]][idx[j]]
-                probes.update({count: [spike_e_pulses(x, dt_factor, tau), k]})
+            templates.update({i: trains[stimulus_tags[i]][rand_ids[i]]})
+            for q in range(len(idx)):
+                probes.update({count: [trains[stimulus_tags[i]][idx[q]], i]})
                 count += 1
-            # print(str(k) + ': ' + stims[k])
 
         # Compute VanRossum Distance
         for pr in range(len(probes)):
             d = np.zeros(len(templates))
             for tmp in range(len(templates)):
-                d[tmp] = vanrossum_distance(templates[tmp], probes[pr+1][0], dt_factor, tau)
-
+                d[tmp] = vanrossum_distance(templates[tmp], probes[pr][0], dt_factor, tau)
+            # What happens if there are two mins?
             template_match = np.where(d == np.min(d))[0][0]
-            song_id = probes[pr+1][1]
+            song_id = probes[pr][1]
             match_matrix[template_match, song_id] += 1
 
         mm.update({boot: match_matrix})
-    '''
-    # Plot Matrix
-    plt.imshow(match_matrix)
-    plt.xlabel('Original Calls')
-    plt.ylabel('Matched Calls')
-    plt.colorbar()
-    plt.xticks(np.arange(0, len(match_matrix), 1))
-    plt.yticks(np.arange(0, len(match_matrix), 1))
-    plt.title('tau = ' + str(tau*1000) + ' ms')
 
-    # Save Plot to HDD
-    figname = "/media/brehm/Data/MasterMoth/figs/" + dataset + '/VanRossumMatrix_' + str(tau*1000) + '.png'
-    fig = plt.gcf()
-    fig.set_size_inches(10, 10)
-    fig.savefig(figname, bbox_inches='tight', dpi=300)
-    plt.close(fig)
-    print('tau = ' + str(tau*1000) + ' ms done')
-    '''
-    return mm
+    mm_mean = sum(mm.values()) / len(mm)
+
+    if save_fig:
+        # Plot Matrix
+        plt.imshow(mm_mean)
+        plt.xlabel('Original Calls')
+        plt.ylabel('Matched Calls')
+        plt.colorbar()
+        plt.xticks(np.arange(0, len(mm_mean), 1))
+        plt.yticks(np.arange(0, len(mm_mean), 1))
+        plt.title('tau = ' + str(tau*1000) + ' ms' + ' T = ' + str(duration*1000) + ' ms')
+
+        # Save Plot to HDD
+        figname = "/media/brehm/Data/MasterMoth/figs/" + dataset + '/VanRossumMatrix_' + str(tau*1000) + \
+                  '_' + str(duration*1000) + '.png'
+        fig = plt.gcf()
+        fig.set_size_inches(10, 10)
+        fig.savefig(figname, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print('tau = ' + str(tau*1000) + ' ms' + ' T = ' + str(duration*1000) + ' ms done')
+
+    return mm_mean
 
 
 # ----------------------------------------------------------------------------------------------------------------------

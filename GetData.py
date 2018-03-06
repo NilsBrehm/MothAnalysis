@@ -10,10 +10,10 @@ import os
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
 # datasets = ['2018-02-09-aa']
-datasets = ['2017-06-19-ac']
+datasets = ['2018-02-20-aa']
 
 VIEWNIX = False
-GetSession = True
+GetSession = False
 FIFIELD = False
 INTERVAL_MAS = False
 INTERVAL_REC = False
@@ -23,6 +23,7 @@ PYTOMAT = False
 CHECKPROTOCOLS = False
 TEST = False
 MAKEDIR = False
+VANROSSUM = True
 
 # Create Directory for Saving Data
 if MAKEDIR:
@@ -99,7 +100,7 @@ if SOUND2:
 
     # mf.get_metadata(datasets[0], 'MothASongs-moth_song-damped_oscillation*', 'Intervals')
     # mf.get_metadata(datasets[0], 'SingleStimulus-file-', 'Calls')
-    mf.get_voltage_trace(datasets[0], 'SingleStimulus-file-', 'Calls', multi_tag=True ,search_for_tags=True)
+    mf.get_voltage_trace(datasets[0], 'SingleStimulus-file-', 'Calls', multi_tag=True, search_for_tags=True)
 
 if PYTOMAT:
     mf.pytomat(datasets[0], 'Calls')
@@ -121,5 +122,8 @@ if TEST:
     embed()
     exit()
     mf.peak_seek(x, 100, 100)
+
+if VANROSSUM:
+    mf.get_voltage_trace(datasets[0], 'SingleStimulus-file-', 'Calls', multi_tag=True, search_for_tags=True)
 
 print('Overall Data Gathering done')
