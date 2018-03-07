@@ -10,15 +10,17 @@ start_time = time.time()
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2018-02-20-aa']
+# datasets = ['2018-02-09-aa']
+datasets =['2018-02-20-aa']
 
 FIFIELD = False
 INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
 SOUND = False
-VANROSSUM = True
+VANROSSUM = False
 GAP = False
+ISI = True
 
 # Parameters for Spike Detection
 peak_params = {'mph': 'dynamic', 'mpd': 40, 'valley': False, 'show': True, 'maxph': None, 'filter_on': True}
@@ -46,21 +48,27 @@ if Bootstrapping:
     mf.bootstrapping_vs(datasets, nresamples, plot_histogram=True)
 
 if SOUND:
-    # mf.soundfilestimuli_spike_detection(datasets, peak_params)
-    # mf.get_spike_times(datasets[0], 'Calls', peak_params, show_detection=False)
     spikes = mf.spike_times_indexes(datasets[0], 'Calls', th_factor=4, min_dist=50, maxph=0.8, show=False, save_data=True)
 
 
 if VANROSSUM:
     dt_factor = 100
-    taus = [0.5, 1, 2, 5, 10, 20]  # in ms
-    duration = [5, 10, 20, 30, 40, 50, 80, 100]  # in ms
-    nsamples = 100
+    # taus = [0.5, 1, 2, 5, 10, 20]  # in ms
+    taus = [5]
+    # duration = [40, 60, 80, 100, 120, 140]
+    duration = [50, 100, 250, 500, 750, 1000, 1500, 2000]
+    nsamples = 10
     for tt in taus:
         for dur in duration:
-            mm = mf.vanrossum_matrix(datasets[0], tt/1000, dur/1000, dt_factor, boot_sample=nsamples, save_fig=True)
+            mm = mf.vanrossum_matrix(datasets[0], tt/1000, dur/1000, dt_factor, boot_sample=nsamples,
+                                     stim_type='series', save_fig=True)
     print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
     # mf.tagtostimulus(datasets[0])
+
+if ISI:
+    duration = 1000
+    nsamples = 2
+    mm = mf.isi_matrix(datasets[0], duration/1000, boot_sample=nsamples, stim_type='series', save_fig=True)
 
 if GAP:
     tag_list = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-20-aa/DataFiles/Gap_tag_list.npy')

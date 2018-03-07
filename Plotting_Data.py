@@ -12,7 +12,7 @@ start_time = time.time()
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-datasets = ['2018-02-09-aa']
+datasets = ['2018-02-20-aa']
 
 PlotRectIntervals = False
 PlotMothIntervals = False
@@ -188,7 +188,7 @@ for i in range(len(datasets)):  # Loop through all recordings in the list above
                 # Plot PSTH
                 plt.subplot(3, 1, 3)
                 bin_size = 2  # in ms
-                frate, bin_edges = mf.psth(sp, trials, bin_size/1000, plot=False, return_values=True)
+                frate, bin_edges = mf.psth(sp, trials, bin_size/1000, plot=False, return_values=True, separate_trials=False)
                 plt.plot(bin_edges[:-1], frate, 'k')
                 plt.xlabel('Time [s] ' + '(bin size = ' + str(bin_size) + ' ms)')
                 plt.ylabel('Mean Firing Rate [spikes/s]')
