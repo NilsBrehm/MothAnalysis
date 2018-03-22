@@ -11,6 +11,7 @@ from shutil import copyfile
 import quickspikes as qs
 import itertools as itertools
 import pyspike as spk
+import pickle
 
 # ----------------------------------------------------------------------------------------------------------------------
 # PEAK DETECTION
@@ -865,10 +866,13 @@ def fifield_analysis(datasets, spike_threshold, peak_params):
                 spike_count = np.zeros(repeats)
                 for trial in range(repeats):
                     x = fifield_volt[freqs_uni[f]][a][trial]
+                    spike_times = indexes(x, th_factor=2, min_dist=50, maxph=0.8)
+                    '''
                     spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
                                                edge='rising', kpsh=False, valley=peak_params['valley'],
                                                show=peak_params['show'], ax=None, maxph=peak_params['maxph'],
                                                dynamic=peak_params['dynamic'], filter_on=peak_params['filter_on'])
+                    '''
                     spike_count[trial] = len(spike_times)
                 # m = np.mean(spike_count)
                 # std = np.std(spike_count)
@@ -1025,6 +1029,67 @@ def compute_fifield(data_name, data_file, tag, spikethreshold):
     return 'FIField successfully computed'
 
 
+def fifield_voltage2(data_name, tag):
+    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
+    f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+    b = f.blocks[0]
+
+    # Get tags
+    mtag = b.multi_tags[tag]
+
+    # Get Meta Data
+    # meta = mtag.metadata.sections[0]
+    # duration = meta["Duration"]
+    frequency = mtag.features[5].data[:]
+    amplitude = mtag.features[4].data[:]
+
+    volt = [[]] * len(frequency)
+    parameters = np.zeros(shape=(len(frequency), 3))
+    for k in range(len(frequency)):
+        volt[k] = mtag.retrieve_data(k, 0)[:]
+        parameters[k] = [k, frequency[k], amplitude[k]]
+
+    # Save Data to HDD
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
+    dname = pathname + 'FIField_voltage'
+    dname2 = pathname + 'FIField_parameters.npy'
+    np.save(dname2, parameters)
+    with open(dname, 'wb') as fp:
+        pickle.dump(volt, fp)
+
+    f.close()
+    return 0
+
+
+def fifield_spike_detection(data_name):
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
+    data_file = pathname + 'FIField_voltage'
+    #parameters_file = pathname + 'FIField_parameters.npy'
+    #parameters = np.load(parameters_file)
+    fs = 100 * 1000
+    with open(data_file, 'rb') as fp:
+        volt = pickle.load(fp)
+
+    spike_times = [[]] * len(volt)
+    for k in range(len(volt)):
+        x = volt[k]
+        spike_times[k] = indexes(x, th_factor=2, min_dist=70, maxph=10)
+
+        if np.random.rand(1) > 0.99:
+            plt.figure()
+            plt.plot(x)
+            plt.plot(spike_times[k], x[spike_times[k]], 'ro')
+            plt.show()
+        spike_times[k] = spike_times[k] / fs  # now in seconds
+
+    # Save Data to HDD
+    dname = pathname + 'FIField_spike_times'
+    with open(dname, 'wb') as fp:
+        pickle.dump(spike_times, fp)
+
+    return spike_times
+
+
 def fifield_voltage(data_name, data_file, tag):
     # Open the nix file
     start_time = time.time()
@@ -1093,6 +1158,27 @@ def get_fifield_data(datasets):
         print('Got Data set: %s and saved it' % datasets[all_datasets])
         percent = np.round((all_datasets + 1) / len(datasets), 2)
         print('-- Getting data total: %s %%  --' % (percent * 100))
+
+    return volt, freq, amp
+
+
+def fifield_analysis2(data_name):
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
+    data_file = pathname + 'FIField_spike_times'
+    parameters_file = pathname + 'FIField_parameters.npy'
+    parameters = np.load(parameters_file)
+    with open(data_file, 'rb') as fp:
+        spike_times = pickle.load(fp)
+
+    embed()
+    spike_times = np.array(spike_times)
+    parameters[:, 2] = np.floor(parameters[:, 2])  # round strange dB values
+    idx = parameters[:, 1] == 50000  # find all trials with 50000 kHz
+
+    amps = parameters[idx, 2]
+    trials = spike_times[idx]
+
+
 
     return 0
 

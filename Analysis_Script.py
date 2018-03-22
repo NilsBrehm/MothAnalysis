@@ -11,16 +11,16 @@ start_time = time.time()
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
 # datasets = ['2018-02-09-aa']
-datasets =['2018-02-20-aa']
+datasets =['2017-12-05-ab']
 
-FIFIELD = False
+FIFIELD = True
 INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
 SOUND = False
 VANROSSUM = False
 GAP = False
-ISI = True
+ISI = False
 
 # Parameters for Spike Detection
 peak_params = {'mph': 'dynamic', 'mpd': 40, 'valley': False, 'show': True, 'maxph': None, 'filter_on': True}
@@ -38,9 +38,8 @@ if INTERVAL_MAS:
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
-    spike_threshold = 4
-    mf.fifield_analysis(datasets, spike_threshold, peak_params)
-
+    #mf.fifield_spike_detection(datasets[0])
+    mf.fifield_analysis2(datasets[0])
 
 if Bootstrapping:
     # mf.resampling(datasets)
