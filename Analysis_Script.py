@@ -11,7 +11,7 @@ start_time = time.time()
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
 # datasets = ['2018-02-09-aa']
-datasets =['2017-12-05-ab']
+datasets =['2017-11-01-aa']
 
 FIFIELD = True
 INTERVAL_MAS = False
@@ -39,7 +39,9 @@ if INTERVAL_MAS:
 # Analyse FIField data stored on HDD
 if FIFIELD:
     #mf.fifield_spike_detection(datasets[0])
-    mf.fifield_analysis2(datasets[0])
+    th = 2
+    spike_count, fi_field, fsl = mf.fifield_analysis2(datasets[0], th, plot_fi=True)
+    embed()
 
 if Bootstrapping:
     # mf.resampling(datasets)

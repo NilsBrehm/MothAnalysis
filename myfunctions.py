@@ -241,7 +241,7 @@ def indexes(y, th_factor=2, min_dist=50, maxph=0.8):
     ndarray
         Array containing the numeric indexes of the peaks that were detected
     """
-    thres = th_factor * np.median(abs(y) / 0.6745)
+    thres = th_factor * np.median(abs(y[0:400]) / 0.6745)
     maxph = np.max(abs(y)) * maxph
 
     if isinstance(y, np.ndarray) and np.issubdtype(y.dtype, np.unsignedinteger):
@@ -1061,11 +1061,11 @@ def fifield_voltage2(data_name, tag):
     return 0
 
 
-def fifield_spike_detection(data_name):
+def fifield_spike_detection(data_name, valley):
     pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
     data_file = pathname + 'FIField_voltage'
-    #parameters_file = pathname + 'FIField_parameters.npy'
-    #parameters = np.load(parameters_file)
+    parameters_file = pathname + 'FIField_parameters.npy'
+    parameters = np.load(parameters_file)
     fs = 100 * 1000
     with open(data_file, 'rb') as fp:
         volt = pickle.load(fp)
@@ -1073,12 +1073,15 @@ def fifield_spike_detection(data_name):
     spike_times = [[]] * len(volt)
     for k in range(len(volt)):
         x = volt[k]
-        spike_times[k] = indexes(x, th_factor=2, min_dist=70, maxph=10)
+        if valley:
+            x = -x
+        spike_times[k] = indexes(x, th_factor=4, min_dist=70, maxph=10)
 
         if np.random.rand(1) > 0.99:
             plt.figure()
             plt.plot(x)
             plt.plot(spike_times[k], x[spike_times[k]], 'ro')
+            plt.title(parameters[k])
             plt.show()
         spike_times[k] = spike_times[k] / fs  # now in seconds
 
@@ -1162,7 +1165,7 @@ def get_fifield_data(datasets):
     return volt, freq, amp
 
 
-def fifield_analysis2(data_name):
+def fifield_analysis2(data_name, threshold, plot_fi):
     pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
     data_file = pathname + 'FIField_spike_times'
     parameters_file = pathname + 'FIField_parameters.npy'
@@ -1170,17 +1173,56 @@ def fifield_analysis2(data_name):
     with open(data_file, 'rb') as fp:
         spike_times = pickle.load(fp)
 
-    embed()
     spike_times = np.array(spike_times)
     parameters[:, 2] = np.floor(parameters[:, 2])  # round strange dB values
-    idx = parameters[:, 1] == 50000  # find all trials with 50000 kHz
+    used_freqs = np.unique(parameters[:, 1])
+    spike_count = {}
+    first_spike_latency = {}
+    for i in range(len(used_freqs)):
+        # Get all trials with frequency i
+        y = spike_times[parameters[:, 1] == used_freqs[i]]
+        amps = parameters[parameters[:, 1] == used_freqs[i], 2]
+        used_amps = np.unique(amps)
+        spc = np.zeros((len(used_amps), 2))
+        fsl = np.zeros((len(used_amps), 2))
+        for k in range(len(used_amps)):
+            # Get all trials with amplitude k
+            x = y[amps == used_amps[k]]
+            if sum(amps == used_amps[k]) == 0:
+                continue
+            single_count = np.zeros((len(x), 1))
+            first_spike = np.zeros((len(x), 1))
+            for j in range(len(x)):  # Loop over all single trials and count spikes
+                single_count[j] = len(x[j])  # Count spikes per trial
+                if len(x[j]) == 0:
+                    first_spike[j] = 1
+                else:
+                    first_spike[j] = x[j][0]  # First Spike Latency
+            spc[k, 1] = np.mean(single_count)
+            spc[k, 0] = used_amps[k]
+            fsl[k, 1] = np.mean(first_spike)
+            fsl[k, 0] = used_amps[k]
+        spike_count.update({used_freqs[i]/1000: spc})
+        first_spike_latency.update({used_freqs[i]/1000: fsl})
+    # plt.plot(spike_count[70][:,0], spike_count[70][:,1]); plt.show()
 
-    amps = parameters[idx, 2]
-    trials = spike_times[idx]
-
-
-
-    return 0
+    # Compute FIFIELD
+    fi_field = np.zeros((len(spike_count), 2))
+    cc = 0
+    for i in spike_count:
+        idx = spike_count[i][:, 1] >= threshold
+        if sum(idx) == 0:
+            a = 100
+        else:
+            a = np.min(spike_count[i][idx, 0])
+        fi_field[cc, 0] = i
+        fi_field[cc, 1] = a
+        cc += 1
+    fi_field = fi_field[fi_field[:, 0].argsort()]
+    if plot_fi:
+        plt.plot(fi_field[:, 0], fi_field[:, 1])
+        plt.show()
+    return spike_count, fi_field, first_spike_latency
 
 
 # ----------------------------------------------------------------------------------------------------------------------
