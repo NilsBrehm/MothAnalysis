@@ -1832,7 +1832,7 @@ def vanrossum_matrix(dataset, tau, duration, dt_factor, boot_sample, stim_type, 
     return mm_mean
 
 
-def isi_matrix(dataset, duration, boot_sample, stim_type, save_fig):
+def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
     pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
     spikes = np.load(pathname + 'Calls_spikes.npy').item()
     # tag_list = np.load(pathname + 'Calls_tag_list.npy')
@@ -1910,6 +1910,31 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, save_fig):
                  'naturalmothcalls/idalu_fasciipuncta_05x05.wav', 'naturalmothcalls/idalus_daga_18x18.wav',
                  'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
                  'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav']
+
+    if stim_type == 'bats_single':
+        stims = ['batcalls/Barbastella_barbastellus_1_n.wav',
+                 'batcalls/Eptesicus_nilssonii_1_s.wav',
+                 'batcalls/Myotis_bechsteinii_1_n.wav',
+                 'batcalls/Myotis_brandtii_1_n.wav',
+                 'batcalls/Myotis_nattereri_1_n.wav',
+                 'batcalls/Nyctalus_leisleri_1_n.wav',
+                 'batcalls/Nyctalus_noctula_2_s.wav',
+                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+                 'batcalls/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'bats_series':
+        stims = ['callseries/bats/Barbastella_barbastellus_1_n.wav',
+                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
+                 'callseries/bats/Myotis_brandtii_1_n.wav',
+                 'callseries/bats/Myotis_nattereri_1_n.wav',
+                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
+                 'callseries/bats/Nyctalus_noctula_2_s.wav',
+                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
+                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
+                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
+                 'callseries/bats/Vespertilio_murinus_1_s.wav']
 
     if stim_type == 'series':
         stims = ['callseries/moths/A7838.wav',
@@ -2023,9 +2048,15 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, save_fig):
     for p in range(len(stims)):
         stimulus_tags[p] = connection[stims[p]]
 
-    trial_nr = 20
-
+    # trial_nr = 20
+    '''
+    ln = np.zeros((len(stimulus_tags)))
+    for k in range(len(stimulus_tags)):
+        ln[k] = len(spikes[stimulus_tags[k]])
+    trial_nr = np.min(ln)
+    '''
     call_count = len(stimulus_tags)
+
     # Select Template and Probes and bootstrap this process
     mm = {}
     for boot in range(boot_sample):
@@ -2033,11 +2064,15 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, save_fig):
         match_matrix = np.zeros((call_count, call_count))
         templates = {}
         probes = {}
-        rand_ids = np.random.randint(trial_nr, size=call_count)
+        # rand_ids = np.random.randint(trial_nr, size=call_count)
         for i in range(call_count):
+            trial_nr = len(spikes[stimulus_tags[i]])
+            rand_id = np.random.randint(trial_nr, size=1)
             idx = np.arange(0, trial_nr, 1)
-            idx = np.delete(idx, rand_ids[i])
-            templates.update({i: spikes[stimulus_tags[i]][rand_ids[i]]})
+            # idx = np.delete(idx, rand_ids[i])
+            # templates.update({i: spikes[stimulus_tags[i]][rand_ids[i]]})
+            idx = np.delete(idx, rand_id[0])
+            templates.update({i: spikes[stimulus_tags[i]][rand_id[0]]})
             for q in range(len(idx)):
                 probes.update({count: [spikes[stimulus_tags[i]][idx[q]], i]})
                 count += 1
@@ -2049,10 +2084,34 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, save_fig):
                 edges = [0, duration]
                 temp = spk.SpikeTrain(templates[tmp], edges)
                 prb = spk.SpikeTrain(probes[pr][0], edges)
-                isi_profile = spk.isi_profile(temp, prb)
-                d[tmp] = isi_profile.avrg()
 
-            template_match = np.where(d == np.min(d))[0][0]
+                if profile == 'COUNT':
+                    profile_name = '/COUNT_Matrix_'
+                    d[tmp] = abs(len(prb.spikes[prb.spikes <= duration])-len(temp.spikes[temp.spikes <= duration]))
+
+                if profile == 'ISI':
+                    # ISI Profile:
+                    profile_name = '/ISI_Matrix_'
+                    d[tmp] = spk.isi_distance(temp, prb, interval=[0, duration])
+                    # isi_profile = spk.isi_profile(temp, prb)
+                    # d[tmp] = isi_profile.avrg()
+
+                if profile == 'SPIKE':
+                    # SPIKE Profile:
+                    profile_name = '/SPIKE_Matrix_'
+                    d[tmp] = spk.spike_distance(temp, prb, interval=[0, duration])
+                    # SPIKE_profile = spk.spike_profile(temp, prb)
+                    # d[tmp] = SPIKE_profile.avrg()
+
+                if profile == 'SYNC':
+                    profile_name = '/SYNC_Matrix_'
+                    d[tmp] = spk.spike_sync(temp, prb, interval=[0, duration])
+
+            if profile == 'SYNC':
+                template_match = np.where(d == np.max(d))[0][0]
+            else:
+                template_match = np.where(d == np.min(d))[0][0]
+
             song_id = probes[pr][1]
             match_matrix[template_match, song_id] += 1
             '''
@@ -2079,6 +2138,15 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, save_fig):
 
     mm_mean = sum(mm.values()) / len(mm)
 
+    # Percent Correct
+    percent_correct = np.zeros((len(mm_mean)))
+    correct_nr = np.zeros((len(mm_mean)))
+    for r in range(len(mm_mean)):
+        percent_correct[r] = mm_mean[r, r]/np.sum(mm_mean[:, r])
+        correct_nr[r] = mm_mean[r, r]
+
+    correct_matches = np.sum(correct_nr)/np.sum(mm_mean)
+
     if save_fig:
         # Plot Matrix
         plt.imshow(mm_mean)
@@ -2090,14 +2158,14 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, save_fig):
         plt.title('T = ' + str(duration * 1000) + ' ms')
 
         # Save Plot to HDD
-        figname = "/media/brehm/Data/MasterMoth/figs/" + dataset + '/ISI_Matrix_' + str(duration * 1000) + '.png'
+        figname = "/media/brehm/Data/MasterMoth/figs/" + dataset + profile_name + str(duration * 1000) + '.png'
         fig = plt.gcf()
         fig.set_size_inches(10, 10)
         fig.savefig(figname, bbox_inches='tight', dpi=300)
         plt.close(fig)
         print('T = ' + str(duration * 1000) + ' ms done')
 
-    return mm_mean
+    return mm_mean, correct_matches
 
 
 # ----------------------------------------------------------------------------------------------------------------------

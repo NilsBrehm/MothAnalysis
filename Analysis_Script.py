@@ -11,16 +11,16 @@ start_time = time.time()
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
 # datasets = ['2018-02-09-aa']
-datasets =['2017-11-01-aa']
+datasets =['2018-02-09-aa']
 
-FIFIELD = True
+FIFIELD = False
 INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
 SOUND = False
 VANROSSUM = False
 GAP = False
-ISI = False
+ISI = True
 
 # Parameters for Spike Detection
 peak_params = {'mph': 'dynamic', 'mpd': 40, 'valley': False, 'show': True, 'maxph': None, 'filter_on': True}
@@ -67,9 +67,30 @@ if VANROSSUM:
     # mf.tagtostimulus(datasets[0])
 
 if ISI:
-    duration = 1000
-    nsamples = 2
-    mm = mf.isi_matrix(datasets[0], duration/1000, boot_sample=nsamples, stim_type='series', save_fig=True)
+    # duration = 1000
+    duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
+    # duration = [10, 20, 40, 50, 100, 200, 400, 500, 750, 1000, 1500, 2000]
+    # duration = np.arange(50, 3001, 50)
+    nsamples = 5
+    profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC']
+    # profs = ['COUNT']
+
+    correct = np.zeros((len(duration), len(profs)))
+    for p in range(len(profs)):
+        for i in range(len(duration)):
+            mm, correct[i, p] = mf.isi_matrix(datasets[0], duration[i]/1000, boot_sample=nsamples,
+                               stim_type='series', profile=profs[p], save_fig=True)
+            print(str((i+1)/len(duration)*100) + ' % done')
+        # print('\n' * 100)
+        print('Total: ' + str((p + 1) / len(profs) * 100) + ' % done')
+
+    for k in range(len(profs)):
+        plt.subplot(2, 2, k+1)
+        plt.plot(duration, correct[:, k], 'ko-')
+        plt.xlabel('Spike Train Length [ms]')
+        plt.ylabel('Correct [' + profs[k] + ']')
+    plt.show()
+    embed()
 
 if GAP:
     tag_list = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-20-aa/DataFiles/Gap_tag_list.npy')
