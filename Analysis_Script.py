@@ -18,9 +18,9 @@ INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
 SOUND = False
-VANROSSUM = False
+VANROSSUM = True
 GAP = False
-ISI = True
+ISI = False
 
 # Parameters for Spike Detection
 peak_params = {'mph': 'dynamic', 'mpd': 40, 'valley': False, 'show': True, 'maxph': None, 'filter_on': True}
@@ -55,15 +55,28 @@ if SOUND:
 if VANROSSUM:
     dt_factor = 100
     # taus = [0.5, 1, 2, 5, 10, 20]  # in ms
-    taus = [5]
-    # duration = [40, 60, 80, 100, 120, 140]
-    duration = [50, 100, 250, 500, 750, 1000, 1500, 2000]
-    nsamples = 10
-    for tt in taus:
-        for dur in duration:
-            mm = mf.vanrossum_matrix(datasets[0], tt/1000, dur/1000, dt_factor, boot_sample=nsamples,
-                                     stim_type='series', save_fig=True)
+    taus = [5, 10]
+    duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
+    # duration = [50, 100, 250, 500, 750, 1000, 1500, 2000]
+    nsamples = 5
+    correct = np.zeros((len(duration), len(taus)))
+    for tt in range(len(taus)):
+        for dur in range(len(duration)):
+            mm, correct[dur, tt] = mf.vanrossum_matrix(datasets[0], taus[tt]/1000, duration[dur]/1000, dt_factor,
+                                                       boot_sample=nsamples, stim_type='series', save_fig=False)
+            print(str((dur + 1) / len(duration) * 100) + ' % done')
     print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
+
+    # Plot Percent Correct
+    print('Ready to Plot?')
+    embed()
+    for k in range(len(taus)):
+        plt.subplot(2, 2, k+1)
+        plt.plot(duration, correct[:, k], 'ko-')
+        plt.xlabel('Spike Train Length [ms]')
+        plt.ylabel('Correct [' + str(taus[k]) + ']')
+    plt.show()
+    embed()
     # mf.tagtostimulus(datasets[0])
 
 if ISI:

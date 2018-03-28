@@ -1744,10 +1744,11 @@ def vanrossum_matrix(dataset, tau, duration, dt_factor, boot_sample, stim_type, 
 
     # Convert all Spike Trains to e-pulses
     # trial_nr = int(len(spikes[stimulus_tags[0]]))
-    trial_nr = 20
+    # trial_nr = 20
     trains = {}
 
     for k in range(len(stimulus_tags)):
+        trial_nr = len(spikes[stimulus_tags[k]])
         tr = [[]]*trial_nr
         for j in range(trial_nr):
             x = spikes[stimulus_tags[k]][j]
@@ -1766,11 +1767,15 @@ def vanrossum_matrix(dataset, tau, duration, dt_factor, boot_sample, stim_type, 
         match_matrix = np.zeros((call_count, call_count))
         templates = {}
         probes = {}
-        rand_ids = np.random.randint(trial_nr, size=call_count)
+        # rand_ids = np.random.randint(trial_nr, size=call_count)
         for i in range(call_count):
+            trial_nr = len(spikes[stimulus_tags[i]])
+            rand_id = np.random.randint(trial_nr, size=1)
             idx = np.arange(0, trial_nr, 1)
-            idx = np.delete(idx, rand_ids[i])
-            templates.update({i: trains[stimulus_tags[i]][rand_ids[i]]})
+            # idx = np.delete(idx, rand_ids[i])
+            # templates.update({i: trains[stimulus_tags[i]][rand_ids[i]]})
+            idx = np.delete(idx, rand_id[0])
+            templates.update({i: trains[stimulus_tags[i]][rand_id[0]]})
             for q in range(len(idx)):
                 probes.update({count: [trains[stimulus_tags[i]][idx[q]], i]})
                 count += 1
@@ -1810,6 +1815,15 @@ def vanrossum_matrix(dataset, tau, duration, dt_factor, boot_sample, stim_type, 
 
     mm_mean = sum(mm.values()) / len(mm)
 
+    # Percent Correct
+    percent_correct = np.zeros((len(mm_mean)))
+    correct_nr = np.zeros((len(mm_mean)))
+    for r in range(len(mm_mean)):
+        percent_correct[r] = mm_mean[r, r] / np.sum(mm_mean[:, r])
+        correct_nr[r] = mm_mean[r, r]
+
+    correct_matches = np.sum(correct_nr) / np.sum(mm_mean)
+
     if save_fig:
         # Plot Matrix
         plt.imshow(mm_mean)
@@ -1829,7 +1843,7 @@ def vanrossum_matrix(dataset, tau, duration, dt_factor, boot_sample, stim_type, 
         plt.close(fig)
         print('tau = ' + str(tau*1000) + ' ms' + ' T = ' + str(duration*1000) + ' ms done')
 
-    return mm_mean
+    return mm_mean, correct_matches
 
 
 def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
