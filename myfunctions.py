@@ -2014,6 +2014,7 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
 
     # Select Template and Probes and bootstrap this process
     mm = {}
+    distances_per_boot = {}
     for boot in range(boot_sample):
         count = 0
         match_matrix = np.zeros((call_count, call_count))
@@ -2033,6 +2034,8 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
                 count += 1
 
         # Compute ISI Distance
+        distances = [[]] * len(probes)
+        call_ids = [[]] * len(probes)
         for pr in range(len(probes)):
             d = np.zeros(len(templates))
             for tmp in range(len(templates)):
@@ -2069,6 +2072,8 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
 
             song_id = probes[pr][1]
             match_matrix[template_match, song_id] += 1
+            distances[pr] = d
+            call_ids[pr] = probes[pr][1]
             '''
             if len(np.where(d == np.min(d))) > 1:
                 print('Found more than 1 min.')
@@ -2090,6 +2095,13 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
                 embed()
             '''
         mm.update({boot: match_matrix})
+        embed()
+        for q in range(len(np.unique(call_ids))):
+            idx = call_ids == np.unique(call_ids)[q]
+            md = np.mean(distances[idx], 0)
+        embed()
+        exit()
+        distances_per_boot.update({boot: [distances, call_ids]})
 
     mm_mean = sum(mm.values()) / len(mm)
 
@@ -2120,7 +2132,7 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
         plt.close(fig)
         print('T = ' + str(duration * 1000) + ' ms done')
 
-    return mm_mean, correct_matches
+    return mm_mean, correct_matches, distances_per_boot
 
 
 def vanrossum_matrix_backup(dataset, tau, duration, dt_factor, boot_sample, stim_type, save_fig):
@@ -2417,6 +2429,21 @@ def vanrossum_matrix_backup(dataset, tau, duration, dt_factor, boot_sample, stim
 
     return mm_mean, correct_matches
 
+
+def pulse_train_matrix(samples, duration):
+    d_isi = np.zeros((len(samples), len(samples)))
+    d_spikes = np.zeros((len(samples), len(samples)))
+    edges = [0, duration]
+    for i in range(len(samples)):
+        # template = samples[i]
+        template = spk.SpikeTrain(samples[i], edges)
+        for k in range(len(samples)):
+            # probe = samples[k]
+            probe = spk.SpikeTrain(samples[k], edges)
+            # d[i, k] = abs(len(template) - len(probe))
+            d_isi[i, k] = spk.isi_distance(probe, template, interval=[0, duration])
+            d_spikes[i, k] = spk.spike_distance(probe, template, interval=[0, duration])
+    return d_isi, d_spikes
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Interval MothASongs functions:
@@ -3020,6 +3047,20 @@ def pytomat(dataset, protocol_name):
         volt = voltage['SingleStimulus-file-'+str(i)][0]
         scipy.io.savemat('/media/brehm/Data/volt_test/volt' + str(i) + '.mat', {'volt': volt})
     return 0
+
+
+def mattopy(stim_type, fs):
+    file_pathname = '/media/brehm/Data/MasterMoth/stimuli/' + stim_type + '/'
+    listing = os.listdir(file_pathname)
+    stim_names = sorted([i for i in listing if ".wav" in i])
+    samples = [[]] * len(stim_names)
+    samples_names = [[]] * len(stim_names)
+    for i in range(len(stim_names)):
+        file_name = file_pathname + stim_names[i][0:-4] + '/samples.mat'
+        mat_file = scipy.io.loadmat(file_name)
+        samples[i] = sorted(np.append(mat_file['samples']['active'][0][0][0][:], mat_file['samples']['passive'][0][0][0][:]) / fs)
+        samples_names[i] = stim_names[i][0:-4]
+    return samples, samples_names
 
 
 def get_session_metadata(datasets):

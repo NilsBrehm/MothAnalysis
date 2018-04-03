@@ -20,9 +20,10 @@ Bootstrapping = False
 INTERVAL_REC = False
 SOUND = False
 EPULSES = False
-VANROSSUM = True
+VANROSSUM = False
 GAP = False
-ISI = False
+ISI = True
+PULSE_TRAIN = False
 
 # Parameters for Spike Detection
 peak_params = {'mph': 'dynamic', 'mpd': 40, 'valley': False, 'show': True, 'maxph': None, 'filter_on': True}
@@ -116,18 +117,18 @@ if VANROSSUM:
         plt.show()
 
 if ISI:
-    # duration = 1000
-    duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
+    duration = [1000]
+    # duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
     # duration = [10, 20, 40, 50, 100, 200, 400, 500, 750, 1000, 1500, 2000]
     # duration = np.arange(50, 3001, 50)
     nsamples = 5
-    profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC']
-    # profs = ['COUNT']
+    # profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC']
+    profs = ['ISI']
 
     correct = np.zeros((len(duration), len(profs)))
     for p in range(len(profs)):
         for i in range(len(duration)):
-            mm, correct[i, p] = mf.isi_matrix(datasets[0], duration[i]/1000, boot_sample=nsamples,
+            mm, correct[i, p], distances = mf.isi_matrix(datasets[0], duration[i]/1000, boot_sample=nsamples,
                                stim_type='series', profile=profs[p], save_fig=True)
             print(str((i+1)/len(duration)*100) + ' % done')
         # print('\n' * 100)
@@ -144,6 +145,27 @@ if ISI:
 if GAP:
     tag_list = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-20-aa/DataFiles/Gap_tag_list.npy')
     sp = mf.spike_times_indexes(datasets[0], 'Gap', th_factor=2, min_dist=50, maxph=0.75, show=False)
+    embed()
+
+if PULSE_TRAIN:
+    stim_type = 'callseries/moths'
+    fs = 480*1000
+    duration = 1
+    calls, calls_names = mf.mattopy(stim_type, fs)
+    d_isi, d_spikes = mf.pulse_train_matrix(calls, duration)
+
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.imshow(d_isi)
+    #plt.colorbar()
+    plt.title('ISI')
+
+    plt.subplot(1, 2, 2)
+    plt.imshow(d_spikes)
+    # plt.colorbar()
+    plt.title('SPIKES')
+    plt.tight_layout()
+    plt.show()
     embed()
 
 '''
