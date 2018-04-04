@@ -12,6 +12,7 @@ import quickspikes as qs
 import itertools as itertools
 import pyspike as spk
 import pickle
+from tqdm import tqdm
 
 # ----------------------------------------------------------------------------------------------------------------------
 # PEAK DETECTION
@@ -1681,6 +1682,30 @@ def trains_to_e_pulses(dataset, tau, duration, dt_factor, stim_type, whole_train
                  'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
                  'batcalls/Vespertilio_murinus_1_s.wav']
 
+    if stim_type == 'moth_series':
+        stims = ['callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Chrostosoma_thoracicum_02.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1297_01.wav',
+                 'callseries/moths/melese_PK1298_01.wav',
+                 'callseries/moths/melese_PK1298_02.wav',
+                 'callseries/moths/melese_PK1299_01.wav',
+                 'callseries/moths/melese_PK1300_01.wav']
+
     # Tags and Stimulus names
     connection = tagtostimulus(dataset)
     stimulus_tags = [''] * len(stims)
@@ -1694,7 +1719,7 @@ def trains_to_e_pulses(dataset, tau, duration, dt_factor, stim_type, whole_train
     else:
         print('Computing e-pulses for: ' + str(duration*1000) + ' ms, tau = ' + str(tau*1000) + ' ms')
 
-    for k in range(len(stimulus_tags)):
+    for k in tqdm(range(len(stimulus_tags)), desc='Converting e-pulses'):
         trial_nr = len(spikes[stimulus_tags[k]])
         tr = [[]] * trial_nr
         for j in range(trial_nr):
@@ -1702,7 +1727,7 @@ def trains_to_e_pulses(dataset, tau, duration, dt_factor, stim_type, whole_train
             # tr.update({j: spike_e_pulses(x, dt_factor, tau)})
             tr[j] = spike_e_pulses(x, dt_factor, tau, duration, whole_train, method)
         trains.update({stimulus_tags[k]: tr})
-        print('Converting to e-pulses: ' + str(k/len(stimulus_tags)*100) + ' % done')
+        # print('Converting to e-pulses: ' + str(k/len(stimulus_tags)*100) + ' % done')
     if whole_train:
         # Save to HDD
         file_name = pathname + 'e_trains_' + str(int(tau*1000)) + '_' + stim_type + '.npy'
@@ -1710,6 +1735,16 @@ def trains_to_e_pulses(dataset, tau, duration, dt_factor, stim_type, whole_train
         file_name2 = pathname + 'stimulus_tags_' + str(int(tau*1000)) + '_' + stim_type + '.npy'
         np.save(file_name2, stimulus_tags)
     return trains, stimulus_tags
+
+
+def pulse_trains_to_e_pulses(samples, tau, dt_factor, method):
+    whole_train = True
+    duration = 0
+    e_pulses = [[]] * len(samples)
+    for k in range(len(samples)):
+        e_pulses[k] = spike_e_pulses(np.array(samples[k]), dt_factor, tau, duration, whole_train, method)
+
+    return e_pulses
 
 
 def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt_factor, tau, boot_sample, save_fig):
@@ -1720,6 +1755,7 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt_factor, tau, b
 
     # Select Template and Probes and bootstrap this process
     mm = {}
+    distances_per_boot = {}
     for boot in range(boot_sample):
         count = 0
         match_matrix = np.zeros((call_count, call_count))
@@ -1743,6 +1779,8 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt_factor, tau, b
                 count += 1
 
         # Compute VanRossum Distance
+        distances = [[]] * len(probes)
+        call_ids = [[]] * len(probes)
         for pr in range(len(probes)):
             d = np.zeros(len(templates))
             for tmp in range(len(templates)):
@@ -1751,8 +1789,17 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt_factor, tau, b
             template_match = np.where(d == np.min(d))[0][0]
             song_id = probes[pr][1]
             match_matrix[template_match, song_id] += 1
+            distances[pr] = d
+            call_ids[pr] = probes[pr][1]
 
         mm.update({boot: match_matrix})
+        md = [[]] * len(np.unique(call_ids))
+        distances = np.array(distances)
+        for qq in range(len(np.unique(call_ids))):
+            idx = call_ids == np.unique(call_ids)[qq]
+            md[qq] = np.mean(distances[idx], 0)
+        md = np.array(md)
+        distances_per_boot.update({boot: [md, call_ids]})
 
     mm_mean = sum(mm.values()) / len(mm)
 
@@ -1784,7 +1831,7 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt_factor, tau, b
         plt.close(fig)
         # print('tau = ' + str(tau*1000) + ' ms' + ' T = ' + str(duration*1000) + ' ms done')
 
-    return mm_mean, correct_matches
+    return mm_mean, correct_matches, distances_per_boot
 
 
 def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
@@ -1996,6 +2043,31 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
                  'batcalls/Pipistrellus_pygmaeus_2_n.wav',
                  'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
                  'batcalls/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'moth_series':
+        stims = ['callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Chrostosoma_thoracicum_02.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1297_01.wav',
+                 'callseries/moths/melese_PK1298_01.wav',
+                 'callseries/moths/melese_PK1298_02.wav',
+                 'callseries/moths/melese_PK1299_01.wav',
+                 'callseries/moths/melese_PK1300_01.wav']
+
     # Tags and Stimulus names
 
     connection = tagtostimulus(dataset)
@@ -2095,13 +2167,13 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
                 embed()
             '''
         mm.update({boot: match_matrix})
-        embed()
-        for q in range(len(np.unique(call_ids))):
-            idx = call_ids == np.unique(call_ids)[q]
-            md = np.mean(distances[idx], 0)
-        embed()
-        exit()
-        distances_per_boot.update({boot: [distances, call_ids]})
+        md = [[]] * len(np.unique(call_ids))
+        distances = np.array(distances)
+        for qq in range(len(np.unique(call_ids))):
+            idx = call_ids == np.unique(call_ids)[qq]
+            md[qq] = np.mean(distances[idx], 0)
+        md = np.array(md)
+        distances_per_boot.update({boot: [md, call_ids]})
 
     mm_mean = sum(mm.values()) / len(mm)
 
