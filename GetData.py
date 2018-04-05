@@ -5,12 +5,14 @@ import nixio as nix
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
 import os
+import thunderfish.peakdetection
 
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-# datasets = ['2018-02-09-aa']
-datasets = ['2017-11-01-aa']
+# datasets = ['2018-02-09-aa'] # calls
+# datasets = ['2017-11-01-aa'] # calls
+datasets = ['2017-12-05-aa']  # FI
 
 VIEWNIX = False
 GetSession = False
@@ -61,7 +63,8 @@ if VIEWNIX:
 if FIFIELD:
     print('Starting FIField Data Gathering')
     # mf.fifield_voltage2(datasets[0], 'FIField-sine_wave-1')
-    mf.fifield_spike_detection(datasets[0], valley=True)
+    mf.fifield_spike_detection(datasets[0], dynamic=True, valley=False, th_factor=4, min_dist=150, maxph=0.9,
+                               th_window=200, filter_on=True)
 
 # Intervals: MothASongs
 if INTERVAL_MAS:

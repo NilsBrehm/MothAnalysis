@@ -13,6 +13,7 @@ import itertools as itertools
 import pyspike as spk
 import pickle
 from tqdm import tqdm
+import thunderfish.peakdetection as pk
 
 # ----------------------------------------------------------------------------------------------------------------------
 # PEAK DETECTION
@@ -221,7 +222,7 @@ def peak_seek(x, mpd, mph):
     #locs = find(x(2:end - 1) >= x(1: end - 2) & x(2: end - 1) >= x(3: end))+1;
 
 
-def indexes(y, th_factor=2, min_dist=50, maxph=0.8):
+def indexes(y, dynamic, th_factor=2, min_dist=50, maxph=0.8, th_window=200):
     """Peak detection routine.
     Finds the numeric index of the peaks in *y* by taking its first order difference. By using
     *thres* and *min_dist* parameters, it is possible to reduce the number of
@@ -236,13 +237,20 @@ def indexes(y, th_factor=2, min_dist=50, maxph=0.8):
         Minimum distance between each detected peak. The peak with the highest
         amplitude is preferred to satisfy this constraint.
     maxph: All peaks larger than maxph * max(y) are removed.
+    th_window: end point of the range for computing threshold values
 
     Returns
     -------
     ndarray
         Array containing the numeric indexes of the peaks that were detected
     """
-    thres = th_factor * np.median(abs(y[0:400]) / 0.6745)
+    if isinstance(th_window, str):
+        th_window = -1
+    # thres = th_factor * np.median(abs(y[0:th_window]) / 0.6745)
+    if dynamic:
+        thres = th_factor * np.median(abs(y[0:th_window] - np.median(y[0:th_window])))
+    else:
+        thres = th_factor
     maxph = np.max(abs(y)) * maxph
 
     if isinstance(y, np.ndarray) and np.issubdtype(y.dtype, np.unsignedinteger):
@@ -294,7 +302,7 @@ def indexes(y, th_factor=2, min_dist=50, maxph=0.8):
 
         peaks = np.arange(y.size)[~rem]
 
-    return peaks
+    return peaks, thres
 
 
 def get_spike_times(dataset, protocol_name, peak_params, show_detection):
@@ -1062,7 +1070,7 @@ def fifield_voltage2(data_name, tag):
     return 0
 
 
-def fifield_spike_detection(data_name, valley):
+def fifield_spike_detection(data_name, dynamic, valley, th_factor=4, min_dist=70, maxph=10, th_window=400, filter_on=True):
     pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
     data_file = pathname + 'FIField_voltage'
     parameters_file = pathname + 'FIField_parameters.npy'
@@ -1072,17 +1080,37 @@ def fifield_spike_detection(data_name, valley):
         volt = pickle.load(fp)
 
     spike_times = [[]] * len(volt)
+    sp_times = [[]] * len(volt)
+    sp_valley = [[]] * len(volt)
     for k in range(len(volt)):
         x = volt[k]
+        # Filter Voltage Trace
+        if filter_on:
+            nyqst = 0.5 * fs
+            lowcut = 300
+            highcut = 2000
+            low = lowcut / nyqst
+            high = highcut / nyqst
+            x = voltage_trace_filter(x, [low, high], ftype='band', order=4, filter_on=True)
         if valley:
             x = -x
-        spike_times[k] = indexes(x, th_factor=4, min_dist=70, maxph=10)
 
-        if np.random.rand(1) > 0.99:
+        spike_times[k], thres = indexes(x, dynamic, th_factor, min_dist, maxph, th_window)
+
+        # Thunderfish peakdetection: window size in seconds
+        th = pk.std_threshold(x, samplerate=fs, win_size=None, th_factor=2)
+        sp_times[k], sp_valley[k] = pk.detect_peaks(x, th)
+
+        if np.random.rand(1) > 0.98:
             plt.figure()
             plt.plot(x)
-            plt.plot(spike_times[k], x[spike_times[k]], 'ro')
-            plt.title(parameters[k])
+            #plt.plot(spike_times[k], x[spike_times[k]], 'bx')
+            plt.plot(sp_times[k], x[sp_times[k]], 'ro')
+            plt.plot(sp_valley[k], x[sp_valley[k]], 'bo')
+            plt.plot(th / 2, 'b--')
+            plt.plot(-th / 2, 'b--')
+            #plt.plot([0, len(x)], [thres, thres], 'r--')
+            plt.title('{:.0f}'.format(thres) + ' ' + '{:.0f}'.format(parameters[k][1]) + ' ' + '{:.0f}'.format(parameters[k][2]))
             plt.show()
         spike_times[k] = spike_times[k] / fs  # now in seconds
 
@@ -1185,7 +1213,7 @@ def fifield_analysis2(data_name, threshold, plot_fi):
         amps = parameters[parameters[:, 1] == used_freqs[i], 2]
         used_amps = np.unique(amps)
         spc = np.zeros((len(used_amps), 2))
-        fsl = np.zeros((len(used_amps), 2))
+        fsl = np.zeros((len(used_amps), 3))
         for k in range(len(used_amps)):
             # Get all trials with amplitude k
             x = y[amps == used_amps[k]]
@@ -1196,12 +1224,14 @@ def fifield_analysis2(data_name, threshold, plot_fi):
             for j in range(len(x)):  # Loop over all single trials and count spikes
                 single_count[j] = len(x[j])  # Count spikes per trial
                 if len(x[j]) == 0:
-                    first_spike[j] = 1
+                    first_spike[j] = np.nan
                 else:
                     first_spike[j] = x[j][0]  # First Spike Latency
+
             spc[k, 1] = np.mean(single_count)
             spc[k, 0] = used_amps[k]
-            fsl[k, 1] = np.mean(first_spike)
+            fsl[k, 2] = np.nanstd(first_spike)
+            fsl[k, 1] = np.nanmean(first_spike)
             fsl[k, 0] = used_amps[k]
         spike_count.update({used_freqs[i]/1000: spc})
         first_spike_latency.update({used_freqs[i]/1000: fsl})

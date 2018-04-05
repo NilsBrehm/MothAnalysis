@@ -11,10 +11,11 @@ start_time = time.time()
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
-# datasets = ['2018-02-09-aa']
-datasets =['2018-02-09-aa']
+# datasets = ['2018-02-09-aa']  # Calls
+# datasets =['2018-02-09-aa']  # Calls
+datasets = ['2017-12-05-aa']  # FI
 
-FIFIELD = False
+FIFIELD = True
 INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
@@ -22,9 +23,9 @@ GAP = False
 SOUND = False
 
 EPULSES = False
-ISI = True
+ISI = False
 VANROSSUM = False
-PULSE_TRAIN_ISI = True
+PULSE_TRAIN_ISI = False
 PULSE_TRAIN_VANROSSUM = False
 
 
@@ -45,8 +46,27 @@ if INTERVAL_MAS:
 # Analyse FIField data stored on HDD
 if FIFIELD:
     #mf.fifield_spike_detection(datasets[0])
-    th = 2
-    spike_count, fi_field, fsl = mf.fifield_analysis2(datasets[0], th, plot_fi=True)
+    th = 4
+    spike_count, fi_field, fsl = mf.fifield_analysis2(datasets[0], th, plot_fi=False)
+    freqs = np.arange(10, 90, 10)
+    for f in range(len(freqs)):
+        plt.figure(1)
+        plt.subplot(2, 4, f+1)
+        plt.errorbar(fsl[freqs[f]][:, 0], fsl[freqs[f]][:, 1]*1000, yerr=fsl[freqs[f]][:, 2]*1000)
+        plt.plot(spike_count[freqs[f]][:, 0], spike_count[freqs[f]][:, 1], 'k-o')
+        plt.ylim(0, 20)
+        plt.xlim(20, 90)
+        plt.title(str(freqs[f]) + ' kHz')
+
+    for f in range(len(freqs)):
+        plt.figure(2)
+        plt.subplot(2, 4, f+1)
+        plt.plot(spike_count[freqs[f]][:, 0], spike_count[freqs[f]][:, 1], 'k-o')
+        plt.ylim(0, 20)
+        plt.xlim(20, 90)
+        plt.title(str(freqs[f]) + ' kHz')
+
+    plt.show()
     embed()
 
 if Bootstrapping:
