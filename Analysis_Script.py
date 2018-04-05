@@ -46,9 +46,10 @@ if INTERVAL_MAS:
 # Analyse FIField data stored on HDD
 if FIFIELD:
     #mf.fifield_spike_detection(datasets[0])
-    th = 4
-    spike_count, fi_field, fsl = mf.fifield_analysis2(datasets[0], th, plot_fi=False)
+    th = 8
+    spike_count, fi_field, fsl = mf.fifield_analysis2(datasets[0], th, plot_fi=True)
     freqs = np.arange(10, 90, 10)
+    embed()
     for f in range(len(freqs)):
         plt.figure(1)
         plt.subplot(2, 4, f+1)
@@ -57,15 +58,6 @@ if FIFIELD:
         plt.ylim(0, 20)
         plt.xlim(20, 90)
         plt.title(str(freqs[f]) + ' kHz')
-
-    for f in range(len(freqs)):
-        plt.figure(2)
-        plt.subplot(2, 4, f+1)
-        plt.plot(spike_count[freqs[f]][:, 0], spike_count[freqs[f]][:, 1], 'k-o')
-        plt.ylim(0, 20)
-        plt.xlim(20, 90)
-        plt.title(str(freqs[f]) + ' kHz')
-
     plt.show()
     embed()
 

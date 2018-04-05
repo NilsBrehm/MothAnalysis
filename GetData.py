@@ -63,8 +63,7 @@ if VIEWNIX:
 if FIFIELD:
     print('Starting FIField Data Gathering')
     # mf.fifield_voltage2(datasets[0], 'FIField-sine_wave-1')
-    mf.fifield_spike_detection(datasets[0], dynamic=True, valley=False, th_factor=4, min_dist=150, maxph=0.9,
-                               th_window=200, filter_on=True)
+    mf.fifield_spike_detection(datasets[0], th_factor=2, th_window=None, mph_percent=0.8, filter_on=True, valley=False)
 
 # Intervals: MothASongs
 if INTERVAL_MAS:
