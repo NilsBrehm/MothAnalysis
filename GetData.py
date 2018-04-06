@@ -12,7 +12,8 @@ import thunderfish.peakdetection
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
 # datasets = ['2018-02-09-aa'] # calls
 # datasets = ['2017-11-01-aa'] # calls
-datasets = ['2017-12-05-aa']  # FI
+# datasets = ['2017-12-05-aa']  # FI
+datasets = ['2018-01-26-aa']
 
 VIEWNIX = False
 GetSession = False
@@ -62,8 +63,9 @@ if VIEWNIX:
 # FIField
 if FIFIELD:
     print('Starting FIField Data Gathering')
-    # mf.fifield_voltage2(datasets[0], 'FIField-sine_wave-1')
-    mf.fifield_spike_detection(datasets[0], th_factor=2, th_window=None, mph_percent=0.8, filter_on=True, valley=False)
+    mf.fifield_voltage2(datasets[0], 'FIField-sine_wave-1')
+    mf.fifield_spike_detection(datasets[0], th_factor=2, th_window=None, mph_percent=10, filter_on=True, valley=False,
+                              min_th=50)
 
 # Intervals: MothASongs
 if INTERVAL_MAS:

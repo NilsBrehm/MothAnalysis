@@ -13,9 +13,10 @@ start_time = time.time()
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
 # datasets = ['2018-02-09-aa']  # Calls
 # datasets =['2018-02-09-aa']  # Calls
-datasets = ['2017-12-05-aa']  # FI
+# datasets = ['2017-12-05-aa']  # FI
+datasets = ['2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa', '2017-11-01-aa', '2017-11-16-aa']  # Carales FIs
 
-FIFIELD = True
+FIFIELD = False
 INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
@@ -27,6 +28,8 @@ ISI = False
 VANROSSUM = False
 PULSE_TRAIN_ISI = False
 PULSE_TRAIN_VANROSSUM = False
+
+FI_OVERANIMALS = True
 
 
 # Parameters for Spike Detection
@@ -45,21 +48,50 @@ if INTERVAL_MAS:
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
-    #mf.fifield_spike_detection(datasets[0])
-    th = 8
-    spike_count, fi_field, fsl = mf.fifield_analysis2(datasets[0], th, plot_fi=True)
-    freqs = np.arange(10, 90, 10)
-    embed()
+    data = datasets[4]
+    save_plot = True
+    p = "/media/brehm/Data/MasterMoth/figs/" + data + "/DataFiles/"
+    th = 4
+    spike_count, fi_field, fsl = mf.fifield_analysis2(data, th, plot_fi=False)
+    # freqs = np.zeros(len(spike_count))
+    freqs = [[]] * len(spike_count)
+    i = 0
+    for key in spike_count:
+        freqs[i] = int(key)
+        i += 1
+    freqs = sorted(freqs)
+
+    # Plot FI-Curves
     for f in range(len(freqs)):
         plt.figure(1)
-        plt.subplot(2, 4, f+1)
-        plt.errorbar(fsl[freqs[f]][:, 0], fsl[freqs[f]][:, 1]*1000, yerr=fsl[freqs[f]][:, 2]*1000)
-        plt.plot(spike_count[freqs[f]][:, 0], spike_count[freqs[f]][:, 1], 'k-o')
+        plt.subplot(np.ceil(len(spike_count)/5), 5, f+1)
+        plt.errorbar(fsl[freqs[f]][:, 0], fsl[freqs[f]][:, 1]*1000, yerr=fsl[freqs[f]][:, 2]*1000, marker='o',
+                     color='r')
+        plt.errorbar(spike_count[freqs[f]][:, 0], spike_count[freqs[f]][:, 1], yerr=spike_count[freqs[f]][:, 2],
+                     marker='o', color='k')
         plt.ylim(0, 20)
-        plt.xlim(20, 90)
+        # plt.xlim(20, 90)
+        plt.xticks(np.arange(20, 100, 10))
         plt.title(str(freqs[f]) + ' kHz')
-    plt.show()
-    embed()
+        plt.tight_layout()
+    # plt.show()
+
+    if save_plot:
+        # Save Plot to HDD
+        figname = p + 'fi_curves.png'
+        fig = plt.gcf()
+        fig.set_size_inches(20, 10)
+        fig.savefig(figname, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print('Plot saved for ' + data)
+    else:
+        plt.show()
+
+    # Save FI to HDD
+    np.save(p + 'fi_spike_count.npy', spike_count)
+    np.save(p + 'fi_field.npy', fi_field)
+    np.save(p + 'fi_firstspikelatency.npy', fsl)
+    np.save(p + 'fi_frequencies.npy', freqs)
 
 if Bootstrapping:
     # mf.resampling(datasets)
@@ -290,6 +322,28 @@ if PULSE_TRAIN_VANROSSUM:
         print('Plot saved')
     else:
         plt.show()
+
+
+if FI_OVERANIMALS:
+    # Load data
+    '''
+    p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
+    a = np.load(p + 'fi_spike_count.npy')
+    b = np.load(p + 'fi_firstspikelatency.npy')
+    c = np.load(p + 'fi_field.npy')
+    d = np.load(p + 'fi_frequencies.npy')
+    embed()
+    '''
+    fields = {}
+    for i in range(len(datasets)-1):
+        p = "/media/brehm/Data/MasterMoth/figs/" + datasets[i] + "/DataFiles/"
+        fields.update({i: np.load(p + 'fi_field.npy')})
+        plt.plot(fields[i][:, 0], fields[i][:, 1], 'o-')
+    plt.xlabel('Frequency [kHz]')
+    plt.ylabel('dB SPL at threshold')
+    plt.ylim(0, 90)
+    mf.adjustSpines(plt.gca())
+    plt.show()
 
 
 '''

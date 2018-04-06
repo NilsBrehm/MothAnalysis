@@ -1054,7 +1054,7 @@ def fifield_voltage2(data_name, tag):
 
     volt = [[]] * len(frequency)
     parameters = np.zeros(shape=(len(frequency), 3))
-    for k in range(len(frequency)):
+    for k in tqdm(range(len(frequency)), desc='Collecting Voltage Traces'):
         volt[k] = mtag.retrieve_data(k, 0)[:]
         parameters[k] = [k, frequency[k], amplitude[k]]
 
@@ -1070,7 +1070,7 @@ def fifield_voltage2(data_name, tag):
     return 0
 
 
-def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0.8, filter_on=True, valley=False):
+def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0.8, filter_on=True, valley=False, min_th=20):
     # (data_name, dynamic, valley, th_factor=4, min_dist=70, maxph=10, th_window=400, filter_on=True):
     pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
     data_file = pathname + 'FIField_voltage'
@@ -1100,36 +1100,47 @@ def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0
 
         # Thunderfish peakdetection: window size in seconds
         th = pk.std_threshold(x, samplerate=fs, win_size=th_window, th_factor=th_factor)
+        if np.min(th) <= min_th and th_window is None:
+            th = min_th
         spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
 
         # Remove large spikes
-        mask = np.ones(len(spike_times[k]), dtype=bool)
-        a = x[spike_times[k]]
-        idx_a = a >= np.max(a) * mph_percent
-        mask[idx_a] = False
-        marked = spike_times[k][idx_a]
-        spike_times[k] = spike_times[k][mask]
+        if spike_times[k].any():
+            mask = np.ones(len(spike_times[k]), dtype=bool)
+            a = x[spike_times[k]]
+            idx_a = a >= np.max(a) * mph_percent
+            mask[idx_a] = False
+            marked = spike_times[k][idx_a]
+            spike_times[k] = spike_times[k][mask]
 
-        mask = np.ones(len(spike_times_valley[k]), dtype=bool)
-        b = x[spike_times_valley[k]]
-        idx_b = b <= np.min(b) * 0.8
-        mask[idx_b] = False
-        marked_valley = spike_times_valley[k][idx_b]
-        spike_times_valley[k] = spike_times_valley[k][mask]
+        if spike_times_valley[k].any():
+            mask = np.ones(len(spike_times_valley[k]), dtype=bool)
+            b = x[spike_times_valley[k]]
+            idx_b = b <= np.min(b) * 0.8
+            mask[idx_b] = False
+            marked_valley = spike_times_valley[k][idx_b]
+            spike_times_valley[k] = spike_times_valley[k][mask]
 
-        if np.random.rand(1) > 0.95:
+        if np.random.rand(1) > 0.98:
             plt.figure()
             plt.plot(x)
-            plt.plot(spike_times[k], x[spike_times[k]], 'ro')
-            plt.plot(spike_times_valley[k], x[spike_times_valley[k]], 'bo')
+            if spike_times[k].any():
+                plt.plot(spike_times[k], x[spike_times[k]], 'ro')
+            if spike_times_valley[k].any():
+                plt.plot(spike_times_valley[k], x[spike_times_valley[k]], 'bo')
             plt.plot(marked, x[marked], 'kx')
             if th_window is None:
                 plt.plot([0, len(x)], [th, th], 'r--')
                 plt.plot([0, len(x)], [-th, -th], 'r--')
+                plt.title('ID: {:.0f}'.format(parameters[k][0]) + ', ' + '{:.0f} kHz'.format(
+                    parameters[k][1] / 1000) + ', ' + '{:.0f} dB'.format(parameters[k][2]) + ', '
+                          + 'th: {:.0f}'.format(th))
             else:
                 plt.plot(th / 2, 'b--')
                 plt.plot(-th / 2, 'b--')
-            plt.title('{:.0f}'.format(parameters[k][0]) + ' ' + '{:.0f}'.format(parameters[k][1]) + ' ' + '{:.0f}'.format(parameters[k][2]))
+                plt.title('ID: {:.0f}'.format(parameters[k][0]) + ', ' + '{:.0f} kHz'.format(
+                    parameters[k][1] / 1000) + ', ' + '{:.0f} dB'.format(parameters[k][2]))
+
             plt.show()
         spike_times[k] = spike_times[k] / fs  # now in seconds
         spike_times_valley[k] = spike_times_valley[k] / fs  # now in seconds
@@ -1234,7 +1245,7 @@ def fifield_analysis2(data_name, threshold, plot_fi):
         y = spike_times[parameters[:, 1] == used_freqs[i]]
         amps = parameters[parameters[:, 1] == used_freqs[i], 2]
         used_amps = np.unique(amps)
-        spc = np.zeros((len(used_amps), 2))
+        spc = np.zeros((len(used_amps), 3))
         fsl = np.zeros((len(used_amps), 3))
         for k in range(len(used_amps)):
             # Get all trials with amplitude k
@@ -1247,13 +1258,19 @@ def fifield_analysis2(data_name, threshold, plot_fi):
                 single_count[j] = len(x[j])  # Count spikes per trial
                 if len(x[j]) == 0:
                     first_spike[j] = np.nan
+                #elif x[j][0] <= 0.005:
+                #   first_spike[j] = np.nan
                 else:
                     first_spike[j] = x[j][0]  # First Spike Latency
-
+            spc[k, 2] = np.std(single_count)
             spc[k, 1] = np.mean(single_count)
             spc[k, 0] = used_amps[k]
-            fsl[k, 2] = np.nanstd(first_spike)
-            fsl[k, 1] = np.nanmean(first_spike)
+            if np.isnan(first_spike).all():
+                fsl[k, 2] = np.nan
+                fsl[k, 1] = np.nan
+            else:
+                fsl[k, 2] = np.nanstd(first_spike)
+                fsl[k, 1] = np.nanmean(first_spike)
             fsl[k, 0] = used_amps[k]
         spike_count.update({used_freqs[i]/1000: spc})
         first_spike_latency.update({used_freqs[i]/1000: fsl})
@@ -1265,7 +1282,7 @@ def fifield_analysis2(data_name, threshold, plot_fi):
     for i in spike_count:
         idx = spike_count[i][:, 1] >= threshold
         if sum(idx) == 0:
-            a = 100
+            a = np.nan
         else:
             a = np.min(spike_count[i][idx, 0])
         fi_field[cc, 0] = i
@@ -1273,7 +1290,9 @@ def fifield_analysis2(data_name, threshold, plot_fi):
         cc += 1
     fi_field = fi_field[fi_field[:, 0].argsort()]
     if plot_fi:
-        plt.plot(fi_field[:, 0], fi_field[:, 1])
+        plt.plot(fi_field[:, 0], fi_field[:, 1], 'ko-')
+        plt.xlabel('Frequency [kHz]')
+        plt.ylabel('dB SPL at threshold (' + str(threshold) + ' spikes)')
         plt.show()
     return spike_count, fi_field, first_spike_latency
 
@@ -3101,6 +3120,30 @@ def bootstrap_test(datasets):
 
 # ----------------------------------------------------------------------------------------------------------------------
 # MISC
+
+def adjustSpines(ax, spines=['left', 'bottom'], shift_pos=False):
+    for loc, spine in ax.spines.items():
+        if loc in spines:
+            if shift_pos:
+                spine.set_position(('outward', 10))  # outward by 10 points
+            # spine.set_smart_bounds(True)
+        else:
+            spine.set_color('none')  # don't draw spine
+
+    # turn off ticks where there is no spine
+    if 'left' in spines:
+        ax.yaxis.set_ticks_position('left')
+    elif 'right' in spines:
+        ax.yaxis.set_ticks_position('right')
+    else:
+        # no yaxis ticks
+        ax.yaxis.set_ticks([])
+
+    if 'bottom' in spines:
+        ax.xaxis.set_ticks_position('bottom')
+    else:
+        # no xaxis ticks
+        ax.xaxis.set_ticks([])
 
 
 def make_directory(dataset):
