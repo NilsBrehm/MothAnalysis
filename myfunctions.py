@@ -405,6 +405,85 @@ def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show
 
     return spikes
 
+
+def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1):
+    """Get Spike Times using the thunderfish peak detection functions.
+
+    Notes
+    ----------
+    This function gets all the spike times in the voltage traces loaded from HDD.
+
+    Parameters
+    ----------
+    dataset :       Data set name (string)
+    protocol_name:  protocol name (string)
+    th_factor: threshold = th_factor * median(abs(x)/0.6745)
+    filter_on: True: Filter Data with bandpass filter
+    window: Window size for thresholding
+    show: Show spike detection graphically
+    save_data: Save data to HDD
+    Returns
+    -------
+    spikes: Saves spike times (in seconds) to HDD in a .npy file (dict).
+
+    """
+
+    # Load Voltage Traces
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    file_name = file_pathname + protocol_name + '_voltage.npy'
+    tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
+    voltage = np.load(file_name).item()
+    tag_list = np.load(tag_list_path)
+    spikes = {}
+    fs = 100*1000  # Sampling Rate of Ephys Recording
+
+    # Loop trough all tags in tag_list
+    for i in tqdm(range(len(tag_list)), desc='Spike Detection'):
+        trials = len(voltage[tag_list[i]])
+        spike_times = [list()] * trials
+        spike_times_valley = [list()] * trials
+        for k in range(trials):  # loop trough all trials
+            # Filter Voltage Trace
+            x = voltage[tag_list[i]][k]
+            if filter_on:
+                nyqst = 0.5 * fs
+                lowcut = 300
+                highcut = 2000
+                low = lowcut / nyqst
+                high = highcut / nyqst
+                x = voltage_trace_filter(x, [low, high], ftype='band', order=2, filter_on=True)
+
+            th = pk.std_threshold(x, fs, window, th_factor)
+            spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
+            rand_plot = np.random.randint(100)
+            if rand_plot >= 99 and show:
+                plt.figure()
+                plt.plot(x)
+                if spike_times[k].any():
+                    plt.plot(spike_times[k], x[spike_times[k]], 'ro')
+                if spike_times_valley[k].any():
+                    plt.plot(spike_times_valley[k], x[spike_times_valley[k]], 'bo')
+                if window is None:
+                    plt.plot([0, len(x)], [th, th], 'r--')
+                    plt.plot([0, len(x)], [-th, -th], 'r--')
+                    plt.title(tag_list[i] + ', threshold=' + str(np.round(th, 2)))
+                else:
+                    plt.plot(th / 2, 'b--')
+                    plt.plot(-th / 2, 'b--')
+                    plt.title(tag_list[i] + ', window=' + str(window))
+                plt.show()
+
+            spike_times[k] = spike_times[k] / fs  # in seconds
+        spikes.update({tag_list[i]: spike_times})
+
+    # Save to HDD
+    if save_data:
+        file_name = file_pathname + protocol_name + '_spikes.npy'
+        np.save(file_name, spikes)
+        print('Spike Times saved (protocol: ' + protocol_name + ')')
+
+    return spikes
+
 # ----------------------------------------------------------------------------------------------------------------------
 # FILTER
 
@@ -2185,7 +2264,6 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
                 edges = [0, duration]
                 temp = spk.SpikeTrain(templates[tmp], edges)
                 prb = spk.SpikeTrain(probes[pr][0], edges)
-
                 if profile == 'COUNT':
                     profile_name = '/COUNT_Matrix_'
                     d[tmp] = abs(len(prb.spikes[prb.spikes <= duration])-len(temp.spikes[temp.spikes <= duration]))
@@ -2207,6 +2285,20 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
                 if profile == 'SYNC':
                     profile_name = '/SYNC_Matrix_'
                     d[tmp] = spk.spike_sync(temp, prb, interval=[0, duration])
+
+                if profile == 'DUR':
+                    profile_name = '/DUR_Matrix'
+                    # d[tmp] = abs(temp[-1] - prb[-1])
+                    if prb.spikes[prb.spikes <= duration].any():
+                        prb_dur = prb.spikes[prb.spikes <= duration][-1]
+                    else:
+                        prb_dur = 0
+
+                    if temp.spikes[temp.spikes <= duration].any():
+                        temp_dur = temp.spikes[temp.spikes <= duration][-1]
+                    else:
+                        temp_dur = 0
+                    d[tmp] = abs(prb_dur - temp_dur)
 
             if profile == 'SYNC':
                 template_match = np.where(d == np.max(d))[0][0]
@@ -2273,7 +2365,7 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
         fig.set_size_inches(10, 10)
         fig.savefig(figname, bbox_inches='tight', dpi=300)
         plt.close(fig)
-        print('T = ' + str(duration * 1000) + ' ms done')
+        # print('T = ' + str(duration * 1000) + ' ms done')
 
     return mm_mean, correct_matches, distances_per_boot
 
@@ -2573,20 +2665,32 @@ def vanrossum_matrix_backup(dataset, tau, duration, dt_factor, boot_sample, stim
     return mm_mean, correct_matches
 
 
-def pulse_train_matrix(samples, duration):
-    d_isi = np.zeros((len(samples), len(samples)))
-    d_spikes = np.zeros((len(samples), len(samples)))
+def pulse_train_matrix(samples, duration, profile):
+    d = np.zeros((len(samples), len(samples)))
     edges = [0, duration]
     for i in range(len(samples)):
         # template = samples[i]
         template = spk.SpikeTrain(samples[i], edges)
         for k in range(len(samples)):
-            # probe = samples[k]
             probe = spk.SpikeTrain(samples[k], edges)
-            # d[i, k] = abs(len(template) - len(probe))
-            d_isi[i, k] = spk.isi_distance(probe, template, interval=[0, duration])
-            d_spikes[i, k] = spk.spike_distance(probe, template, interval=[0, duration])
-    return d_isi, d_spikes
+            if profile == 'COUNT':
+                d[i, k] = abs(len(probe.spikes[probe.spikes <= duration])-len(template.spikes[template.spikes <= duration]))
+            if profile == 'ISI':
+                d[i, k] = spk.isi_distance(probe, template, interval=[0, duration])
+            if profile == 'SPIKE':
+                d[i, k] = spk.spike_distance(probe, template, interval=[0, duration])
+            if profile == 'DUR':
+                if probe.spikes[probe.spikes <= duration].any():
+                    prb_dur = probe.spikes[probe.spikes <= duration][-1]
+                else:
+                    prb_dur = 0
+
+                if template.spikes[template.spikes <= duration].any():
+                    temp_dur = template.spikes[template.spikes <= duration][-1]
+                else:
+                    temp_dur = 0
+                d[i, k] = abs(prb_dur - temp_dur)
+    return d
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Interval MothASongs functions:
