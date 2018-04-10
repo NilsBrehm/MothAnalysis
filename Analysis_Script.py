@@ -6,13 +6,15 @@ import pandas as pd
 from collections import OrderedDict
 import time
 from tqdm import tqdm
+from joblib import Parallel,delayed
 
 start_time = time.time()
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
 # datasets = ['2018-02-09-aa']  # Calls
-datasets =['2018-02-09-aa']  # Calls
+# datasets = ['2018-02-09-aa']  # Calls Creatonotos
+datasets = ['2018-02-20-aa']  # Calls Estigmene
 # datasets = ['2017-12-05-aa']  # FI
 # datasets = ['2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa', '2017-11-01-aa', '2017-11-16-aa']  # Carales FIs
 
@@ -26,11 +28,11 @@ SOUND = False
 EPULSES = False
 ISI = False
 VANROSSUM = False
-PULSE_TRAIN_ISI = True
+PULSE_TRAIN_ISI = False
 PULSE_TRAIN_VANROSSUM = False
 
 FI_OVERANIMALS = False
-PLOT_CORRECT = False
+PLOT_CORRECT = True
 
 
 # Parameters for Spike Detection
@@ -102,19 +104,20 @@ if Bootstrapping:
 if SOUND:  # Stimuli = Calls
     # spikes = mf.spike_times_indexes(datasets[0], 'Calls', th_factor=4, min_dist=50, maxph=0.8, show=False,
     # save_data=True)
-    spikes = mf.spike_times_calls(datasets[0], 'Calls', show=False, save_data=True, th_factor=3, filter_on=True,
+    spikes = mf.spike_times_calls(datasets[0], 'Calls', show=True, save_data=True, th_factor=3, filter_on=True,
                                   window=None)
 
 if EPULSES:
     dt_factor = 100
-    taus = [5, 10, 20, 30]
-    stim_type = 'moth_series'
+    # taus = [1, 2, 3, 4, 5, 10, 20, 30, 40]
+    taus = [2, 5, 10, 50]  # Bats
+    stim_type = 'bats_series'
     method = 'exp'
-    for k in tqdm(range(len(taus)), desc='Taus', leave=False):
-        trains, stimulus_tags = mf.trains_to_e_pulses(datasets[0], taus[k] / 1000, 0,
-                                                      dt_factor, stim_type=stim_type, whole_train=True, method=method)
-    # print('Finished Computing E-Pulses for taus:')
-    # print(taus)
+    # for k in tqdm(range(len(taus)), desc='Taus', leave=False):
+    #     mf.trains_to_e_pulses(datasets[0], taus[k] / 1000, 0, dt_factor, stim_type=stim_type, whole_train=True, method=method)
+    r = Parallel(n_jobs=-2)(delayed(mf.trains_to_e_pulses)(datasets[0], taus[k] / 1000, 0,dt_factor, stim_type=stim_type
+                                                           , whole_train=True, method=method) for k in range(len(taus)))
+    print('Converting done')
 
 if VANROSSUM:
     # Try to load e pulses from HDD
@@ -122,14 +125,16 @@ if VANROSSUM:
 
     dt_factor = 100
     # taus = [5, 10, 20, 30, 50]
-    taus = [5, 10, 20, 30]
-    duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
-    # duration = [1000]
+    # taus = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40]
+    #taus = [1, 2, 3, 4, 5, 10, 20, 30, 40]
+    taus = [2, 5, 10, 50]  # Bats
+    # duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
+    # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
+    duration = [10, 50, 100, 250, 500, 1000, 1500]  # bats series
     whole_train = True
     nsamples = 10
-    stim_type = 'moth_series'
+    stim_type = 'bats_series'
     method = 'exp'
-    plot_correct = False
 
     # Compute VanRossum Distances
     correct = np.zeros((len(duration), len(taus)))
@@ -146,40 +151,78 @@ if VANROSSUM:
             trains, stimulus_tags = mf.trains_to_e_pulses(datasets[0], taus[tt]/1000, np.max(duration)/1000, dt_factor,
                                                           stim_type=stim_type, whole_train=whole_train, method=method)
         distances = [[]] * len(duration)
-        for dur in tqdm(range(len(duration)), desc='durations'):
-            mm, correct[dur, tt], distances[dur] = mf.vanrossum_matrix(datasets[0], trains, stimulus_tags, duration[dur]/1000,
-                                                       dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True)
+        # for dur in tqdm(range(len(duration)), desc='durations'):
+        #     mm, correct[dur, tt], distances[dur] = mf.vanrossum_matrix(datasets[0], trains, stimulus_tags, duration[dur]/1000,
+        #                                                dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True)
+
+        # Parallel loop through all durations for a given tau
+        r = Parallel(n_jobs=-2)(delayed(mf.vanrossum_matrix)(datasets[0], trains, stimulus_tags, duration[dur]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True) for dur in range(len(duration)))
+
+        # Put values from parallel loop into correct variables
+        for q in range(len(duration)):
+            correct[q, tt] = r[q][1]
+            distances[q] = r[q][2]
         dist_profs.update({taus[tt]: distances})
 
     # Save to HDD
-    np.save(p + 'VanRossum.npy', dist_profs)
-    np.save(p + 'VanRossum_correct.npy', correct)
-    # Plot Percent Correct
-    '''
-    for k in range(len(taus)):
-        plt.subplot(3, 2, k+1)
-        plt.plot(duration, correct[:, k], 'ko-')
-        plt.xlabel('Spike Train Length [ms]')
-        plt.ylabel('Correct [' + str(taus[k]) + ']')
-    if plot_correct:
-        # Save Plot to HDD
-        figname = p + 'PercentCorrect_VanRossum.png'
-        fig = plt.gcf()
-        fig.set_size_inches(10, 10)
-        fig.savefig(figname, bbox_inches='tight', dpi=300)
-        plt.close(fig)
-    else:
-        plt.show()
-    '''
+    np.save(p + 'VanRossum_' + stim_type + '.npy', dist_profs)
+    np.save(p + 'VanRossum_correct_' + stim_type + '.npy', correct)
+
+    print('VanRossum Distances done')
 
 if PLOT_CORRECT:
+    stim_type = 'moth_series'
     p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
-    correct = np.load(p + 'distances_correct.npy')
-    vanrossum = np.load(p + 'VanRossum_correct.npy')
-    duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
-    taus = [5, 10, 20, 30]
-    profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR', 'VanRossum']
+    correct = np.load(p + 'distances_correct_' + stim_type + '.npy')
+    # vr = np.load(p + 'VanRossum_correct_' + stim_type + '.npy')
+    # high_taus = np.load(p + 'VanRossum_correct_hightaus.npy')
+    # duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
+    # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
+    # duration = [10, 50, 100, 250, 500, 1000, 1500]  # bats series
+    # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]  # moth single
+    duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]  # moth series
+    # taus = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 75, 100, 150, 200]
+    # taus = [1, 2, 3, 4, 5, 10, 20, 30, 40]
+    taus = [2, 5, 10, 50]  # Bats
+
+    # profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR', 'VanRossum']
+    profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR']
+
+    # Add missing cols to vanrossum
+    #vanrossum = np.c_[vr, high_taus]
+    # anrossum = vr
+
     save_plot = True
+
+    # # Plot Vanrossum Matrix
+    # fig, ax = plt.subplots()
+    # matrix = ax.pcolor(vanrossum.transpose(), vmin=0, vmax=1)
+    # plt.xlabel('Duration [ms]')
+    # plt.ylabel('Tau [ms]')
+    # fig.colorbar(matrix, orientation='vertical', fraction=0.04, pad=0.02)
+    #
+    # # put the major ticks at the middle of each cell
+    # ax.set_xticks(np.arange(len(duration)) + 0.5, minor=False)
+    # ax.set_yticks(np.arange(len(taus)) + 0.5, minor=False)
+    # # ax.invert_yaxis()
+    #
+    # # Set correct labels
+    # ax.set_xticklabels(duration, minor=False)
+    # ax.set_yticklabels(taus, minor=False)
+    #
+    # if save_plot:
+    #     # Save Plot to HDD
+    #     p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
+    #     figname = p + 'VanRossum_TausAndDistMatrix_' + stim_type + '.png'
+    #     fig = plt.gcf()
+    #     fig.set_size_inches(10, 10)
+    #     fig.savefig(figname, bbox_inches='tight', dpi=300)
+    #     plt.close(fig)
+    #     print('Plot saved')
+    # else:
+    #     plt.show()
+
+    # Plot all parameter free distances
     for k in range(len(profs)):
         if profs[k] == 'VanRossum':
             plt.subplot(np.ceil(len(profs) / 3), 3, k + 1)
@@ -189,7 +232,7 @@ if PLOT_CORRECT:
             plt.ylabel('Correct')
             plt.ylim(0, 1)
             plt.title(profs[k])
-            plt.legend(taus)
+            # plt.legend(taus)
         else:
             plt.subplot(np.ceil(len(profs)/3), 3, k+1)
             plt.plot(duration, correct[:, k], 'ko-')
@@ -202,7 +245,7 @@ if PLOT_CORRECT:
     if save_plot:
         # Save Plot to HDD
         p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
-        figname = p + 'Correct_all_distances.png'
+        figname = p + 'Correct_all_distances_' + stim_type + '.png'
         fig = plt.gcf()
         fig.set_size_inches(20, 10)
         fig.savefig(figname, bbox_inches='tight', dpi=300)
@@ -214,30 +257,38 @@ if PLOT_CORRECT:
 if ISI:
     path_save = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
     # duration = [2500]
-    duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
+    # duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]  # moth series
     # duration = [10, 20, 40, 50, 100, 200, 400, 500, 750, 1000, 1500, 2000]
     # duration = np.arange(50, 3001, 50)
-    nsamples = 20
+    duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]  # moth single
+    # duration = [10, 50, 100, 250, 500, 1000, 1500]  # bat series
+    nsamples = 10
     profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR']
-    # profs = ['DUR']
-    plot_correct = True
-    stim_type = 'moth_series'
+    plot_correct = False
+    stim_type = 'moth_single'
     dist_profs = {}
 
     correct = np.zeros((len(duration), len(profs)))
     for p in tqdm(range(len(profs)), desc='Profiles'):
         distances_all = [[]] * len(duration)
-        for i in tqdm(range(len(duration)), desc='Durations'):
-            mm, correct[i, p], distances_all[i] = mf.isi_matrix(datasets[0], duration[i]/1000, boot_sample=nsamples,
-                                                                stim_type=stim_type, profile=profs[p], save_fig=False)
+        # for i in tqdm(range(len(duration)), desc='Durations'):
+        #     mm, correct[i, p], distances_all[i] = mf.isi_matrix(datasets[0], duration[i]/1000, boot_sample=nsamples,
+        #                                                         stim_type=stim_type, profile=profs[p], save_fig=False)
+
+        # Parallel loop through all durations for a given tau
+        r = Parallel(n_jobs=-2)(delayed(mf.isi_matrix)(datasets[0], duration[i]/1000, boot_sample=nsamples,
+                                                       stim_type=stim_type, profile=profs[p], save_fig=True) for i in range(len(duration)))
+
+        # Put values from parallel loop into correct variables
+        for q in range(len(duration)):
+            correct[q, p] = r[q][1]
+            distances_all[q] = r[q][2]
         dist_profs.update({profs[p]: distances_all})
 
-    embed()
     # Save to HDD
-    np.save(path_save + 'distances.npy', dist_profs)
-    np.save(path_save + 'distances_correct.npy', correct)
+    np.save(path_save + 'distances_' + stim_type + '.npy', dist_profs)
+    np.save(path_save + 'distances_correct_' + stim_type + '.npy', correct)
 
-    embed()
     if plot_correct:
         for k in range(len(profs)):
             plt.subplot(np.ceil(len(profs)/2), 2, k+1)
@@ -245,7 +296,6 @@ if ISI:
             plt.xlabel('Spike Train Length [ms]')
             plt.ylabel('Correct [' + profs[k] + ']')
         plt.show()
-    exit()
 
 if PULSE_TRAIN_ISI:
     profs = ['DUR', 'COUNT', 'ISI', 'SPIKE', 'SYNC']
@@ -255,7 +305,7 @@ if PULSE_TRAIN_ISI:
     save_plot = True
     stim_type = 'callseries/moths'
     fs = 480*1000
-    nsamples = 20
+    nsamples = 10
     durations = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
     for j in tqdm(range(len(profs)), desc='Profiles', leave=False):
         distances_all = dists[profs[j]]
@@ -264,7 +314,7 @@ if PULSE_TRAIN_ISI:
             distances = distances_all[i]
             duration = duration / 1000
             calls, calls_names = mf.mattopy(stim_type, fs)
-            d_pulses_isi = mf.pulse_train_matrix(calls, duration, profs[0])
+            d_pulses_isi = mf.pulse_train_matrix(calls, duration, profs[j])
 
             d_st_isi = distances[len(distances)-1][0]
             for k in range(len(distances)-1):
@@ -274,25 +324,30 @@ if PULSE_TRAIN_ISI:
             plt.figure()
             plt.subplot(1, 2, 1)
             plt.imshow(d_pulses_isi)
-            if profs[0] != 'COUNT':
+            no_lims = True
+            if profs[j] == 'COUNT':
+                no_lims = False
+            if profs[j] == 'DUR':
+                no_lims = False
+            if no_lims:
                 plt.clim(0, 1)
             plt.xticks(np.arange(0, len(d_pulses_isi), 1))
             plt.yticks(np.arange(0, len(d_pulses_isi), 1))
             plt.xlabel('Original Call')
             plt.ylabel('Matched Call')
             plt.colorbar(fraction=0.04, pad=0.02)
-            plt.title('ISId Pulse Trains [' + str(duration*1000) + ' ms]')
+            plt.title(profs[j] + ': Pulse Trains [' + str(duration*1000) + ' ms]')
 
             plt.subplot(1, 2, 2)
             plt.imshow(d_st_isi)
-            if profs[0] != 'COUNT':
+            if no_lims:
                 plt.clim(0, 1)
             plt.xticks(np.arange(0, len(d_st_isi), 1))
             plt.yticks(np.arange(0, len(d_st_isi), 1))
             plt.xlabel('Original Call')
             plt.ylabel('Matched Call')
             plt.colorbar(fraction=0.04, pad=0.02)
-            plt.title('ISId Spike Trains [' + str(duration*1000) + ' ms] (boot = ' + str(nsamples) + ')')
+            plt.title(profs[j] + ': Spike Trains [' + str(duration*1000) + ' ms] (boot = ' + str(nsamples) + ')')
             # plt.tight_layout()
 
             if save_plot:
@@ -331,8 +386,9 @@ if PULSE_TRAIN_VANROSSUM:
     # vanrossum[tau][duratiom][boot]
 
     duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
-    tau = 10
-    nsamples = 10
+    # taus = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 75, 100, 150, 200]
+    tau = 40
+    nsamples = 5
     save_plot = True
     stim_type = 'callseries/moths'
     fs = 480 * 1000
