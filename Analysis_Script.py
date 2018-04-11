@@ -14,12 +14,13 @@ start_time = time.time()
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
 # datasets = ['2018-02-09-aa']  # Calls
 # datasets = ['2018-02-09-aa']  # Calls Creatonotos
-datasets = ['2018-02-20-aa']  # Calls Estigmene
+# datasets = ['2018-02-20-aa']  # Calls Estigmene
 # datasets = ['2017-12-05-aa']  # FI
 # datasets = ['2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa', '2017-11-01-aa', '2017-11-16-aa']  # Carales FIs
+datasets = ['2018-02-20-aa']
 
 FIFIELD = False
-INTERVAL_MAS = False
+INTERVAL_MAS = True
 Bootstrapping = False
 INTERVAL_REC = False
 GAP = False
@@ -32,7 +33,7 @@ PULSE_TRAIN_ISI = False
 PULSE_TRAIN_VANROSSUM = False
 
 FI_OVERANIMALS = False
-PLOT_CORRECT = True
+PLOT_CORRECT = False
 
 
 # Parameters for Spike Detection
@@ -46,15 +47,18 @@ if INTERVAL_REC:
 
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:
-    mf.moth_intervals_spike_detection(datasets, peak_params, False)  # Last param = show spike plot?
-    mf.moth_intervals_analysis(datasets)
+    # mf.moth_intervals_spike_detection(datasets[0], window=None, th_factor=3, mph_percent=0.75, filter_on=True,
+    #                                   save_data=True, show=False)
+    mf.moth_intervals_analysis(datasets[0])
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
-    data = datasets[4]
+    data = datasets[3]
     save_plot = True
+    plot_fi_field = True
+    single_fi = True
     p = "/media/brehm/Data/MasterMoth/figs/" + data + "/DataFiles/"
-    th = 4
+    th = 6
     spike_count, fi_field, fsl = mf.fifield_analysis2(data, th, plot_fi=False)
     # freqs = np.zeros(len(spike_count))
     freqs = [[]] * len(spike_count)
@@ -63,6 +67,67 @@ if FIFIELD:
         freqs[i] = int(key)
         i += 1
     freqs = sorted(freqs)
+
+    font = {'family': 'normal',
+            'weight': 'bold',
+            'size': 14}
+
+    plt.rc('font', **font)
+
+    if plot_fi_field:
+        plt.plot(fi_field[:, 0], fi_field[:, 1], 'ko-')
+        plt.xlabel('Frequency [kHz]')
+        plt.ylabel('dB SPL at Threshold (' + str(th) + ' spikes)')
+        plt.ylim(0, 90)
+        plt.yticks(np.arange(0, 90, 20))
+        plt.xlim(10, 110)
+        plt.xticks(np.arange(20, 110, 10))
+        if save_plot:
+            # Save Plot to HDD
+            figname = p + 'fi_field.png'
+            fig = plt.gcf()
+            fig.set_size_inches(10, 10)
+            fig.savefig(figname, bbox_inches='tight', dpi=300)
+            plt.close(fig)
+            print('Plot saved for ' + data)
+        else:
+            plt.show()
+
+    # Plot single FI Curve
+    if single_fi:
+        ff = 55
+        fig, ax1 = plt.subplots()
+        color = 'k'
+        ax1.set_xlabel('Sound Pressure Level [dB SPl]')
+        ax1.set_ylabel('Spike Count per Stimulus', color=color)
+        ax1.errorbar(spike_count[ff][:, 0], spike_count[ff][:, 1], yerr=spike_count[ff][:, 2],
+                     marker='o', color='k', linewidth=3, markersize=8)
+        ax1.tick_params(axis='y', labelcolor=color)
+        ax1.set_yticks(np.arange(0, 20, 2))
+        ax1.set_ylim(0, 20)
+        ax1.set_xticks(np.arange(10, 90, 10))
+        ax1.set_xlim(10, 90)
+        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+        color = 'tab:red'
+        ax2.set_ylabel('First Spike Latency [ms]', color=color)  # we already handled the x-label with ax1
+        ax2.errorbar(fsl[ff][:, 0], fsl[ff][:, 1] * 1000, yerr=fsl[ff][:, 2] * 1000, marker='o',
+                     color='r', linewidth=3, markersize=8)
+        ax2.tick_params(axis='y', labelcolor=color)
+        ax2.set_yticks(np.arange(0, 20, 2))
+        ax2.set_ylim(0, 20)
+        plt.title(str(ff) + ' kHz')
+        fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        if save_plot:
+            # Save Plot to HDD
+            figname = p + 'fi_curve_' + str(ff) + 'kHz.png'
+            fig = plt.gcf()
+            fig.set_size_inches(10, 10)
+            fig.savefig(figname, bbox_inches='tight', dpi=300)
+            plt.close(fig)
+            print('Plot saved for ' + data)
+        else:
+            plt.show()
+        exit()
 
     # Plot FI-Curves
     for f in range(len(freqs)):
@@ -471,17 +536,37 @@ if FI_OVERANIMALS:
     d = np.load(p + 'fi_frequencies.npy')
     embed()
     '''
+    save_plot = True
+    font = {'family': 'normal',
+            'weight': 'bold',
+            'size': 14}
+
+    plt.rc('font', **font)
+
     fields = {}
     for i in range(len(datasets)-1):
         p = "/media/brehm/Data/MasterMoth/figs/" + datasets[i] + "/DataFiles/"
         fields.update({i: np.load(p + 'fi_field.npy')})
-        plt.plot(fields[i][:, 0], fields[i][:, 1], 'o-')
+        plt.plot(fields[i][:, 0], fields[i][:, 1], 'o-', markersize=8, linewidth=3)
     plt.xlabel('Frequency [kHz]')
     plt.ylabel('dB SPL at threshold')
     plt.ylim(0, 90)
+    plt.yticks(np.arange(0, 90, 10))
+    plt.xlim(0, 110)
+    plt.xticks(np.arange(10, 110, 10))
     mf.adjustSpines(plt.gca())
-    plt.show()
 
+    if save_plot:
+        # Save Plot to HDD
+        p = "/media/brehm/Data/MasterMoth/figs/"
+        figname = p + 'fi_field_Carales_n4.png'
+        fig = plt.gcf()
+        fig.set_size_inches(10, 8)
+        fig.savefig(figname, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print('Plot saved')
+    else:
+        plt.show()
 
 '''
 if VANROSSUM:

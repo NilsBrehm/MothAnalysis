@@ -2856,7 +2856,7 @@ def get_moth_intervals_data(datasets):
 
     for dat in range(len(datasets)):
         data_name = datasets[dat]
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
         nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
 
         # Open the nix file
@@ -2929,77 +2929,108 @@ def get_moth_intervals_data(datasets):
     return voltage
 
 
-def moth_intervals_spike_detection(datasets, peak_params, show_trial_detection):
+def moth_intervals_spike_detection(datasets, window=None, th_factor=1, mph_percent=0.8, filter_on=True, save_data=True, show=True):
     # Load data
+    fs = 100 * 1000
     for dat in range(len(datasets)):
-        data_name = datasets[dat]
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+        data_name = datasets
+        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
         fname = pathname + 'intervals_mas_voltage.npy'
         voltage = np.load(fname).item()
-        sampling_rate = 100 * 1000  # in Hz
         # Now detect spikes in each trial and update input data
         for i in voltage:
             spikes = []
             # for trial in voltage[i]:
             for trial in range(voltage[i]['trials']):
                 x = voltage[i][trial][0]
-                if show_trial_detection and trial == 0:
-                    spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
-                                               edge='rising', kpsh=False, valley=peak_params['valley'], show=True,
-                                               ax=None, maxph=peak_params['maxph'], dynamic=peak_params['dynamic'],
-                                               filter_on=peak_params['filter_on'])
-                    print('set number: %s' % i)
-                else:
-                    spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
-                                               edge='rising', kpsh=False, valley=peak_params['valley'],
-                                               show=peak_params['show'], ax=None, maxph=peak_params['maxph'],
-                                               dynamic=peak_params['dynamic'], filter_on=peak_params['filter_on'])
+                # Filter Voltage Trace
+                if filter_on:
+                    nyqst = 0.5 * fs
+                    lowcut = 300
+                    highcut = 2000
+                    low = lowcut / nyqst
+                    high = highcut / nyqst
+                    x = voltage_trace_filter(x, [low, high], ftype='band', order=2, filter_on=True)
 
-                spike_times = spike_times / sampling_rate  # Now spike times are in real time (seconds)
+                th = pk.std_threshold(x, fs, window, th_factor)
+                spike_times, spike_times_valley = pk.detect_peaks(x, th)
+
+                # Remove large spikes
+                if spike_times.any():
+                    mask = np.ones(len(spike_times), dtype=bool)
+                    a = x[spike_times]
+                    idx_a = a >= np.max(a) * mph_percent
+                    mask[idx_a] = False
+                    marked = spike_times[idx_a]
+                    spike_times = spike_times[mask]
+
+                if spike_times_valley.any():
+                    mask = np.ones(len(spike_times_valley), dtype=bool)
+                    b = x[spike_times_valley]
+                    idx_b = b <= np.min(b) * 0.8
+                    mask[idx_b] = False
+                    marked_valley = spike_times_valley[idx_b]
+                    spike_times_valley = spike_times_valley[mask]
+
+                if np.random.rand(1) > 0.98 and show is True:
+                    plt.figure()
+                    plt.plot(x)
+                    if spike_times.any():
+                        plt.plot(spike_times, x[spike_times], 'ro')
+                    if spike_times_valley.any():
+                        plt.plot(spike_times_valley, x[spike_times_valley], 'bo')
+                    plt.plot(marked, x[marked], 'kx')
+                    if window is None:
+                        plt.plot([0, len(x)], [th, th], 'r--')
+                        plt.plot([0, len(x)], [-th, -th], 'r--')
+                    else:
+                        plt.plot(th / 2, 'b--')
+                        plt.plot(-th / 2, 'b--')
+                    plt.show()
+
+                spike_times = spike_times / fs  # Now spike times are in real time (seconds)
                 spikes = np.append(spikes, spike_times)  # Put spike times of each trial in one long array
                 spike_count = len(spike_times)
                 voltage[i][trial].update({'spike_times': spike_times, 'spike_count': spike_count})
             voltage[i].update({'all_spike_times': spikes})
 
-        # Save detected Spikes to HDD
-        if not show_trial_detection:
-            dname = pathname + 'intervals_mas_spike_times.npy'
-            np.save(dname, voltage)
+    # Save detected Spikes to HDD
+    if save_data:
+        dname = pathname + 'intervals_mas_spike_times.npy'
+        np.save(dname, voltage)
+
     print('Spike Detection done')
-    if show_trial_detection:
-        print('Data was NOT saved since trial display was TRUE')
     return 0
 
 
 def moth_intervals_analysis(datasets):
-    for dat in range(len(datasets)):
-        # Load data
-        data_name = datasets[dat]
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-        fname = pathname + 'intervals_mas_spike_times.npy'
-        voltage = np.load(fname).item()
-        vector_strength = {}
-        for i in voltage:
-            try:
-                gap = voltage[i]['gap']
-                tau = voltage[i][0][1]
-                spike_times_sorted = np.sort(voltage[i]['all_spike_times'])   # get spike times of all trials
-                vs, phase = sg.vectorstrength(spike_times_sorted, gap)  # all in s
-                vector_strength.update({i: {'vs': vs, 'vs_phase': phase, 'gap': gap, 'tau': tau}})
-                # voltage[i].update({'vs': vs, 'vs_phase': phase})
-            except KeyError:
-                print('Key Error')
+    # Load data
+    data_name = datasets
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
+    fname = pathname + 'intervals_mas_spike_times.npy'
+    voltage = np.load(fname).item()
+    vector_strength = {}
+    for i in voltage:
+        try:
+            gap = voltage[i]['gap']
+            tau = voltage[i][0][1]
+            spike_times_sorted = np.sort(voltage[i]['all_spike_times'])   # get spike times of all trials
+            vs, phase = sg.vectorstrength(spike_times_sorted, gap)  # all in s
+            vector_strength.update({i: {'vs': vs, 'vs_phase': phase, 'gap': gap, 'tau': tau}})
+            # voltage[i].update({'vs': vs, 'vs_phase': phase})
+        except KeyError:
+            print('Key Error')
 
-        # Save VS to HDD
-        dname = pathname + 'intervals_mas_vs.npy'
-        np.save(dname, vector_strength)
+    # Save VS to HDD
+    dname = pathname + 'intervals_mas_vs.npy'
+    np.save(dname, vector_strength)
     print('Moth Intervals Analysis done')
     return 0
 
 
 def moth_intervals_plot(data_name, trial_number, frequency):
     # Load data
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
     fname = pathname + 'intervals_mas_spike_times.npy'
     voltage = np.load(fname).item()
     for i in voltage:
@@ -3012,8 +3043,8 @@ def moth_intervals_plot(data_name, trial_number, frequency):
         # Compute PSTH (binned)
         spt = voltage[i]['all_spike_times']
         bin_width = 2  # in ms
-        bins = int(np.round(stimulus_time[-1] / (bin_width / 1000)))  # in secs
-        frate, bin_edges, bin_width2 = psth(spt, trial_number, bins, plot=False, return_values=True)
+        # bins = int(np.round(stimulus_time[-1] / (bin_width / 1000)))  # in secs
+        frate, bin_edges = psth(spt, trial_number, bin_width/1000, plot=False, return_values=True, separate_trials=False)
 
         # Raster Plot
         plt.subplot(3, 1, 1)

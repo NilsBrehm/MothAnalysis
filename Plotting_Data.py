@@ -16,18 +16,18 @@ datasets = ['2018-02-20-aa']
 
 PlotRectIntervals = False
 PlotMothIntervals = False
-PlotVS = False
+PlotVS = True
 PlotVSRect = False
 PlotFICurves = False
 PlotFIField = False
 PlotSoundRasterPlot = False
-CallsRaster = True
+CallsRaster = False
 
 data_name = datasets[0]
 
 for i in range(len(datasets)):  # Loop through all recordings in the list above
     data_name = datasets[i]
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
     try:
         if PlotRectIntervals:
             mf.rect_intervals_plot(data_name)
@@ -64,11 +64,11 @@ for i in range(len(datasets)):  # Loop through all recordings in the list above
             plt.title('tau = 0.1 ms')
             plt.ylabel('Vector Strength')
 
-            plt.subplot(2, 1, 2)
-            plt.plot(gap_04[idx04], v_strength_04[idx04], 'k--o')
-            plt.title('tau = 0.4 ms')
-            plt.ylabel('Vector Strength')
-            plt.xlabel('gap [s]')
+            # plt.subplot(2, 1, 2)
+            # plt.plot(gap_04[idx04], v_strength_04[idx04], 'k--o')
+            # plt.title('tau = 0.4 ms')
+            # plt.ylabel('Vector Strength')
+            # plt.xlabel('gap [s]')
 
             # Save Plot to HDD
             figname = pathname + "VS_50kHz.png"

@@ -13,12 +13,12 @@ import thunderfish.peakdetection
 # datasets = ['2018-02-09-aa'] # calls
 # datasets = ['2017-11-01-aa'] # calls
 # datasets = ['2017-12-05-aa']  # FI
-datasets = ['2018-01-26-aa']
+datasets = ['2018-02-20-aa']
 
 VIEWNIX = False
 GetSession = False
-FIFIELD = True
-INTERVAL_MAS = False
+FIFIELD = False
+INTERVAL_MAS = True
 INTERVAL_REC = False
 SOUND = False
 SOUND2 = False
