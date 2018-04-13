@@ -407,7 +407,7 @@ def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show
     return spikes
 
 
-def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1):
+def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1, mph_percent=0.8):
     """Get Spike Times using the thunderfish peak detection functions.
 
     Notes
@@ -456,10 +456,33 @@ def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filt
 
             th = pk.std_threshold(x, fs, window, th_factor)
             spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
+
+            # Remove large spikes
+            if spike_times[k].any():
+                mask = np.ones(len(spike_times[k]), dtype=bool)
+                a = x[spike_times[k]]
+                idx_a = a >= np.max(a) * mph_percent
+                mask[idx_a] = False
+                marked = spike_times[k][idx_a]
+                spike_times[k] = spike_times[k][mask]
+
+            if spike_times_valley[k].any():
+                mask = np.ones(len(spike_times_valley[k]), dtype=bool)
+                b = x[spike_times_valley[k]]
+                idx_b = b <= np.min(b) * 0.8
+                mask[idx_b] = False
+                marked_valley = spike_times_valley[k][idx_b]
+                spike_times_valley[k] = spike_times_valley[k][mask]
+
+
+
             rand_plot = np.random.randint(100)
             if rand_plot >= 99 and show:
                 plt.figure()
                 plt.plot(x)
+                plt.xlabel('Time')
+                plt.ylabel('Voltage [uV]')
+                plt.plot(marked, x[marked], 'kx')
                 if spike_times[k].any():
                     plt.plot(spike_times[k], x[spike_times[k]], 'ro')
                 if spike_times_valley[k].any():
@@ -1150,7 +1173,7 @@ def fifield_voltage2(data_name, tag):
     return 0
 
 
-def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0.8, filter_on=True, valley=False, min_th=20):
+def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0.8, filter_on=True, valley=False, min_th=20, save_data=True):
     # (data_name, dynamic, valley, th_factor=4, min_dist=70, maxph=10, th_window=400, filter_on=True):
     pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
     data_file = pathname + 'FIField_voltage'
@@ -1167,8 +1190,8 @@ def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0
         # Filter Voltage Trace
         if filter_on:
             nyqst = 0.5 * fs
-            lowcut = 300
-            highcut = 2000
+            lowcut = 100
+            highcut = 4000
             low = lowcut / nyqst
             high = highcut / nyqst
             x = voltage_trace_filter(x, [low, high], ftype='band', order=2, filter_on=True)
@@ -1201,9 +1224,14 @@ def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0
             marked_valley = spike_times_valley[k][idx_b]
             spike_times_valley[k] = spike_times_valley[k][mask]
 
-        if np.random.rand(1) > 0.98:
+        # if np.random.rand(1) > 0.98:
+        # if parameters[k][2] > 70 and np.random.rand(1) > 0.8:
+        if parameters[k][1] == 50000 and (parameters[k][2] > 70 or (parameters[k][2] < 45 and parameters[k][2] > 35)):
             plt.figure()
             plt.plot(x)
+            plt.xlabel('Time')
+            plt.ylabel('Voltage [uV]')
+            plt.ylim(-150, 150)
             if spike_times[k].any():
                 plt.plot(spike_times[k], x[spike_times[k]], 'ro')
             if spike_times_valley[k].any():
@@ -1226,11 +1254,12 @@ def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0
         spike_times_valley[k] = spike_times_valley[k] / fs  # now in seconds
 
     # Save Data to HDD
-    if valley:
-        spike_times = spike_times_valley
-    dname = pathname + 'FIField_spike_times'
-    with open(dname, 'wb') as fp:
-        pickle.dump(spike_times, fp)
+    if save_data:
+        if valley:
+            spike_times = spike_times_valley
+        dname = pathname + 'FIField_spike_times'
+        with open(dname, 'wb') as fp:
+            pickle.dump(spike_times, fp)
 
     return spike_times, spike_times_valley
 

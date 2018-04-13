@@ -20,11 +20,11 @@ start_time = time.time()
 datasets = ['2018-02-20-aa']
 
 FIFIELD = False
-INTERVAL_MAS = True
+INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
 GAP = False
-SOUND = False
+SOUND = True
 
 EPULSES = False
 ISI = False
@@ -53,7 +53,7 @@ if INTERVAL_MAS:
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
-    data = datasets[3]
+    data = datasets[0]
     save_plot = True
     plot_fi_field = True
     single_fi = True
@@ -168,8 +168,7 @@ if Bootstrapping:
 
 if SOUND:  # Stimuli = Calls
     # spikes = mf.spike_times_indexes(datasets[0], 'Calls', th_factor=4, min_dist=50, maxph=0.8, show=False,
-    # save_data=True)
-    spikes = mf.spike_times_calls(datasets[0], 'Calls', show=True, save_data=True, th_factor=3, filter_on=True,
+    spikes = mf.spike_times_calls(datasets[0], 'Calls', show=True, save_data=False, th_factor=3, filter_on=True,
                                   window=None)
 
 if EPULSES:
