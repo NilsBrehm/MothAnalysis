@@ -407,6 +407,52 @@ def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show
     return spikes
 
 
+def remove_large_spikes(x, spike_times, spike_times_valley, mph_percent):
+    # Remove large spikes
+    if spike_times.any():
+        mask = np.ones(len(spike_times), dtype=bool)
+        a = x[spike_times]
+        idx_a = a >= np.max(a) * mph_percent
+        mask[idx_a] = False
+        marked = spike_times[idx_a]
+        spike_times = spike_times[mask]
+
+    if spike_times_valley.any():
+        mask = np.ones(len(spike_times_valley), dtype=bool)
+        b = x[spike_times_valley]
+        idx_b = b <= np.min(b) * mph_percent
+        mask[idx_b] = False
+        marked_valley = spike_times_valley[idx_b]
+        spike_times_valley = spike_times_valley[mask]
+
+    return spike_times, spike_times_valley, marked, marked_valley
+
+
+def plot_detected_spikes(x, spike_times, spike_times_valley, marked, th, window, info):
+    # plt.figure()
+    fs = 100 * 1000
+    t = np.arange(0, len(x) / fs, 1 / fs)
+    plt.plot(t, x)
+    plt.xlabel('Time')
+    plt.ylabel('Voltage [uV]')
+    plt.plot(marked/fs, x[marked], 'kx')
+    if spike_times.any():
+        plt.plot(spike_times/fs, x[spike_times], 'ro')
+    if spike_times_valley.any():
+        plt.plot(spike_times_valley/fs, x[spike_times_valley], 'bo')
+    if window is None:
+        plt.plot([0, len(x)/fs], [th, th], 'r--')
+        plt.plot([0, len(x)/fs], [-th, -th], 'r--')
+        plt.title(info + ', threshold=' + str(np.round(th, 2)))
+    else:
+        t_th = np.arange(0, len(th)/fs, 1/fs)
+        plt.plot(t_th, th / 2, 'b--')
+        plt.plot(t_th, -th / 2, 'b--')
+        plt.title(info + ', window=' + str(window))
+    # plt.show()
+    return 0
+
+
 def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1, mph_percent=0.8):
     """Get Spike Times using the thunderfish peak detection functions.
 
@@ -421,6 +467,7 @@ def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filt
     th_factor: threshold = th_factor * median(abs(x)/0.6745)
     filter_on: True: Filter Data with bandpass filter
     window: Window size for thresholding
+    mph_percent: Remove all spikes with amplitude higher than max. spike amplitude * mph_percent
     show: Show spike detection graphically
     save_data: Save data to HDD
     Returns
@@ -437,6 +484,8 @@ def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filt
     tag_list = np.load(tag_list_path)
     spikes = {}
     fs = 100*1000  # Sampling Rate of Ephys Recording
+
+    _, connections = tagtostimulus(dataset)
 
     # Loop trough all tags in tag_list
     for i in tqdm(range(len(tag_list)), desc='Spike Detection'):
@@ -458,47 +507,78 @@ def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filt
             spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
 
             # Remove large spikes
-            if spike_times[k].any():
-                mask = np.ones(len(spike_times[k]), dtype=bool)
-                a = x[spike_times[k]]
-                idx_a = a >= np.max(a) * mph_percent
-                mask[idx_a] = False
-                marked = spike_times[k][idx_a]
-                spike_times[k] = spike_times[k][mask]
+            spike_times[k], spike_times_valley[k], marked, marked_valley = remove_large_spikes(x, spike_times[k], spike_times_valley[k], mph_percent)
 
-            if spike_times_valley[k].any():
-                mask = np.ones(len(spike_times_valley[k]), dtype=bool)
-                b = x[spike_times_valley[k]]
-                idx_b = b <= np.min(b) * 0.8
-                mask[idx_b] = False
-                marked_valley = spike_times_valley[k][idx_b]
-                spike_times_valley[k] = spike_times_valley[k][mask]
-
-
-
-            rand_plot = np.random.randint(100)
-            if rand_plot >= 99 and show:
-                plt.figure()
-                plt.plot(x)
-                plt.xlabel('Time')
-                plt.ylabel('Voltage [uV]')
-                plt.plot(marked, x[marked], 'kx')
-                if spike_times[k].any():
-                    plt.plot(spike_times[k], x[spike_times[k]], 'ro')
-                if spike_times_valley[k].any():
-                    plt.plot(spike_times_valley[k], x[spike_times_valley[k]], 'bo')
-                if window is None:
-                    plt.plot([0, len(x)], [th, th], 'r--')
-                    plt.plot([0, len(x)], [-th, -th], 'r--')
-                    plt.title(tag_list[i] + ', threshold=' + str(np.round(th, 2)))
-                else:
-                    plt.plot(th / 2, 'b--')
-                    plt.plot(-th / 2, 'b--')
-                    plt.title(tag_list[i] + ', window=' + str(window))
-                plt.show()
+            # Plot detected spikes of random trials
+            # rand_plot = np.random.randint(100)
+            # if rand_plot >= 99 and show:
+            #     sound_file = wav.read('/media/brehm/Data/MasterMoth/stimuli/' + connections[tag_list[i]])
+            #     t_sound = np.arange(0, len(sound_file[1])/sound_file[0], 1/sound_file[0])
+            #
+            #     plt.figure()
+            #     plt.subplot(2, 1, 1)
+            #     plot_detected_spikes(x, spike_times[k], spike_times_valley[k], marked, th, window, tag_list[i])
+            #     plt.subplot(2, 1, 2)
+            #     plt.plot(t_sound, sound_file[1], 'k')
+            #     plt.show()
 
             spike_times[k] = spike_times[k] / fs  # in seconds
         spikes.update({tag_list[i]: spike_times})
+
+        if connections[tag_list[i]].startswith('nat'):
+            x_limit = 0.4
+        if connections[tag_list[i]].startswith('batcall'):
+            x_limit = 0.4
+        if connections[tag_list[i]].startswith('calls'):
+            x_limit = 3
+
+        if True:
+            sound_file = wav.read('/media/brehm/Data/MasterMoth/stimuli/' + connections[tag_list[i]])
+            t_sound = np.arange(0, len(sound_file[1]) / sound_file[0], 1 / sound_file[0])
+            bin_size = 0.002
+            f_rate, bin_edges = psth(spike_times, len(spike_times), bin_size, plot=False, return_values=True, separate_trials=True)
+            plt.figure()
+            tr = 3
+            for w in range(tr):
+                plt.subplot(tr+3, 1, w+1)
+                if w == 0:
+                    plt.title(connections[tag_list[i]])
+                x = voltage[tag_list[i]][w]
+                t = np.arange(0, len(x) / fs, 1 / fs)
+                plt.plot(t, x)
+                idx = spike_times[w] * fs
+                plt.plot(spike_times[w], x[idx.astype(int)], 'ro')
+                plt.ylabel('Volt [uV]')
+                plt.xticks([])
+                plt.xlim(0, x_limit)
+
+            plt.subplot(tr+3, 1, tr+1)
+            plt.plot(bin_edges[:-1], f_rate, 'k')
+            plt.ylabel('Firing Rate [Hz]')
+            plt.xticks([])
+            plt.xlim(0, x_limit)
+
+            plt.subplot(tr+3, 1, tr+2)
+            for kk in range(len(spike_times)):
+                plt.plot(spike_times[kk], np.ones(len(spike_times[kk])) + kk, 'k|', 'LineWidth', 4)
+            plt.xticks([])
+            plt.ylabel('Trials')
+            plt.xlim(0, x_limit)
+
+            plt.subplot(tr+3, 1, tr+3)
+            plt.plot(t_sound, sound_file[1], 'k')
+            plt.xlabel('Time [s]')
+            plt.yticks([])
+            plt.xticks(np.arange(0, x_limit, 0.1))
+            plt.xlim(0, x_limit)
+
+            # plt.show()
+            # Save Plot to HDD
+            sp = '/media/brehm/Data/MasterMoth/figs/' + dataset + '/SpikeDetection/'
+            fig = plt.gcf()
+            fig.set_size_inches(15, 10)
+            fig.savefig(sp + connections[tag_list[i]] + '_SpikeDetection.png', bbox_inches='tight', dpi=150)
+            plt.close(fig)
 
     # Save to HDD
     if save_data:
@@ -1208,22 +1288,10 @@ def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0
         spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
 
         # Remove large spikes
-        if spike_times[k].any():
-            mask = np.ones(len(spike_times[k]), dtype=bool)
-            a = x[spike_times[k]]
-            idx_a = a >= np.max(a) * mph_percent
-            mask[idx_a] = False
-            marked = spike_times[k][idx_a]
-            spike_times[k] = spike_times[k][mask]
-
-        if spike_times_valley[k].any():
-            mask = np.ones(len(spike_times_valley[k]), dtype=bool)
-            b = x[spike_times_valley[k]]
-            idx_b = b <= np.min(b) * 0.8
-            mask[idx_b] = False
-            marked_valley = spike_times_valley[k][idx_b]
-            spike_times_valley[k] = spike_times_valley[k][mask]
-
+        # Remove large spikes
+        spike_times[k], spike_times_valley[k], marked, marked_valley = remove_large_spikes(x, spike_times[k],
+                                                                                           spike_times_valley[k],
+                                                                                           mph_percent)
         # if np.random.rand(1) > 0.98:
         # if parameters[k][2] > 70 and np.random.rand(1) > 0.8:
         if parameters[k][1] == 50000 and (parameters[k][2] > 70 or (parameters[k][2] < 45 and parameters[k][2] > 35)):
@@ -3507,14 +3575,16 @@ def tagtostimulus(dataset):
     b = f.blocks[0]
     # mtags = {}
     connection = {}
+    connection2 = {}
     for k in range(len(tag_list)):
         # mtags.update({tag_list[k]: b.multi_tags[tag_list[k]]})
         mtag = b.multi_tags[tag_list[k]]
         sound_name = mtag.metadata.sections[0][2]
         connection.update({sound_name: tag_list[k]})
+        connection2.update({tag_list[k]: sound_name})
 
     f.close()
-    return connection
+    return connection, connection2
 
 
 def pytomat(dataset, protocol_name):
