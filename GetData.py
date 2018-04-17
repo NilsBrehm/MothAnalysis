@@ -13,21 +13,26 @@ import thunderfish.peakdetection
 # datasets = ['2018-02-09-aa'] # calls
 # datasets = ['2017-11-01-aa'] # calls
 # datasets = ['2017-12-05-aa']  # FI
-# datasets = ['2018-02-20-aa']
-datasets = ['2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa', '2017-11-01-aa', '2017-11-16-aa']  # Carales FIs
+datasets = ['2018-02-20-aa']
+# datasets = ['2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa', '2017-11-01-aa', '2017-11-16-aa']  # Carales FIs
 
 VIEWNIX = False
 GetSession = False
-FIFIELD = True
+
+FIFIELD = False
+
 INTERVAL_MAS = False
 INTERVAL_REC = False
+GAP = True
+
 SOUND = False
 SOUND2 = False
+
 PYTOMAT = False
 CHECKPROTOCOLS = False
-TEST = False
 MAKEDIR = False
-VANROSSUM = False
+
+
 
 # Create Directory for Saving Data
 if MAKEDIR:
@@ -103,7 +108,6 @@ if SOUND:
 
 
 if SOUND2:
-
     # mf.get_metadata(datasets[0], 'MothASongs-moth_song-damped_oscillation*', 'Intervals')
     # mf.get_metadata(datasets[0], 'SingleStimulus-file-', 'Calls')
     mf.get_voltage_trace(datasets[0], 'SingleStimulus-file-', 'Calls', multi_tag=True, search_for_tags=True)
@@ -111,25 +115,22 @@ if SOUND2:
 if PYTOMAT:
     mf.pytomat(datasets[0], 'Calls')
 
-
 if CHECKPROTOCOLS:
     gaps, p = mf.list_protocols(datasets[0], 'Gap')
     # voltage, tag_list = mf.get_voltage_trace(datasets[0], gaps, 'Gap', multi_tag=False ,search_for_tags=False)
+    mf.gap_analysis(datasets[0], 'Gap')
+    embed()
+
+if GAP:
+    # gaps, p, _, _ = mf.list_protocols(datasets[0], protocol_name='Gap',
+    #                                   tag_name=['SingleStimulus_', 'SingleStimulus-file-'])
+    # mf.get_voltage_trace(datasets[0], gaps, 'Gap', multi_tag=False, search_for_tags=False)
+    #
+    # # Cut out single trials from recording
     # mf.gap_analysis(datasets[0], 'Gap')
-    embed()
+    #
+    mf.tagtostimulus_gap(datasets[0])
 
-if TEST:
-    v = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-20-aa/DataFiles/Gap_voltage.npy').item()
-    # x = v['SingleStimulus_112']
 
-    voltage = np.load('/media/brehm/Data/MasterMoth/figs/2018-02-09-aa/DataFiles/Calls_voltage.npy').item()
-    x = voltage['SingleStimulus-file-2'][0]
-    locs = mf.indexes(x, th_factor=2, min_dist=50)
-    embed()
-    exit()
-    mf.peak_seek(x, 100, 100)
-
-if VANROSSUM:
-    mf.get_voltage_trace(datasets[0], 'SingleStimulus-file-', 'Calls', multi_tag=True, search_for_tags=True)
 
 print('Overall Data Gathering done')
