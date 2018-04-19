@@ -16,7 +16,20 @@ start_time = time.time()
 # datasets = ['2018-02-20-aa']  # Calls Estigmene
 # datasets = ['2017-12-05-aa']  # FI
 # datasets = ['2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa', '2017-11-01-aa', '2017-11-16-aa']  # Carales FIs
-datasets = ['2018-02-20-aa']
+dat = [ '2017-11-25-aa',
+        '2017-11-25-ab',
+        '2017-11-27-aa',
+        '2017-11-29-aa',
+        '2017-12-01-aa',
+        '2017-12-05-ab',
+        '2017-11-14-aa',
+        '2017-11-16-aa',
+        '2017-11-17-aa',
+        '2018-02-16-aa',
+        '2018-02-20-aa',
+        '2017-12-01-ac']
+
+datasets = [dat[-3]]
 
 
 FIFIELD = False
@@ -34,6 +47,11 @@ PULSE_TRAIN_VANROSSUM = False
 
 FI_OVERANIMALS = False
 PLOT_CORRECT = False
+
+# Settings for Spike Detection:
+th_factor = 3
+mph_percent = 1
+bin_size = 0.0005
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
@@ -501,8 +519,8 @@ if PULSE_TRAIN_VANROSSUM:
 if GAP:
     p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
     tag_list = np.load(p + 'Gap_tag_list.npy')
-    spike_times = mf.spike_times_gap(datasets[0], 'Gap', show=True, save_data=False, th_factor=3, filter_on=True,
-                                     window=None, mph_percent=2)
+    spike_times = mf.spike_times_gap(datasets[0], 'Gap', show=True, save_data=False, th_factor=th_factor, filter_on=True,
+                                     window=None, mph_percent=mph_percent, bin_size=bin_size)
 
 if FI_OVERANIMALS:
     # Load data

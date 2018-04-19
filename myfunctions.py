@@ -15,6 +15,7 @@ import pickle
 from tqdm import tqdm
 import thunderfish.peakdetection as pk
 from joblib import Parallel,delayed
+import csv
 
 # ----------------------------------------------------------------------------------------------------------------------
 # PEAK DETECTION
@@ -407,7 +408,151 @@ def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show
     return spikes
 
 
-def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1, mph_percent=0.8):
+def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets,
+                              snippets_removed, th, window, tag_list, stim_time, stim):
+    fs = 100*1000
+    fig = plt.figure(figsize=(12, 8))
+    fig_size = (3, 2)
+    spike_shapes = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
+    spike_width = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
+    volt_trace = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=2)
+    stim_trace = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=2)
+
+    t_snippets = np.arange(-100 / fs, 100 / fs, 1 / fs) * 1000
+    for s in range(len(snippets)):
+        spike_shapes.plot(t_snippets, snippets[s], 'k')
+    for s in range(len(snippets_removed)):
+        spike_shapes.plot(t_snippets, snippets_removed[s], 'r')
+
+    spike_shapes.set_xlabel('Time [ms]')
+    spike_shapes.set_ylabel('Voltage [uV]')
+
+    # Width vs Size
+    spike_width.plot(spike_size[:, 3] * 1000, spike_size[:, 2], 'ko')
+    spike_width.set_xlabel('Spike Width [ms]')
+    spike_width.set_ylabel('Spike Size [uV]')
+
+    # Width vs Height
+    ax2 = spike_width.twinx()  # instantiate a second axes that shares the same x-axis
+    ax2.plot(spike_size[:, 3] * 1000, spike_size[:, 1], 'gx')
+    ax2.plot([np.min(spike_size[:, 3] * 1000), np.max(spike_size[:, 3] * 1000)],
+             [np.max(spike_size[:, 1]) * mph_percent, np.max(spike_size[:, 1]) * mph_percent], 'g--')
+    ax2.set_ylabel('Spike Height[uV]', color='g')
+    ax2.tick_params(axis='y', labelcolor='g')
+
+    plot_detected_spikes(x, spike_times, spike_times_valley, marked, th, window, tag_list, volt_trace)
+    # volt_trace.set_xticks([])
+    volt_trace.set_xlim(0, 1)
+
+    stim_trace.plot(stim_time, stim)
+    stim_trace.set_xlim(0, 1)
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets, snippets_removed,
+              th, window, tag_list, stim_time, stim, bin_size):
+    fs = 100*1000
+    fig = plt.figure(figsize=(12, 8))
+    fig_size = (5, 2)
+    spike_shapes = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
+    spike_width = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
+    volt_trace = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=2)
+    raster = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=2)
+    distance = plt.subplot2grid(fig_size, (3, 0), rowspan=1, colspan=2)
+    stim_trace = plt.subplot2grid(fig_size, (4, 0), rowspan=1, colspan=2)
+
+    # Spike Shape Plot
+    t_snippets = np.arange(-100 / fs, 100 / fs, 1 / fs) * 1000
+    for s in range(len(snippets)):
+        spike_shapes.plot(t_snippets, snippets[s], 'k')
+    for s in range(len(snippets_removed)):
+        spike_shapes.plot(t_snippets, snippets_removed[s], 'r')
+
+    spike_shapes.set_xlabel('Time [ms]')
+    spike_shapes.set_ylabel('Voltage [uV]')
+
+    # Spike Parameters Plot
+    # Width vs Size
+    spike_width.plot(spike_size[:, 3] * 1000, spike_size[:, 2], 'ko')
+    spike_width.set_xlabel('Spike Width [ms]')
+    spike_width.set_ylabel('Spike Size [uV]')
+    # Width vs Height
+    ax2 = spike_width.twinx()  # instantiate a second axes that shares the same x-axis
+    ax2.plot(spike_size[:, 3] * 1000, spike_size[:, 1], 'gx')
+    ax2.plot([np.min(spike_size[:, 3] * 1000), np.max(spike_size[:, 3] * 1000)],
+             [np.max(spike_size[:, 1]) * mph_percent, np.max(spike_size[:, 1]) * mph_percent], 'g--')
+    ax2.set_ylabel('Spike Height[uV]', color='g')
+    ax2.tick_params(axis='y', labelcolor='g')
+
+    # Spike Detection Plot
+    sp = spike_times[-1]*fs
+    sp = sp.astype(int)
+    sp_valley = spike_times_valley[-1]*fs
+    sp_valley = sp_valley.astype(int)
+    plot_detected_spikes(x, sp, sp_valley, marked, th, window, 'Gap =' + tag_list + ' ms', volt_trace)
+    # volt_trace.set_xticks([])
+    volt_trace.set_xlim(0, 1)
+
+    # Raster Plot
+    spike_times_psth = np.concatenate(spike_times)
+    n = len(spike_times)
+    bins = int(np.max(spike_times_psth) / bin_size)
+    hist, bin_edges = np.histogram(spike_times_psth, bins)
+    frate = hist / bin_size / n
+
+    bin_size2 = 0.01
+    bins2 = int(np.max(spike_times_psth) / bin_size2)
+    hist2, bin_edges2 = np.histogram(spike_times_psth, bins2)
+    frate2 = hist2 / bin_size2 / n
+
+    raster.plot(bin_edges[:-1], frate, 'r')
+    raster.plot(bin_edges2[:-1], frate2, 'b')
+    raster.set_xlim(0, 1)
+    raster.set_ylabel('Firing Rate [Hz]')
+
+    raster2 = raster.twinx()
+    for kk in range(len(spike_times)):
+        raster2.plot(spike_times[kk], np.ones(len(spike_times[kk])) + kk, 'k|')
+    raster2.set_xlim(0, 1)
+    raster2.set_ylabel('Trial')
+
+    # ISI
+    # ISI = [[]] * len(spike_times)
+    # a = []
+    # for q in range(len(spike_times)):
+    #     ISI[q] = np.diff(spike_times[q])
+    #     a.append(np.diff(spike_times[q]))
+
+    # ISI Profiles
+    trains = [[]] * len(spike_times)
+    edges = [0, 1]
+    for q in range(len(spike_times)):
+        trains[q] = spk.SpikeTrain(spike_times[q], edges)
+    isi_profile = spk.isi_profile(trains)
+    spike_profile = spk.spike_profile(trains)
+    sync_profile = spk.spike_sync_profile(trains)
+    isi_x, isi_y = isi_profile.get_plottable_data()
+    spike_x, spike_y = spike_profile.get_plottable_data()
+    sync_x, sync_y = sync_profile.get_plottable_data()
+
+    distance.plot(sync_x, sync_y, 'g', label='SYNC')
+    distance.plot(isi_x, isi_y, 'k', label='ISI')
+    distance.plot(spike_x, spike_y, 'r', label='SPIKE')
+    distance.set_xlim(0, 1)
+    distance.set_ylim(0, 1)
+    distance.set_ylabel('Distance Profile')
+    legend = distance.legend(loc='upper right', shadow=True)
+
+    # Stimulus Plot
+    stim_trace.plot(stim_time, stim, 'k')
+    stim_trace.set_xlim(0, 1)
+    stim_trace.set_yticks([])
+    fig.tight_layout()
+    return 0
+
+
+def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter_on=True, window=None, mph_percent=2, bin_size=0.01):
     # Load Voltage Traces
     file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
     file_name = file_pathname + protocol_name + '_voltage.npy'
@@ -418,7 +563,7 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
     fs = 100*1000  # Sampling Rate of Ephys Recording
 
     # Get Stimulus Information
-    stim, stim_time = tagtostimulus_gap(dataset)
+    stim, stim_time, gap = tagtostimulus_gap(dataset)
 
     # Loop trough all tags in tag_list
     for i in range(len(tag_list)):
@@ -429,8 +574,8 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
             x = voltage[tag_list[i]][k]
             if filter_on:
                 nyqst = 0.5 * fs
-                lowcut = 100
-                highcut = 5000
+                lowcut = 300
+                highcut = 3000
                 low = lowcut / nyqst
                 high = highcut / nyqst
                 x = voltage_trace_filter(x, [low, high], ftype='band', order=2, filter_on=True)
@@ -443,54 +588,26 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
             t = np.arange(0, len(x) / fs, 1 / fs)
             spike_size = pk.peak_size_width(t, x, spike_times[k], spike_times_valley[k], pfac=0.75)
             spike_times[k], spike_times_valley[k], marked, marked_valley = \
-                remove_large_spikes(x, spike_times[k], spike_times_valley[k], mph_percent=2, method='std')
+                remove_large_spikes(x, spike_times[k], spike_times_valley[k], mph_percent=mph_percent, method='std')
 
             # Plot Spike Detection
-            if k == 0 and show:
-                # Cut out spikes
-                snippets = pk.snippets(x, spike_times[k], start=-100, stop=100)
-                snippets_removed = pk.snippets(x, marked, start=-100, stop=100)
+            # Cut out spikes
+            fs = 100 * 1000
+            snippets = pk.snippets(x, spike_times[k], start=-100, stop=100)
+            snippets_removed = pk.snippets(x, marked, start=-100, stop=100)
 
-                fig = plt.figure(figsize=(12, 8))
-                fig_size = (3, 2)
-                spike_shapes = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
-                spike_width = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
-                volt_trace = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=2)
-                stim_trace = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=2)
-
-                t_snippets = np.arange(-100/fs, 100/fs, 1/fs)*1000
-                for s in range(len(snippets)):
-                    spike_shapes.plot(t_snippets, snippets[s], 'k')
-                for s in range(len(snippets_removed)):
-                    spike_shapes.plot(t_snippets, snippets_removed[s], 'r')
-
-                spike_shapes.set_xlabel('Time [ms]')
-                spike_shapes.set_ylabel('Voltage [uV]')
-
-                # Width vs Size
-                spike_width.plot(spike_size[:, 3]*1000, spike_size[:, 2], 'ko')
-                spike_width.set_xlabel('Spike Width [ms]')
-                spike_width.set_ylabel('Spike Size [uV]')
-
-                # Width vs Height
-                ax2 = spike_width.twinx()  # instantiate a second axes that shares the same x-axis
-                ax2.plot(spike_size[:, 3] * 1000, spike_size[:, 1], 'gx')
-                ax2.plot([np.min(spike_size[:, 3] * 1000), np.max(spike_size[:, 3] * 1000)],
-                         [np.max(spike_size[:, 1]) * mph_percent, np.max(spike_size[:, 1]) * mph_percent], 'g--')
-                ax2.set_ylabel('Spike Height[uV]', color='g')
-                ax2.tick_params(axis='y', labelcolor='g')
-
-                plot_detected_spikes(x, spike_times[k], spike_times_valley[k], marked, th, window, tag_list[i], volt_trace)
-                # volt_trace.set_xticks([])
-                volt_trace.set_xlim(0, 1.5)
-
-                stim_trace.plot(stim_time[i], stim[i])
-                stim_trace.set_xlim(0, 1.5)
-                fig.tight_layout()
-                plt.show()
+            if k == 0 and show and i == 0:
+                plot_spike_detection_gaps(x, spike_times[k], spike_times_valley[k], marked, spike_size, mph_percent, snippets,
+                                          snippets_removed, th, window, tag_list[i], stim_time[i], stim[i])
 
             spike_times[k] = spike_times[k] / fs  # in seconds
+            spike_times_valley[k] = spike_times_valley[k] / fs  # in seconds
         spikes.update({tag_list[i]: spike_times})
+
+        # Plot overview of all trials for this stimulus
+        plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets, snippets_removed, th,
+                  window, gap[i], stim_time[i], stim[i], bin_size)
+        plt.show()
 
     # Save to HDD
     if save_data:
@@ -927,7 +1044,6 @@ def get_voltage_trace(dataset, tag, protocol_name, multi_tag, search_for_tags):
 
     sampling_rate = 100*1000
     voltage = {}
-
     if multi_tag:
         for i in range(len(tag_list)):
             # Get tags
@@ -946,6 +1062,84 @@ def get_voltage_trace(dataset, tag, protocol_name, multi_tag, search_for_tags):
             volt = mtag.retrieve_data(0)[:]  # Get Voltage
             voltage.update({tag_list[i]: volt})  # Store Stimulus Name and voltage traces in dict
 
+
+    # Save to HDD
+    file_name = file_pathname + protocol_name + '_voltage.npy'
+    np.save(file_name, voltage)
+    print('Voltage Traces saved (protocol: ' + protocol_name + ')')
+
+    file_name2 = file_pathname + protocol_name + '_tag_list.npy'
+    np.save(file_name2, tag_list)
+    print('Tag List saved (protocol: ' + protocol_name + ')')
+    f.close()
+    return voltage, tag_list
+
+
+def get_voltage_trace_gap(dataset, tag, protocol_name, multi_tag, search_for_tags):
+    """Get Voltage Trace from nix file.
+
+    Notes
+    ----------
+    This function reads out the voltage traces for the given tag names stored in the nix file
+
+    Parameters
+    ----------
+    dataset :       Data set name (string)
+    tag:            Tag name (string)
+    protocol_name:  protocol name (string) (only important for saving the data)
+    search_for_tags: search for all tags containing the string in tag. If set to false, the list in 'tag' is used.
+    multi_tag: If true then function treats tags as multi tags and looks for all trials.
+
+    Returns
+    -------
+    voltage: Saves Voltage Traces to HDD in a .npy file (dict)
+
+    """
+
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+    b = f.blocks[0]
+    if search_for_tags:
+        if multi_tag:
+            tag_list = [t.name for t in b.multi_tags if tag in t.name]  # Find Multi-Tags
+        else:
+            tag_list = [t.name for t in b.tags if tag in t.name]  # Find Tags
+    else:
+        tag_list = tag
+
+    # Find all multi tags:
+    m = 'SingleStimulus-square_wave-sine_wave-'
+    mtag_list = [t.name for t in b.multi_tags if m in t.name]  # Find Multi-Tags
+
+    sampling_rate = 100*1000
+
+    tag1 = b.tags[tag_list[0]].position[0]
+    tag2 = b.tags[tag_list[-1]].position[0] + b.tags[tag_list[-1]].extent[0]
+    mtags = []
+
+    for k in range(len(mtag_list)):
+        try:
+            pos = b.multi_tags[mtag_list[k]].positions[0]
+            if pos > tag1 and pos < tag2:
+                mtags.append(mtag_list[k])
+        except:
+            print(mtag_list[k] + ' not found')
+
+    if len(tag_list) > len(mtags):
+        print(dataset)
+        print('Did you run this protocol more than once?')
+
+    voltage = {}
+    for i in range(len(mtags)):
+        # Get tags
+        mtag = b.multi_tags[mtags[i]]
+        trials = len(mtag.positions[:])  # Get number of trials
+        volt = np.zeros((trials, int(np.ceil(mtag.extents[0]*sampling_rate))))  # allocate memory
+        for k in range(trials):  # Loop through all trials
+            v = mtag.retrieve_data(k, 0)[:]  # Get Voltage for each trial
+            volt[k, :len(v)] = v
+        voltage.update({tag_list[i]: volt})  # Store Stimulus Name and voltage traces in dict
 
     # Save to HDD
     file_name = file_pathname + protocol_name + '_voltage.npy'
@@ -1071,6 +1265,108 @@ def list_protocols(dataset, protocol_name, tag_name):
     f.close()
     return target, p, mtarget, mp
 
+
+def overview_recordings(look_for_mtags):
+
+    # List all recordings
+    recs = os.listdir('/media/brehm/Data/MasterMoth/mothdata')
+    recs = [s for s in recs if '2' in s]
+    not_found = []
+    # Create csv
+    with open('overview.csv', 'w', newline='') as csvfile:
+        textwriter = csv.writer(csvfile, delimiter=',')
+        textwriter.writerow(['Recording', 'Gap', 'PulseIntervalRect', 'MAS', 'FI', 'Calls', 'Species', 'Sex', 'Age'])
+
+    for data_name in tqdm(recs, desc='Data Files'):
+        file_pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
+        nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
+
+        # Open the nix file
+        try:
+            f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+            # print('".nix" extension found')
+            # print(data_name)
+        except:
+            try:
+                f = nix.File.open(nix_file + '.h5', nix.FileMode.ReadOnly)
+                # print('".nix.h5" extension found')
+                # print(data_name)
+            except:
+                # print(data_name)
+                # print('File not found')
+                not_found.append(data_name)
+                continue
+        b = f.blocks[0]
+
+        # Get all tags:
+        tags = [[]] * len(b.tags)
+        tag_protocols = [[]] * len(b.tags)
+        k = 0
+        for i in b.tags:
+            tags[k] = i.name
+            try:
+                # Get Macro Name
+                tag_protocols[k] = b.tags[i.name].metadata.sections[0].sections[0].props[1].name
+            except:
+                tag_protocols[k] = 'None'
+            k += 1
+
+        # Get all multi tags:
+        if look_for_mtags:
+            multi_tags = [[]] * len(b.multi_tags)
+            mtag_protocols = [[]] * len(b.multi_tags)
+            mtag_metadata = {}
+            k = 0
+            for i in tqdm(b.multi_tags, desc='Multi Tags'):
+                multi_tags[k] = i.name
+                try:
+                    # Get all metadata
+                    mtag_protocols[k] = getMetadataDict(b.multi_tags[i.name])
+                    mtag_metadata.update({i.name: getMetadataDict(b.multi_tags[i.name])})
+                except:
+                    mtag_protocols[k] = 'None'
+                k += 1
+
+        # Check what the recording has to offer
+        # macros: Gap | PulseIntervalRect | MAS | FI | Calls
+        macros = [False] * 5
+        if any("Gap" in s for s in tag_protocols):
+            macros[0] = True
+        if any("PulseIntervalsRect" in s for s in tag_protocols):
+            macros[1] = True
+        # if any(len("PulseIntervals") == len(s) for s in tag_protocols) and any("PulseIntervals" in s for s in tag_protocols):
+        #     macros[2] = True
+        # if any("FIField" in s for s in tag_protocols):
+        #     macros[3] = True
+        if any("Moth" in s for s in tag_protocols):
+            macros[4] = True
+
+        if any("MothA" in s for s in tags):
+            macros[2] = True
+        if any("FI" in s for s in tags):
+            macros[3] = True
+
+        # Get Animal Species
+        try:
+            meta_rec = getMetadataDict(b)
+            animal = meta_rec['Subject']['Species'][0]
+            age = meta_rec['Subject']['Age'][0]
+            sex = meta_rec['Subject']['Sex'][0]
+        except:
+            animal = 'Unknown'
+            age = 'Unknown'
+            sex = 'Unknown'
+        # Write Info to csv
+        with open('overview.csv', 'a', newline='') as csvfile:
+            textwriter = csv.writer(csvfile, delimiter=',')
+            # textwriter.writerow(['Recording', 'Gap', 'PulseIntervalRect', 'MAS', 'FI', 'Calls', 'Species', 'Sex', 'Age'])
+            textwriter.writerow([data_name] + macros + [animal, sex, age])
+        # Close nix file
+        f.close()
+
+    print('This files could not be found or opend:')
+    for i in not_found: print(i)
+    return 0
 
 # ----------------------------------------------------------------------------------------------------------------------
 # SPIKE STATISTICS
@@ -3763,6 +4059,7 @@ def tagtostimulus_gap(dataset):
     b = f.blocks[0]
     stim = {}
     stim_time = {}
+    gap = {}
     fs = 1000
     for k in range(len(tag_list)):
         tag = b.tags[tag_list[k]]
@@ -3777,11 +4074,12 @@ def tagtostimulus_gap(dataset):
         pulse_duration = metadata[key][key2]['pulseduration']
         stimulus_duration = metadata[key][key2]['duration']
         total_amplitude = 1
+        gap.update({k: str(np.ceil((period - pulse_duration) * 1000))})
         t, s = rect_stimulus(period, pulse_duration, stimulus_duration, total_amplitude, fs, plotting=False)
         stim.update({k: s})
         stim_time.update({k: t})
     f.close()
-    return stim, stim_time
+    return stim, stim_time, gap
 
 
 
@@ -3842,9 +4140,8 @@ def gap_analysis(dataset, protocol_name):
     fs = 100*1000  # Sampling Rate of Ephys Recording
 
     # Set time range of single trials
-    cut = np.arange(0, 16, 1.5)
+    cut = np.arange(0.6, 17, 1.5)
     cut_samples = cut * fs
-
     voltage_new = {}
     for k in range(len(tag_list)):
         v = {}
@@ -3853,7 +4150,6 @@ def gap_analysis(dataset, protocol_name):
         for i in range(len(cut_samples)-1):
             v.update({i: volt[int(cut_samples[i]):int(cut_samples[i+1])]})
         voltage_new.update({tag_list[k]: v})
-
     # Save Voltage to HDD (This overwrites the input voltage data)
     dname = file_pathname + protocol_name + '_voltage.npy'
     np.save(dname, voltage_new)

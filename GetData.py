@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
 import os
 import thunderfish.peakdetection
+from tqdm import tqdm
 
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
@@ -13,10 +14,25 @@ import thunderfish.peakdetection
 # datasets = ['2018-02-09-aa'] # calls
 # datasets = ['2017-11-01-aa'] # calls
 # datasets = ['2017-12-05-aa']  # FI
-datasets = ['2018-02-20-aa']
 # datasets = ['2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa', '2017-11-01-aa', '2017-11-16-aa']  # Carales FIs
+dat = [ '2017-11-25-aa',
+        '2017-11-25-ab',
+        '2017-11-27-aa',
+        '2017-11-29-aa',
+        '2017-12-01-aa',
+        '2017-12-05-ab',
+        '2017-11-14-aa',
+        '2017-11-16-aa',
+        '2017-11-17-aa',
+        '2018-02-16-aa',
+        '2018-02-20-aa',
+        '2017-12-01-ac']
+
+datasets = [dat[1]]
+
 
 VIEWNIX = False
+OVERVIEW = False
 GetSession = False
 
 FIFIELD = False
@@ -122,15 +138,14 @@ if CHECKPROTOCOLS:
     embed()
 
 if GAP:
-    # gaps, p, _, _ = mf.list_protocols(datasets[0], protocol_name='Gap',
-    #                                   tag_name=['SingleStimulus_', 'SingleStimulus-file-'])
-    # mf.get_voltage_trace(datasets[0], gaps, 'Gap', multi_tag=False, search_for_tags=False)
-    #
-    # # Cut out single trials from recording
-    # mf.gap_analysis(datasets[0], 'Gap')
-    #
-    mf.tagtostimulus_gap(datasets[0])
+    for i in tqdm(range(len(dat)), desc='DataSets'):
+        datasets = [dat[i]]
+        gaps, p, _, _ = mf.list_protocols(datasets[0], protocol_name='Gap',
+                                      tag_name=['SingleStimulus_', 'SingleStimulus-file-'])
+        mf.get_voltage_trace_gap(datasets[0], gaps, 'Gap', multi_tag=False, search_for_tags=False)
 
 
+if OVERVIEW:
+    mf.overview_recordings(look_for_mtags=False)
 
 print('Overall Data Gathering done')
