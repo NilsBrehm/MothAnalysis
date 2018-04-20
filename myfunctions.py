@@ -501,13 +501,7 @@ def plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percen
     hist, bin_edges = np.histogram(spike_times_psth, bins)
     frate = hist / bin_size / n
 
-    bin_size2 = 0.01
-    bins2 = int(np.max(spike_times_psth) / bin_size2)
-    hist2, bin_edges2 = np.histogram(spike_times_psth, bins2)
-    frate2 = hist2 / bin_size2 / n
-
     raster.plot(bin_edges[:-1], frate, 'r')
-    raster.plot(bin_edges2[:-1], frate2, 'b')
     raster.set_xlim(0, 1)
     raster.set_ylabel('Firing Rate [Hz]')
 
@@ -605,9 +599,11 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
         spikes.update({tag_list[i]: spike_times})
 
         # Plot overview of all trials for this stimulus
-        plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets, snippets_removed, th,
-                  window, gap[i], stim_time[i], stim[i], bin_size)
-        plt.show()
+        if show:
+            plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets, snippets_removed, th,
+                      window, gap[i], stim_time[i], stim[i], bin_size)
+            plt.show()
+
 
     # Save to HDD
     if save_data:
@@ -3394,66 +3390,60 @@ def pulse_train_matrix(samples, duration, profile):
 # Interval MothASongs functions:
 
 
-def get_moth_intervals_data(datasets):
+def get_moth_intervals_data(datasets, save_data):
     # Get voltage trace from nix file for Intervals MothASongs Protocol
     # data_set_numbers has to fit the the data names in the nix file!
     # Returns voltage trace, stimulus time, stimulus amplitude, gap and meta data for every single trial
     # datasets can be a list of many recordings
 
-    idx2 = 0
+    data_name = datasets
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
+    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
 
-    for dat in range(len(datasets)):
-        data_name = datasets[dat]
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
-        nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
+    # Open the nix file
+    f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+    b = f.blocks[0]
 
-        # Open the nix file
-        f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
-        b = f.blocks[0]
-        # Set Data Parameters
-        skips = 0
-        idx = 0
-        # Be careful not to load data that is not from the interval protocol
-        data_set_numbers = ['351-1','176-1','117-1','88-1','71-1','59-1','51-1','44-1','39-1','36-1','32-1','30-1',
-                            '27-1','26-1','24-1','117-2','88-2','71-2','59-2','51-2','44-2','39-2','36-2','32-2',
-                            '30-2','27-2','26-2','24-2','22-1','21-1']
-        voltage = {}
-        for sets in data_set_numbers:
-            tag_name = 'MothASongs-moth_song-damped_oscillation*' + str(sets)
-            try:
-                mtag = b.multi_tags[tag_name]
-            except KeyError:
-                print('%s not found' % str(sets))
-                continue
+    # Find all multi tags:
+    m = 'MothASongs-moth_song-damped'
+    mtag_list = [t.name for t in b.multi_tags if m in t.name]  # Find Multi-Tags
 
-            trial_number = len(mtag.positions[:])
-            if trial_number <= 1:  # if only one trial exists, skip this data
-                skips += 1
-                print('skipped %s: less than 2 trials found' % str(sets))
-                continue
+    # Set Data Parameters
+    skips = 0
 
-            # Get metadata
-            meta = mtag.metadata.sections[0]
+    # Be careful not to load data that is not from the interval protocol
+    # data_set_numbers = ['351-1','176-1','117-1','88-1','71-1','59-1','51-1','44-1','39-1','36-1','32-1','30-1',
+    #                     '27-1','26-1','24-1','117-2','88-2','71-2','59-2','51-2','44-2','39-2','36-2','32-2',
+    #                     '30-2','27-2','26-2','24-2','22-1','21-1']
 
-            # Reconstruct stimulus from meta data
-            stimulus_time, stimulus, gap, MetaData = reconstruct_moth_song(meta)
-            tau = MetaData[1, 0]
-            frequency = MetaData[2, 0]
-            freq = int(frequency / 1000)
+    voltage = {}
+    for sets in tqdm(range(len(mtag_list)), desc='Artificial Moth Intervals'):
 
-            # Get voltage trace
-            volt = {}
-            for trial in range(trial_number):
-                v = mtag.retrieve_data(trial, 0)[:]
-                volt.update({trial: {0: v, 1: tau, 2: gap, 3: freq}})
-            volt.update({'stimulus': stimulus, 'stimulus_time': stimulus_time, 'gap': gap, 'meta': MetaData, 'trials': trial_number})
-            voltage.update({idx: volt})
-            idx += 1
+        mtag = b.multi_tags[mtag_list[sets]]
+        trial_number = len(mtag.positions[:])
+        if trial_number <= 1:  # if only one trial exists, skip this data
+            skips += 1
+            print('skipped %s: less than 2 trials found' % str(sets))
+            continue
 
-            # Progress Bar
-            percent = np.round(idx / len(data_set_numbers), 2)
-            print('-- Get Intervals MothASongs Data: %s %%  --' % (percent * 100))
+        # Get metadata
+        meta = mtag.metadata.sections[0]
 
+        # Reconstruct stimulus from meta data
+        stimulus_time, stimulus, gap, MetaData = reconstruct_moth_song(meta)
+        tau = MetaData[1, 0]
+        frequency = MetaData[2, 0]
+        freq = int(frequency / 1000)
+
+        # Get voltage trace
+        volt = {}
+        for trial in range(trial_number):
+            v = mtag.retrieve_data(trial, 0)[:]
+            volt.update({trial: {0: v, 1: tau, 2: gap, 3: freq}})
+        volt.update({'stimulus': stimulus, 'stimulus_time': stimulus_time, 'gap': gap, 'meta': MetaData, 'trials': trial_number})
+        voltage.update({sets: volt})
+
+    if save_data:
         # Save data to HDD
         dname = pathname + 'intervals_mas_voltage.npy'
         np.save(dname, voltage)
@@ -3466,14 +3456,8 @@ def get_moth_intervals_data(datasets):
         # dname5 = pathname + 'intervals_mas_metadata.npy'
         # np.save(dname5, MetaData)
 
-        print('Intervals MothASongs Data saved for %s!' % data_name)
-
-        idx2 += 1
-        percent2 = np.round(idx2 / len(datasets), 2)
-        print('-- Get Total: %s %%  --' % (percent2 * 100))
-
-    print('All data sets done!')
     f.close()
+
     return voltage
 
 

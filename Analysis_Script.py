@@ -16,27 +16,21 @@ start_time = time.time()
 # datasets = ['2018-02-20-aa']  # Calls Estigmene
 # datasets = ['2017-12-05-aa']  # FI
 # datasets = ['2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa', '2017-11-01-aa', '2017-11-16-aa']  # Carales FIs
-dat = [ '2017-11-25-aa',
-        '2017-11-25-ab',
-        '2017-11-27-aa',
-        '2017-11-29-aa',
-        '2017-12-01-aa',
-        '2017-12-05-ab',
-        '2017-11-14-aa',
-        '2017-11-16-aa',
-        '2017-11-17-aa',
-        '2018-02-16-aa',
-        '2018-02-20-aa',
-        '2017-12-01-ac']
+# dat = ['2017-11-25-aa', '2017-11-25-ab', '2017-11-27-aa', '2017-11-29-aa', '2017-12-01-aa', '2017-12-05-ab',
+#        '2017-11-14-aa', '2017-11-16-aa', '2017-11-17-aa', '2017-12-01-ac', '2018-02-16-aa', '2018-02-20-aa']  # GAP
 
-datasets = [dat[-3]]
+# dat = ['2017-11-27-aa', '2018-02-16-aa']  # good GAP
+#
+# datasets = [dat[0]]
+# print(datasets)
 
+datasets = ['2018-02-20-aa']
 
 FIFIELD = False
-INTERVAL_MAS = False
+INTERVAL_MAS = True
 Bootstrapping = False
 INTERVAL_REC = False
-GAP = True
+GAP = False
 SOUND = False
 
 EPULSES = False
@@ -50,8 +44,8 @@ PLOT_CORRECT = False
 
 # Settings for Spike Detection:
 th_factor = 3
-mph_percent = 1
-bin_size = 0.0005
+mph_percent = 2
+bin_size = 0.01
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
@@ -81,8 +75,8 @@ if INTERVAL_REC:
 
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:
-    # mf.moth_intervals_spike_detection(datasets[0], window=None, th_factor=3, mph_percent=0.75, filter_on=True,
-    #                                   save_data=True, show=False)
+    mf.moth_intervals_spike_detection(datasets[0], window=None, th_factor=3, mph_percent=0.75, filter_on=True,
+                                       save_data=True, show=False)
     mf.moth_intervals_analysis(datasets[0])
 
 # Analyse FIField data stored on HDD

@@ -15,21 +15,7 @@ from tqdm import tqdm
 # datasets = ['2017-11-01-aa'] # calls
 # datasets = ['2017-12-05-aa']  # FI
 # datasets = ['2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa', '2017-11-01-aa', '2017-11-16-aa']  # Carales FIs
-dat = [ '2017-11-25-aa',
-        '2017-11-25-ab',
-        '2017-11-27-aa',
-        '2017-11-29-aa',
-        '2017-12-01-aa',
-        '2017-12-05-ab',
-        '2017-11-14-aa',
-        '2017-11-16-aa',
-        '2017-11-17-aa',
-        '2018-02-16-aa',
-        '2018-02-20-aa',
-        '2017-12-01-ac']
-
-datasets = [dat[1]]
-
+datasets = ['2018-02-20-aa']
 
 VIEWNIX = False
 OVERVIEW = False
@@ -37,9 +23,9 @@ GetSession = False
 
 FIFIELD = False
 
-INTERVAL_MAS = False
+INTERVAL_MAS = True
 INTERVAL_REC = False
-GAP = True
+GAP = False
 
 SOUND = False
 SOUND2 = False
@@ -48,6 +34,18 @@ PYTOMAT = False
 CHECKPROTOCOLS = False
 MAKEDIR = False
 
+SELECT = True
+
+# Select data
+if SELECT:
+    import csv
+    with open('/media/brehm/Data/MasterMoth/overview.csv', newline='') as f:
+        datasets = []
+        reader = csv.reader(f)
+        for row in reader:
+            if row[3] == 'True':  # this is MAS
+                datasets.append(row[0])
+    datasets = sorted(datasets)
 
 
 # Create Directory for Saving Data
@@ -92,7 +90,12 @@ if FIFIELD:
 # Intervals: MothASongs
 if INTERVAL_MAS:
     print('Starting Moth Intervals Data Gathering')
-    mf.get_moth_intervals_data(datasets)
+    for dat in tqdm(range(len(datasets)), desc='Gathering MAS'):
+        try:
+            volt = mf.get_moth_intervals_data(datasets[dat], save_data=True)
+        except:
+            print('Could not open: ' + datasets[dat])
+            continue
 
 # Rect Intervals
 if INTERVAL_REC:
