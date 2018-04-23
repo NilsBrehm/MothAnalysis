@@ -411,6 +411,7 @@ def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show
 def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets,
                               snippets_removed, th, window, tag_list, stim_time, stim):
     fs = 100*1000
+    x_limit = stim_time[-1]
     fig = plt.figure(figsize=(12, 8))
     fig_size = (3, 2)
     spike_shapes = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
@@ -442,59 +443,88 @@ def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_
 
     plot_detected_spikes(x, spike_times, spike_times_valley, marked, th, window, tag_list, volt_trace)
     # volt_trace.set_xticks([])
-    volt_trace.set_xlim(0, 1)
+    volt_trace.set_xlim(0, x_limit)
 
     stim_trace.plot(stim_time, stim)
-    stim_trace.set_xlim(0, 1)
+    stim_trace.set_xlim(0, x_limit)
     fig.tight_layout()
     plt.show()
 
 
 def plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets, snippets_removed,
-              th, window, tag_list, stim_time, stim, bin_size):
+              th, window, info, stim_time, stim, bin_size):
+    """Plot Raster Plot, PSTH and Spike Distances over all trials
+
+       Notes
+       ----------
+       This function plots one spike train out of all trials and a Raster Plot, PSTH, Spike Train Distances and the
+       Stimulus
+
+       Parameters
+       ----------
+       x: Voltage Data
+       spike_times: Spike Times
+       spike_times_valley: Spike Times Valley
+       marked: Spike Times that were removed (large spikes)
+       spike_size: Spike Parameters
+       mph_percent: Threshold for removing of large spikes
+       snippets: Spike Shapes
+       snippets_removed: Spike Shapes of removed Spikes (large Spikes)
+       th: Threshold for spike detection
+       window: Window for calculating spiking threshold
+       info: Information about stimulus
+       stim_time: Stimulus time
+       stim: Stimulus
+       bin_size: Bin Size for PSTH
+
+       Returns
+       -------
+       Plot
+       """
     fs = 100*1000
+    x_limit = stim_time[-1]
     fig = plt.figure(figsize=(12, 8))
-    fig_size = (5, 2)
-    spike_shapes = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
-    spike_width = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
-    volt_trace = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=2)
-    raster = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=2)
-    distance = plt.subplot2grid(fig_size, (3, 0), rowspan=1, colspan=2)
-    stim_trace = plt.subplot2grid(fig_size, (4, 0), rowspan=1, colspan=2)
+    fig_size = (4, 2)
+    # pike_shapes = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
+    # spike_width = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
+    volt_trace = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=2)
+    raster = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=2)
+    distance = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=2)
+    stim_trace = plt.subplot2grid(fig_size, (3, 0), rowspan=1, colspan=2)
 
-    # Spike Shape Plot
-    t_snippets = np.arange(-100 / fs, 100 / fs, 1 / fs) * 1000
-    for s in range(len(snippets)):
-        spike_shapes.plot(t_snippets, snippets[s], 'k')
-    for s in range(len(snippets_removed)):
-        spike_shapes.plot(t_snippets, snippets_removed[s], 'r')
+    # # Spike Shape Plot =================================================================================================
+    # t_snippets = np.arange(-100 / fs, 100 / fs, 1 / fs) * 1000
+    # for s in range(len(snippets)):
+    #     spike_shapes.plot(t_snippets, snippets[s], 'k')
+    # for s in range(len(snippets_removed)):
+    #     spike_shapes.plot(t_snippets, snippets_removed[s], 'r')
+    #
+    # spike_shapes.set_xlabel('Time [ms]')
+    # spike_shapes.set_ylabel('Voltage [uV]')
 
-    spike_shapes.set_xlabel('Time [ms]')
-    spike_shapes.set_ylabel('Voltage [uV]')
+    # # Spike Parameters Plot ============================================================================================
+    # # Width vs Size
+    # spike_width.plot(spike_size[:, 3] * 1000, spike_size[:, 2], 'ko')
+    # spike_width.set_xlabel('Spike Width [ms]')
+    # spike_width.set_ylabel('Spike Size [uV]')
+    # # Width vs Height
+    # ax2 = spike_width.twinx()  # instantiate a second axes that shares the same x-axis
+    # ax2.plot(spike_size[:, 3] * 1000, spike_size[:, 1], 'gx')
+    # ax2.plot([np.min(spike_size[:, 3] * 1000), np.max(spike_size[:, 3] * 1000)],
+    #          [np.max(spike_size[:, 1]) * mph_percent, np.max(spike_size[:, 1]) * mph_percent], 'g--')
+    # ax2.set_ylabel('Spike Height[uV]', color='g')
+    # ax2.tick_params(axis='y', labelcolor='g')
 
-    # Spike Parameters Plot
-    # Width vs Size
-    spike_width.plot(spike_size[:, 3] * 1000, spike_size[:, 2], 'ko')
-    spike_width.set_xlabel('Spike Width [ms]')
-    spike_width.set_ylabel('Spike Size [uV]')
-    # Width vs Height
-    ax2 = spike_width.twinx()  # instantiate a second axes that shares the same x-axis
-    ax2.plot(spike_size[:, 3] * 1000, spike_size[:, 1], 'gx')
-    ax2.plot([np.min(spike_size[:, 3] * 1000), np.max(spike_size[:, 3] * 1000)],
-             [np.max(spike_size[:, 1]) * mph_percent, np.max(spike_size[:, 1]) * mph_percent], 'g--')
-    ax2.set_ylabel('Spike Height[uV]', color='g')
-    ax2.tick_params(axis='y', labelcolor='g')
-
-    # Spike Detection Plot
+    # Spike Detection Plot =============================================================================================
     sp = spike_times[-1]*fs
     sp = sp.astype(int)
     sp_valley = spike_times_valley[-1]*fs
     sp_valley = sp_valley.astype(int)
-    plot_detected_spikes(x, sp, sp_valley, marked, th, window, 'Gap =' + tag_list + ' ms', volt_trace)
+    plot_detected_spikes(x, sp, sp_valley, marked, th, window, 'Gap =' + info[0] + ' ms' + ', PD = ' + info[1] + ' ms', volt_trace)
     # volt_trace.set_xticks([])
-    volt_trace.set_xlim(0, 1)
+    volt_trace.set_xlim(0, x_limit)
 
-    # Raster Plot
+    # Raster Plot ======================================================================================================
     spike_times_psth = np.concatenate(spike_times)
     n = len(spike_times)
     bins = int(np.max(spike_times_psth) / bin_size)
@@ -502,23 +532,16 @@ def plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percen
     frate = hist / bin_size / n
 
     raster.plot(bin_edges[:-1], frate, 'r')
-    raster.set_xlim(0, 1)
+    raster.set_xlim(0, x_limit)
     raster.set_ylabel('Firing Rate [Hz]')
 
     raster2 = raster.twinx()
     for kk in range(len(spike_times)):
         raster2.plot(spike_times[kk], np.ones(len(spike_times[kk])) + kk, 'k|')
-    raster2.set_xlim(0, 1)
+    raster2.set_xlim(0, x_limit)
     raster2.set_ylabel('Trial')
 
-    # ISI
-    # ISI = [[]] * len(spike_times)
-    # a = []
-    # for q in range(len(spike_times)):
-    #     ISI[q] = np.diff(spike_times[q])
-    #     a.append(np.diff(spike_times[q]))
-
-    # ISI Profiles
+    # ISI Profiles Plot ================================================================================================
     trains = [[]] * len(spike_times)
     edges = [0, 1]
     for q in range(len(spike_times)):
@@ -533,20 +556,45 @@ def plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percen
     distance.plot(sync_x, sync_y, 'g', label='SYNC')
     distance.plot(isi_x, isi_y, 'k', label='ISI')
     distance.plot(spike_x, spike_y, 'r', label='SPIKE')
-    distance.set_xlim(0, 1)
+    distance.set_xlim(0, x_limit)
     distance.set_ylim(0, 1)
     distance.set_ylabel('Distance Profile')
     legend = distance.legend(loc='upper right', shadow=True)
 
-    # Stimulus Plot
+    # Stimulus Plot ====================================================================================================
     stim_trace.plot(stim_time, stim, 'k')
-    stim_trace.set_xlim(0, 1)
+    stim_trace.set_xlim(0, x_limit)
     stim_trace.set_yticks([])
     fig.tight_layout()
     return 0
 
 
-def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter_on=True, window=None, mph_percent=2, bin_size=0.01):
+def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter_on=True, window=None, mph_percent=2,
+                    bin_size=0.01):
+    """Spike Detection for Gap and Rect Paradigm
+
+       Notes
+       ----------
+       This function detects spikes and plot the results with some additional statistics
+
+       Parameters
+       ----------
+       dataset :       Data set name (string)
+       protocol_name:  protocol name (string)
+       show: If true show plots
+       save_data: If true save spike times to HDD
+       th_factor: Threshold for spike detection (th_factor * std)
+       filter_on: If True data will be filtered with a band pass filter
+       window: window size (seconds) for calculating threshold. If set to None the window has the length of the whole
+       spike train
+       mph_percent: Threshold for removing large spikes (B-cell). Threshold = mph_percent * std * mean
+       bin_size: Bin size for PSTH in seconds
+
+       Returns
+       -------
+       Spike Times (in seconds)
+
+       """
     # Load Voltage Traces
     file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
     file_name = file_pathname + protocol_name + '_voltage.npy'
@@ -557,9 +605,10 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
     fs = 100*1000  # Sampling Rate of Ephys Recording
 
     # Get Stimulus Information
-    stim, stim_time, gap = tagtostimulus_gap(dataset)
+    stim, stim_time, gap, pulse_duration, period = tagtostimulus_gap(dataset, protocol_name)
 
     # Loop trough all tags in tag_list
+    vs_mean = [[]] * len(tag_list)
     for i in range(len(tag_list)):
         trials = len(voltage[tag_list[i]])
         spike_times = [list()] * trials
@@ -598,12 +647,54 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
             spike_times_valley[k] = spike_times_valley[k] / fs  # in seconds
         spikes.update({tag_list[i]: spike_times})
 
-        # Plot overview of all trials for this stimulus
-        if show:
-            plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets, snippets_removed, th,
-                      window, gap[i], stim_time[i], stim[i], bin_size)
+        # Get mean firing rate over all trials
+        # bin_size = float(gap[i])/1000
+        n = len(spike_times)
+        f_rate, b = psth(spike_times, n, bin_size, plot=False, return_values=True, separate_trials=True)
+        mean_rate = np.mean(f_rate)
+
+        # Possion Spikes
+        nsamples = 100
+        tmax = 0.5
+        p_spikes = poission_spikes(nsamples, mean_rate, tmax)
+
+        # Plot VS
+        VS_plot = True
+        if VS_plot:
+            pp = np.arange(0.001, 0.1, 0.001)
+            vs = np.zeros(shape=(len(spike_times), len(pp)))
+            phase = np.zeros(shape=(len(spike_times), len(pp)))
+            for q in range(len(spike_times)):
+                for p in range(len(pp)):
+                    vs[q, p], phase[q, p] = sg.vectorstrength(spike_times[q], pp[p])
+
+            vs_mean = vs.mean(axis=0)
+            th = pk.std_threshold(vs_mean, th_factor=1)
+            peaks, _ = pk.detect_peaks(vs_mean, th)
+
+            # Poisson (bootstrap) VS
+            vs_boot = np.zeros(shape=(len(p_spikes), len(pp)))
+            phase_boot = np.zeros(shape=(len(p_spikes), len(pp)))
+            for j in range(len(p_spikes)):
+                for p in range(len(pp)):
+                    vs_boot[j, p], phase_boot[j, p] = sg.vectorstrength(p_spikes[j], pp[p])
+            vs_boot_mean = vs_boot.mean(axis=0)
+
+            plt.plot(pp*1000, vs_mean, 'k')
+            plt.plot(pp * 1000, vs_boot_mean, 'g--')
+            plt.plot(pp[peaks]*1000, vs_mean[peaks], 'ro')
+            plt.plot([float(period[i]), float(period[i])], [0, np.max(vs_mean)], 'bx--')
+            plt.xlabel('period [ms]')
+            plt.ylabel('Mean VS')
+            plt.title('period = ' + period[i] + ', gap =' + gap[i] + ', f_rate = ' + str(np.round(mean_rate)) + ' Hz')
             plt.show()
 
+        # Plot overview of all trials for this stimulus
+        if show:
+            info = [gap[i], pulse_duration[i]]
+            plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets, snippets_removed, th,
+                      window, info, stim_time[i], stim[i], bin_size)
+            plt.show()
 
     # Save to HDD
     if save_data:
@@ -655,6 +746,25 @@ def remove_large_spikes(x, spike_times, spike_times_valley, mph_percent, method)
 
 
 def plot_detected_spikes(x, spike_times, spike_times_valley, marked, th, window, info, ax):
+    """Plot Spike Detection
+       Notes
+       ----------
+       This function plots spike detection.
+
+       Parameters
+       ----------
+       x: Voltage Data
+       spike_times: Spike Times
+       spike_times_valley: Spike Times Valley
+       marked: Spike Times that were removed (large spikes)
+       th: Threshold for spike detection
+       window: Window for calculating spiking threshold
+       info: Information about stimulus
+       ax: Axis for plotting
+       Returns
+       -------
+       Plot
+       """
     # plt.figure()
     fs = 100 * 1000
     t = np.arange(0, len(x) / fs, 1 / fs)
@@ -1071,7 +1181,7 @@ def get_voltage_trace(dataset, tag, protocol_name, multi_tag, search_for_tags):
     return voltage, tag_list
 
 
-def get_voltage_trace_gap(dataset, tag, protocol_name, multi_tag, search_for_tags):
+def get_voltage_trace_gap(dataset, tag, protocol_name, multi_tag, search_for_tags, save_data):
     """Get Voltage Trace from nix file.
 
     Notes
@@ -1104,7 +1214,7 @@ def get_voltage_trace_gap(dataset, tag, protocol_name, multi_tag, search_for_tag
     else:
         tag_list = tag
 
-    # Find all multi tags:
+    # Find all multi tags that are linked to the tags (input):
     m = 'SingleStimulus-square_wave-sine_wave-'
     mtag_list = [t.name for t in b.multi_tags if m in t.name]  # Find Multi-Tags
 
@@ -1138,13 +1248,14 @@ def get_voltage_trace_gap(dataset, tag, protocol_name, multi_tag, search_for_tag
         voltage.update({tag_list[i]: volt})  # Store Stimulus Name and voltage traces in dict
 
     # Save to HDD
-    file_name = file_pathname + protocol_name + '_voltage.npy'
-    np.save(file_name, voltage)
-    print('Voltage Traces saved (protocol: ' + protocol_name + ')')
+    if save_data:
+        file_name = file_pathname + protocol_name + '_voltage.npy'
+        np.save(file_name, voltage)
+        print('Voltage Traces saved (protocol: ' + protocol_name + ')')
 
-    file_name2 = file_pathname + protocol_name + '_tag_list.npy'
-    np.save(file_name2, tag_list)
-    print('Tag List saved (protocol: ' + protocol_name + ')')
+        file_name2 = file_pathname + protocol_name + '_tag_list.npy'
+        np.save(file_name2, tag_list)
+        print('Tag List saved (protocol: ' + protocol_name + ')')
     f.close()
     return voltage, tag_list
 
@@ -1188,10 +1299,33 @@ def get_metadata(dataset, tag, protocol_name):
     return f, mtags
 
 
-def list_protocols(dataset, protocol_name, tag_name):
+def list_protocols(dataset, protocol_name, tag_name, save_txt):
+    """List all protocols in nix file
+
+    Notes
+    ----------
+    This function looks for specific tags and multi tags in a nix file and lists all the protocols that were found. It
+    also gives the tag names that include the protcol that you are looking for.
+
+    Parameters
+    ----------
+    dataset :       Data set name (string)
+    protocol_name:  protocol name (string)
+    tag_name: Name of tag that you are looking for (string)
+    save_txt: If true all gathered information will be saved to a text file
+
+    Returns
+    -------
+    target: List of tag names that have the protocol you're looking for
+    p: List of protocols that were found in tags
+    mtarget: List of multi tag names that have the protocol you're looking for
+    mp: List of protocols that were found in multi tags
+
+    """
     file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
     nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
 
+    # Try to open the nix file
     try:
         f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
         print('".nix" extension found')
@@ -1205,27 +1339,27 @@ def list_protocols(dataset, protocol_name, tag_name):
             print(dataset)
             print('File not found')
             return 1
-
     b = f.blocks[0]
 
+    # Search for tags and multi tags
     tag_list = [t.name for t in b.tags if tag_name[0] in t.name]
     mtag_list = [t.name for t in b.multi_tags if tag_name[1] in t.name]
     target = []
     mtarget = []
 
     # Create Text File:
-    text_file_name = file_pathname + 'stimulus_protocols.txt'
-    text_file_name2 = file_pathname + 'stimulus_songs.txt'
+    if save_txt:
+        text_file_name = file_pathname + 'stimulus_protocols.txt'
+        text_file_name2 = file_pathname + 'stimulus_songs.txt'
+        try:
+            text_file = open(text_file_name, 'r+')
+            text_file2 = open(text_file_name2, 'r+')
+            text_file.truncate(0)
+            text_file2.truncate(0)
+        except FileNotFoundError:
+            print('create new txt files')
 
-    try:
-        text_file = open(text_file_name, 'r+')
-        text_file2 = open(text_file_name2, 'r+')
-        text_file.truncate(0)
-        text_file2.truncate(0)
-    except FileNotFoundError:
-        print('create new txt files')
-
-    # Tags:
+    # Get the Metadata for the Tags:
     p = [''] * len(tag_list)
     try:
         for i in range(len(tag_list)):
@@ -1234,15 +1368,16 @@ def list_protocols(dataset, protocol_name, tag_name):
                 target.append(tag_list[i])
 
         # Write to txt file
-        with open(text_file_name, 'a') as text_file:
-            text_file.write(dataset + '\n')
-            text_file.write(tag_name[0] + '\n\n')
-            for k in range(len(p)):
-                text_file.write(p[k] + '\n')
+        if save_txt:
+            with open(text_file_name, 'a') as text_file:
+                text_file.write(dataset + '\n')
+                text_file.write(tag_name[0] + '\n\n')
+                for k in range(len(p)):
+                    text_file.write(p[k] + '\n')
     except KeyError:
         print('No Protocols found')
 
-    # Multi Tags:
+    # Get the Metadata for the Multi Tags:
     mp = [''] * len(mtag_list)
     try:
         for i in range(len(mtag_list)):
@@ -1250,14 +1385,16 @@ def list_protocols(dataset, protocol_name, tag_name):
             if mp[i] == protocol_name:
                 mtarget.append(mtag_list[i])
         # Write to txt file
-        with open(text_file_name2, 'a') as text_file:
-            text_file.write(dataset + '\n')
-            text_file.write(tag_name[1] + '\n\n')
-            for k in range(len(mp)):
-                text_file.write(mp[k] + '\n')
+        if save_txt:
+            with open(text_file_name2, 'a') as text_file:
+                text_file.write(dataset + '\n')
+                text_file.write(tag_name[1] + '\n\n')
+                for k in range(len(mp)):
+                    text_file.write(mp[k] + '\n')
     except KeyError:
         print('No Songs found')
 
+    # Close the nix file
     f.close()
     return target, p, mtarget, mp
 
@@ -3469,12 +3606,19 @@ def moth_intervals_spike_detection(datasets, window=None, th_factor=1, mph_perce
         pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
         fname = pathname + 'intervals_mas_voltage.npy'
         voltage = np.load(fname).item()
+
         # Now detect spikes in each trial and update input data
         for i in voltage:
             spikes = []
-            # for trial in voltage[i]:
-            for trial in range(voltage[i]['trials']):
-                x = voltage[i][trial][0]
+            stimulus = voltage[i]['stimulus']
+            stimulus_time = voltage[i]['stimulus_time']
+            info = str(voltage[i]['gap']*1000)
+            trial_number = voltage[i]['trials']
+            spike_times = [[]] * trial_number
+            spike_times_valley = [[]] * trial_number
+
+            for k in range(trial_number):
+                x = voltage[i][k][0]
                 # Filter Voltage Trace
                 if filter_on:
                     nyqst = 0.5 * fs
@@ -3485,47 +3629,76 @@ def moth_intervals_spike_detection(datasets, window=None, th_factor=1, mph_perce
                     x = voltage_trace_filter(x, [low, high], ftype='band', order=2, filter_on=True)
 
                 th = pk.std_threshold(x, fs, window, th_factor)
-                spike_times, spike_times_valley = pk.detect_peaks(x, th)
+                spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
 
                 # Remove large spikes
-                if spike_times.any():
-                    mask = np.ones(len(spike_times), dtype=bool)
-                    a = x[spike_times]
-                    idx_a = a >= np.max(a) * mph_percent
-                    mask[idx_a] = False
-                    marked = spike_times[idx_a]
-                    spike_times = spike_times[mask]
+                t = np.arange(0, len(x) / fs, 1 / fs)
+                spike_size = pk.peak_size_width(t, x, spike_times[k], spike_times_valley[k], pfac=0.75)
+                spike_times[k], spike_times_valley[k], marked, marked_valley = \
+                    remove_large_spikes(x, spike_times[k], spike_times_valley[k], mph_percent=mph_percent, method='std')
 
-                if spike_times_valley.any():
-                    mask = np.ones(len(spike_times_valley), dtype=bool)
-                    b = x[spike_times_valley]
-                    idx_b = b <= np.min(b) * 0.8
-                    mask[idx_b] = False
-                    marked_valley = spike_times_valley[idx_b]
-                    spike_times_valley = spike_times_valley[mask]
+                # Plot Spike Detection
+                # Cut out spikes
+                fs = 100 * 1000
+                snippets = pk.snippets(x, spike_times[k], start=-100, stop=100)
+                snippets_removed = pk.snippets(x, marked, start=-100, stop=100)
 
-                if np.random.rand(1) > 0.98 and show is True:
-                    plt.figure()
-                    plt.plot(x)
-                    if spike_times.any():
-                        plt.plot(spike_times, x[spike_times], 'ro')
-                    if spike_times_valley.any():
-                        plt.plot(spike_times_valley, x[spike_times_valley], 'bo')
-                    plt.plot(marked, x[marked], 'kx')
-                    if window is None:
-                        plt.plot([0, len(x)], [th, th], 'r--')
-                        plt.plot([0, len(x)], [-th, -th], 'r--')
-                    else:
-                        plt.plot(th / 2, 'b--')
-                        plt.plot(-th / 2, 'b--')
-                    plt.show()
+                if show and k == 0:
+                    plot_spike_detection_gaps(x, spike_times[k], spike_times_valley[k], marked, spike_size, mph_percent,
+                                              snippets, snippets_removed, th, window, info, stimulus_time, stimulus)
 
-                spike_times = spike_times / fs  # Now spike times are in real time (seconds)
-                spikes = np.append(spikes, spike_times)  # Put spike times of each trial in one long array
-                spike_count = len(spike_times)
-                voltage[i][trial].update({'spike_times': spike_times, 'spike_count': spike_count})
+                spike_times[k] = spike_times[k] / fs  # Now spike times are in real time (seconds)
+                spike_times_valley[k] = spike_times_valley[k] / fs
+                spikes = np.append(spikes, spike_times[k])  # Put spike times of each trial in one long array
+                spike_count = len(spike_times[k])
+                voltage[i][k].update({'spike_times': spike_times[k], 'spike_count': spike_count})
             voltage[i].update({'all_spike_times': spikes})
 
+            # Get mean firing rate over all trials
+            # bin_size = float(gap[i])/1000
+            bin_size = 0.005
+            n = len(spike_times)
+            f_rate, b = psth(spike_times, n, bin_size, plot=False, return_values=True, separate_trials=True)
+            mean_rate = np.mean(f_rate)
+
+            # Possion Spikes
+            nsamples = 100
+            tmax = 0.5
+            p_spikes = poission_spikes(nsamples, mean_rate, tmax)
+
+            # Plot VS
+            gap = voltage[i]['gap']*1000
+            VS_plot = True
+            if VS_plot:
+                pp = np.arange(0.001, 0.1, 0.001)
+                vs = np.zeros(shape=(len(spike_times), len(pp)))
+                phase = np.zeros(shape=(len(spike_times), len(pp)))
+                for q in range(len(spike_times)):
+                    for p in range(len(pp)):
+                        vs[q, p], phase[q, p] = sg.vectorstrength(spike_times[q], pp[p])
+
+                vs_mean = vs.mean(axis=0)
+                th = pk.std_threshold(vs_mean, th_factor=1)
+                peaks, _ = pk.detect_peaks(vs_mean, th)
+
+                # Poisson (bootstrap) VS
+                vs_boot = np.zeros(shape=(len(p_spikes), len(pp)))
+                phase_boot = np.zeros(shape=(len(p_spikes), len(pp)))
+                for j in range(len(p_spikes)):
+                    for p in range(len(pp)):
+                        vs_boot[j, p], phase_boot[j, p] = sg.vectorstrength(p_spikes[j], pp[p])
+                vs_boot_mean = vs_boot.mean(axis=0)
+                vs_95 = np.percentile(vs_boot, 95, axis=0)
+
+                plt.plot(pp * 1000, vs_mean, 'k')
+                plt.plot(pp * 1000, vs_boot_mean, 'g')
+                plt.plot(pp * 1000, vs_95, 'g--')
+                plt.plot(pp[peaks] * 1000, vs_mean[peaks], 'ro')
+                plt.plot([gap, gap], [0, np.max(vs_mean)], 'bx--')
+                plt.xlabel('Gap [ms]')
+                plt.ylabel('Mean VS')
+                plt.title('gap =' + str(gap) + ', f_rate = ' + str(np.round(mean_rate)) + ' Hz')
+                plt.show()
     # Save detected Spikes to HDD
     if save_data:
         dname = pathname + 'intervals_mas_spike_times.npy'
@@ -3623,132 +3796,6 @@ def moth_intervals_plot(data_name, trial_number, frequency):
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Rect Intervals
-
-
-def get_rect_intervals_data(datasets):
-
-    for dat in range(len(datasets)):  # Loop through all recording sessions in the list
-        data_name = datasets[dat]
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-        nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
-
-        # Open the nix file
-        f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
-        b = f.blocks[0]
-
-        # Read all tag names in nix file
-        i = 0
-        protocol_list = []
-        try:
-            while True:
-                protocol_list = np.append(protocol_list, b.tags[i].name)
-                i += 1
-        except KeyError:
-            print('--- Done looking for all tags in recording ---')
-        idx = np.char.startswith(protocol_list, 'SingleStimulus_')
-        all_protocols = protocol_list[idx]
-
-        # Collect data
-        voltage = {}
-        stim = {}
-        for protocol_number in range(len(all_protocols)):  # Loop through all tags = protocols
-            tag_name = all_protocols[protocol_number]
-            tag = b.tags[tag_name]
-
-            # Meta Data
-            meta = tag.metadata
-            macro = meta.sections[0].sections[0].props[1].name  # Get the name of the macro
-
-            if macro != 'PulseIntervalsRect':  # Check if it is the desired macro protocol
-                continue
-
-            # Collect meta data for stimulus
-            period = meta.sections[0].sections[1].props['period'].values[0].value
-            pulse_duration = meta.sections[0].sections[1].props['pulseduration'].values[0].value
-            stimulus_duration = meta.sections[0].sections[1].props['duration'].values[0].value
-            amplitude = meta.sections[0].sections[1].props['amplitude'].values[0].value
-            intensity = meta.sections[0].sections[1].props['intensity'].values[0].value
-            total_amplitude = amplitude+intensity
-
-            # Reconstruct stimulus
-            stimulus_time, stimulus = rect_stimulus(period, pulse_duration, stimulus_duration, total_amplitude, plotting=False)
-
-            # Get voltage trace
-            voltage.update({protocol_number: {'voltage': tag.retrieve_data(0)[:]}})
-            stim.update({protocol_number: {'stimulus': stimulus, 'stimulus_time': stimulus_time,
-                                           'pulse_duration': pulse_duration, 'gap': (period-pulse_duration)}})
-
-        # Save Data to HDD
-        dname = pathname + 'intervals_rect_voltage.npy'
-        np.save(dname, voltage)
-        dname2 = pathname + 'intervals_rect_stimulus.npy'
-        np.save(dname2, stim)
-
-        f.close()  # Close the nix file
-        print('Data Gathering done')
-    return 0
-
-
-def rect_intervals_spike_detection(datasets, peak_params, show_trial_detection):
-    for dat in range(len(datasets)):  # Loop through all recording sessions in the list
-        data_name = datasets[dat]
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-        filename = pathname + 'intervals_rect_voltage.npy'
-
-        # Load Voltage Data
-        sampling_rate = 100*1000
-        voltage = np.load(filename).item()
-        spikes = {}
-        for i in voltage:
-            x = voltage[i]['voltage']
-            if show_trial_detection:
-                spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
-                                           edge='rising', kpsh=False, valley=peak_params['valley'], show=True,
-                                           ax=None, maxph=peak_params['maxph'], dynamic=peak_params['dynamic'],
-                                           filter_on=peak_params['filter_on'])
-            else:
-                spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
-                                           edge='rising', kpsh=False, valley=peak_params['valley'],
-                                           show=peak_params['show'], ax=None, maxph=peak_params['maxph'],
-                                           dynamic=peak_params['dynamic'], filter_on=peak_params['filter_on'])
-
-            spike_times = spike_times/sampling_rate  # Now spike times are in seconds
-            spikes.update({i: spike_times})
-
-        # Save Data to HDD
-        if not show_trial_detection:
-            dname = pathname + 'intervals_rect_spike_times.npy'
-            np.save(dname, spikes)
-        print('Spike Detection done')
-    if show_trial_detection:
-        print('Data was NOT saved since trial display was TRUE')
-    return spikes
-
-
-def rect_intervals_cut_trials(datasets):
-    # Load spike times
-    for dat in range(len(datasets)):  # Loop through all recording sessions in the list
-        data_name = datasets[dat]
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-        filename = pathname + 'intervals_rect_spike_times.npy'
-        spike_times = np.load(filename).item()
-        limits = np.arange(0.5, 0.5*20, 1)  # end of trials, after this there is always a 500 ms pause
-        all_trial_spike_times ={}
-        for sp in spike_times:
-            trial_spike_times = {}
-            for trials in range(len(limits)):
-                x = spike_times[sp][np.logical_and(spike_times[sp] < limits[trials], spike_times[sp] > limits[trials]-0.5)]
-                x = x - (limits[trials]-0.5)  # Shift spike times to zero start = stimulus onset!
-                trial_spike_times.update({trials: x})
-
-            all_trial_spike_times.update({sp: {'trials': trial_spike_times}})
-
-        # Save Data to HDD
-        dname = pathname + 'intervals_rect_trials.npy'
-        np.save(dname, all_trial_spike_times)
-        print('Cutting out single trials done')
-    return 0
-
 
 def rect_intervals_plot(data_name):
     # Load data
@@ -3950,7 +3997,6 @@ def getMetadataDict(bHandle):
     return unpackMetadata(bHandle.metadata)
 
 
-
 def adjustSpines(ax, spines=['left', 'bottom'], shift_pos=False):
     for loc, spine in ax.spines.items():
         if loc in spines:
@@ -4035,15 +4081,17 @@ def tagtostimulus(dataset):
     return connection, connection2
 
 
-def tagtostimulus_gap(dataset):
+def tagtostimulus_gap(dataset, protocol_name):
     pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
-    tag_list = np.load(pathname + 'Gap_tag_list.npy')
+    tag_list = np.load(pathname + protocol_name + '_tag_list.npy')
     nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
     b = f.blocks[0]
     stim = {}
     stim_time = {}
     gap = {}
+    pd = {}
+    pr = {}
     fs = 1000
     for k in range(len(tag_list)):
         tag = b.tags[tag_list[k]]
@@ -4059,12 +4107,13 @@ def tagtostimulus_gap(dataset):
         stimulus_duration = metadata[key][key2]['duration']
         total_amplitude = 1
         gap.update({k: str(np.ceil((period - pulse_duration) * 1000))})
+        pd.update({k: str(pulse_duration*1000)})
+        pr.update({k: str(period*1000)})
         t, s = rect_stimulus(period, pulse_duration, stimulus_duration, total_amplitude, fs, plotting=False)
         stim.update({k: s})
         stim_time.update({k: t})
     f.close()
-    return stim, stim_time, gap
-
+    return stim, stim_time, gap, pd, pr
 
 
 def pytomat(dataset, protocol_name):
@@ -4110,11 +4159,40 @@ def get_session_metadata(datasets):
     return 0
 
 
+def poission_spikes(trials, rate, tmax):
+    """Homogeneous Poission Spike Generator
+
+       Notes
+       ----------
+       Generate spike times of a homogeneous poisson process using the exponential interspike interval distribution.
+
+       Parameters
+       ----------
+       trials: Number of trials
+       rate: Firing Rate in Hertz
+       tmax: Max duration of spike trains in seconds
+
+       Returns
+       -------
+       Spike Times (in seconds)
+
+       """
+    spikes = [[]] * trials
+    mu = 1/rate
+    nintervals = 2 * np.round(tmax/mu)
+    for k in range(trials):
+        # Exponential random numbers
+        intervals = np.random.exponential(mu, size=int(nintervals))
+        times = np.cumsum(intervals)
+        spikes[k] = times[times <= tmax]
+    return spikes
+
 # ----------------------------------------------------------------------------------------------------------------------
 # GAP PARADIGM
 
 
 def gap_analysis(dataset, protocol_name):
+    # No longer in use!
     # Load Voltage Traces
     file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
     file_name = file_pathname + protocol_name + '_voltage.npy'

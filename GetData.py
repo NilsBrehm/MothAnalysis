@@ -43,8 +43,12 @@ if SELECT:
         datasets = []
         reader = csv.reader(f)
         for row in reader:
-            if row[3] == 'True':  # this is MAS
-                datasets.append(row[0])
+            if INTERVAL_MAS:
+                if row[3] == 'True':  # this is MAS
+                    datasets.append(row[0])
+            if INTERVAL_REC:
+                if row[2] == 'True':  # this is RectIntervals
+                    datasets.append(row[0])
     datasets = sorted(datasets)
 
 
@@ -90,16 +94,20 @@ if FIFIELD:
 # Intervals: MothASongs
 if INTERVAL_MAS:
     print('Starting Moth Intervals Data Gathering')
-    for dat in tqdm(range(len(datasets)), desc='Gathering MAS'):
-        try:
-            volt = mf.get_moth_intervals_data(datasets[dat], save_data=True)
-        except:
-            print('Could not open: ' + datasets[dat])
-            continue
+    try:
+        volt = mf.get_moth_intervals_data(datasets[-4], save_data=True)
+    except:
+        print('Could not open: ' + datasets[0])
+
 
 # Rect Intervals
 if INTERVAL_REC:
-    mf.get_rect_intervals_data(datasets)
+    for d in tqdm(range(len(datasets)), desc='Get Data'):
+        protocol_name = 'PulseIntervalsRect'
+        target, p, mtarget, mp = mf.list_protocols(datasets[d], protocol_name,
+                                                   tag_name=['SingleStimulus_', 'SingleStimulus-file-'], save_txt=False)
+        voltage, tag_list = mf.get_voltage_trace_gap(datasets[d], target, protocol_name, multi_tag=False,
+                                                     search_for_tags=False, save_data=True)
 
 # Sound Recording Stimuli
 if SOUND:
@@ -144,8 +152,8 @@ if GAP:
     for i in tqdm(range(len(dat)), desc='DataSets'):
         datasets = [dat[i]]
         gaps, p, _, _ = mf.list_protocols(datasets[0], protocol_name='Gap',
-                                      tag_name=['SingleStimulus_', 'SingleStimulus-file-'])
-        mf.get_voltage_trace_gap(datasets[0], gaps, 'Gap', multi_tag=False, search_for_tags=False)
+                                      tag_name=['SingleStimulus_', 'SingleStimulus-file-'], save_txt=False)
+        mf.get_voltage_trace_gap(datasets[0], gaps, 'Gap', multi_tag=False, search_for_tags=False, save_data=True)
 
 
 if OVERVIEW:

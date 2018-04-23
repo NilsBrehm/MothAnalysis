@@ -42,10 +42,14 @@ PULSE_TRAIN_VANROSSUM = False
 FI_OVERANIMALS = False
 PLOT_CORRECT = False
 
-# Settings for Spike Detection:
-th_factor = 3
-mph_percent = 2
+SELECT = True
+
+# **********************************************************************************************************************
+# Settings for Spike Detection =========================================================================================
+th_factor = 4
+mph_percent = 5
 bin_size = 0.01
+show = True
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
@@ -68,16 +72,33 @@ dt_factor = 100
 taus = [1, 5, 10, 20, 30, 50]
 # ======================================================================================================================
 
+# Select data
+if SELECT:
+    import csv
+    with open('/media/brehm/Data/MasterMoth/overview.csv', newline='') as f:
+        datasets = []
+        reader = csv.reader(f)
+        for row in reader:
+            if INTERVAL_MAS:
+                if row[3] == 'True':  # this is MAS
+                    datasets.append(row[0])
+            if INTERVAL_REC:
+                if row[2] == 'True':  # this is RectIntervals
+                    datasets.append(row[0])
+    datasets = sorted(datasets)
+
 # Rect Intervals
 if INTERVAL_REC:
-    mf.rect_intervals_spike_detection(datasets, peak_params, True)  # Last param = show spike plot?
-    mf.rect_intervals_cut_trials(datasets)
+    print(datasets[1])
+    protocol_name = 'PulseIntervalsRect'
+    mf.spike_times_gap(datasets[1], protocol_name, show=show, save_data=False, th_factor=th_factor, filter_on=True,
+                        window=None, mph_percent=mph_percent, bin_size=bin_size)
 
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:
-    mf.moth_intervals_spike_detection(datasets[0], window=None, th_factor=3, mph_percent=0.75, filter_on=True,
-                                       save_data=True, show=False)
-    mf.moth_intervals_analysis(datasets[0])
+    mf.moth_intervals_spike_detection(datasets[-4], window=None, th_factor=th_factor, mph_percent=mph_percent,
+                                      filter_on=True, save_data=False, show=True)
+    # mf.moth_intervals_analysis(datasets[0])
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
