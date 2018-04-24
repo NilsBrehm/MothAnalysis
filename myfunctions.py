@@ -410,15 +410,26 @@ def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show
 
 def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets,
                               snippets_removed, th, window, tag_list, stim_time, stim):
-    fs = 100*1000
+    # Find 10 ms Intervals
+    fs = 100 * 1000
+    isi = np.diff(spike_times)
+    a = isi > 0.008*fs
+    b = isi < 0.015*fs
+    idx = a == b
+    idx1 = np.append(idx, False)
+    idx2 = np.insert(idx, 0, False)
+    marked_spikes = spike_times[idx1]  # First spike in interval 10 ms
+    marked_spikes2 = spike_times[idx2]  # Second spike in interval 10 ms
+
     x_limit = stim_time[-1]
     fig = plt.figure(figsize=(12, 8))
     fig_size = (3, 2)
     spike_shapes = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
     spike_width = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
     volt_trace = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=2)
-    stim_trace = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=2)
+    stim_trace = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=2, sharex=volt_trace)
 
+    # Plot Spike Shapes ================================================================================================
     t_snippets = np.arange(-100 / fs, 100 / fs, 1 / fs) * 1000
     for s in range(len(snippets)):
         spike_shapes.plot(t_snippets, snippets[s], 'k')
@@ -428,6 +439,7 @@ def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_
     spike_shapes.set_xlabel('Time [ms]')
     spike_shapes.set_ylabel('Voltage [uV]')
 
+    # Plot Spike Parameters ============================================================================================
     # Width vs Size
     spike_width.plot(spike_size[:, 3] * 1000, spike_size[:, 2], 'ko')
     spike_width.set_xlabel('Spike Width [ms]')
@@ -441,11 +453,19 @@ def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_
     ax2.set_ylabel('Spike Height[uV]', color='g')
     ax2.tick_params(axis='y', labelcolor='g')
 
+    # Plot Voltage and detected spikes =================================================================================
     plot_detected_spikes(x, spike_times, spike_times_valley, marked, th, window, tag_list, volt_trace)
     # volt_trace.set_xticks([])
+    for k in range(len(marked_spikes)):
+        # volt_trace.plot([marked_spikes[k], marked_spikes[k]+0.01], [np.max(x), np.max(x)], 'gx--')
+        volt_trace.plot([marked_spikes[k]/fs, marked_spikes2[k]/fs], [x[marked_spikes[k]], x[marked_spikes2[k]]], 'gx--')
+    # volt_trace.plot(marked_spikes, np.zeros(len(marked_spikes))+np.max(x), 'go')
     volt_trace.set_xlim(0, x_limit)
 
-    stim_trace.plot(stim_time, stim)
+    # Plot Stimulus ====================================================================================================
+    stim_trace.plot(stim_time, stim, 'k')
+    for k in range(len(marked_spikes)):
+        stim_trace.plot([marked_spikes[k] / fs, marked_spikes2[k] / fs], [1, 1], 'g--', linewidth=4)
     stim_trace.set_xlim(0, x_limit)
     fig.tight_layout()
     plt.show()
@@ -524,7 +544,7 @@ def plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percen
     # volt_trace.set_xticks([])
     volt_trace.set_xlim(0, x_limit)
 
-    # Raster Plot ======================================================================================================
+    # Raster and PSTH Plot =============================================================================================
     spike_times_psth = np.concatenate(spike_times)
     n = len(spike_times)
     bins = int(np.max(spike_times_psth) / bin_size)
@@ -537,11 +557,18 @@ def plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percen
 
     raster2 = raster.twinx()
     for kk in range(len(spike_times)):
-        raster2.plot(spike_times[kk], np.ones(len(spike_times[kk])) + kk, 'k|')
+        # raster2.plot(spike_times[kk], np.ones(len(spike_times[kk])) + kk, 'k|')
+        for ii in range(len(spike_times[kk])-1):
+            isi = spike_times[kk][ii+1] - spike_times[kk][ii]
+            if isi < 0.012 and isi > 0.008:
+                raster2.plot([spike_times[kk][ii], spike_times[kk][ii+1]], [1 + kk, 1 + kk], 'g|--')
+            else:
+                raster2.plot(spike_times[kk][ii], 1 + kk, 'k|')
+
     raster2.set_xlim(0, x_limit)
     raster2.set_ylabel('Trial')
 
-    # ISI Profiles Plot ================================================================================================
+    # Distances Profiles Plot ==========================================================================================
     trains = [[]] * len(spike_times)
     edges = [0, 1]
     for q in range(len(spike_times)):
@@ -575,7 +602,7 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
 
        Notes
        ----------
-       This function detects spikes and plot the results with some additional statistics
+       This function detects spikes and plots the results with some additional statistics
 
        Parameters
        ----------
@@ -607,9 +634,22 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
     # Get Stimulus Information
     stim, stim_time, gap, pulse_duration, period = tagtostimulus_gap(dataset, protocol_name)
 
+    # Possion Spikes
+    plot_vs = True
+    if plot_vs:
+        nsamples = 100
+        tmax = 0.5
+        tmin = 0.1
+        p_spikes, isi_p = poission_spikes(nsamples, 100, tmax)
+        pp = np.arange(0.001, 0.3, 0.001)
+        vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, peaks_boot = vs_range(p_spikes, pp,
+                                                                                                  parallel_cpu=False, tmin=tmin)
+
     # Loop trough all tags in tag_list
     vs_mean = [[]] * len(tag_list)
     for i in range(len(tag_list)):
+        # if pulse_duration[i] == '10.0':
+        #     continue
         trials = len(voltage[tag_list[i]])
         spike_times = [list()] * trials
         spike_times_valley = [list()] * trials
@@ -639,7 +679,7 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
             snippets = pk.snippets(x, spike_times[k], start=-100, stop=100)
             snippets_removed = pk.snippets(x, marked, start=-100, stop=100)
 
-            if k == 0 and show and i == 0:
+            if k == 0 and show:
                 plot_spike_detection_gaps(x, spike_times[k], spike_times_valley[k], marked, spike_size, mph_percent, snippets,
                                           snippets_removed, th, window, tag_list[i], stim_time[i], stim[i])
 
@@ -649,41 +689,39 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
 
         # Get mean firing rate over all trials
         # bin_size = float(gap[i])/1000
+        sp = np.concatenate(spike_times)
+        sp = sp[sp > 0.1]
         n = len(spike_times)
-        f_rate, b = psth(spike_times, n, bin_size, plot=False, return_values=True, separate_trials=True)
+        f_rate, b = psth(sp, n, bin_size, plot=False, return_values=True, separate_trials=False)
         mean_rate = np.mean(f_rate)
+        print('r: ' + str(np.round(mean_rate, 2)) + ' Hz, T: ' + str(np.round((1/mean_rate) * 1000, 2)) + ' ms')
 
-        # Possion Spikes
-        nsamples = 100
-        tmax = 0.5
-        p_spikes = poission_spikes(nsamples, mean_rate, tmax)
+        # # Possion Spikes
+        # nsamples = 1000
+        # tmax = 0.5
+        # p_spikes, isi_p = poission_spikes(nsamples, mean_rate, tmax)
 
-        # Plot VS
-        VS_plot = True
-        if VS_plot:
-            pp = np.arange(0.001, 0.1, 0.001)
-            vs = np.zeros(shape=(len(spike_times), len(pp)))
-            phase = np.zeros(shape=(len(spike_times), len(pp)))
-            for q in range(len(spike_times)):
-                for p in range(len(pp)):
-                    vs[q, p], phase[q, p] = sg.vectorstrength(spike_times[q], pp[p])
+        # ISI Histogram
+        if plot_vs:
+            fig = plt.figure(figsize=(10, 5))
+            plt.subplot(1, 2, 1)
+            bs = 1  # in ms
+            plot_isi_histogram(spike_times, p_spikes, bs, x_limit=50, steps=5, info=[period[i], gap[i]], intervals=isi_p, tmin=tmin)
 
-            vs_mean = vs.mean(axis=0)
-            th = pk.std_threshold(vs_mean, th_factor=1)
-            peaks, _ = pk.detect_peaks(vs_mean, th)
+            # VS Range
+            # pp = np.arange(0.001, 0.1, 0.001)
+            vs, phase, vs_mean, vs_std, vs_percentile, peaks = vs_range(spike_times, pp, parallel_cpu=False, tmin=tmin)
+            # vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, peaks_boot = vs_range(p_spikes, pp)
+            print('period: ' + period[i] + ' ms, gap: ' + gap[i] + ' ms, VS Peaks: ' + str(pp[peaks] * 1000) + ' ms, r: '
+                  + str(np.round(mean_rate, 1)) + ' Hz, T: ' + str(np.round((1 / mean_rate) * 1000, 2)) + ' ms')
 
-            # Poisson (bootstrap) VS
-            vs_boot = np.zeros(shape=(len(p_spikes), len(pp)))
-            phase_boot = np.zeros(shape=(len(p_spikes), len(pp)))
-            for j in range(len(p_spikes)):
-                for p in range(len(pp)):
-                    vs_boot[j, p], phase_boot[j, p] = sg.vectorstrength(p_spikes[j], pp[p])
-            vs_boot_mean = vs_boot.mean(axis=0)
-
-            plt.plot(pp*1000, vs_mean, 'k')
-            plt.plot(pp * 1000, vs_boot_mean, 'g--')
-            plt.plot(pp[peaks]*1000, vs_mean[peaks], 'ro')
+            plt.subplot(1, 2, 2)
+            plt.plot(pp * 1000, vs_mean_boot, 'g')
+            plt.plot(pp * 1000, vs_percentile_boot, 'r--')
+            plt.plot(pp * 1000, vs_std_boot + vs_mean_boot, 'g--')
+            plt.plot(pp[peaks] * 1000, vs_mean[peaks], 'ro')
             plt.plot([float(period[i]), float(period[i])], [0, np.max(vs_mean)], 'bx--')
+            plt.plot(pp * 1000, vs_mean, 'k')
             plt.xlabel('period [ms]')
             plt.ylabel('Mean VS')
             plt.title('period = ' + period[i] + ', gap =' + gap[i] + ', f_rate = ' + str(np.round(mean_rate)) + ' Hz')
@@ -768,7 +806,7 @@ def plot_detected_spikes(x, spike_times, spike_times_valley, marked, th, window,
     # plt.figure()
     fs = 100 * 1000
     t = np.arange(0, len(x) / fs, 1 / fs)
-    ax.plot(t, x)
+    ax.plot(t, x, 'k')
     # ax.set_xlabel('Time')
     ax.set_ylabel('Voltage [uV]')
     ax.plot(marked/fs, x[marked], 'kx')
@@ -1557,6 +1595,72 @@ def raster_plot(sp_times, stimulus_time, steps):
 
     return 0
 
+
+def plot_isi_histogram(spike_times, p_spike_times, bin_size, x_limit, steps, info, intervals, tmin):
+    # Compute Inter Spike Intervals
+    isi = [[]] * len(spike_times)
+    for i in range(len(spike_times)):
+        sp = spike_times[i][spike_times[i] > tmin]
+        isi[i] = np.diff(sp)
+
+    if len(intervals) > 1:
+        isi_p = intervals
+    else:
+        isi_p = [[]] * len(p_spike_times)
+        for k in range(len(p_spike_times)):
+            sp_p = p_spike_times[i][p_spike_times[i] > tmin]
+            isi_p[k] = np.diff(sp_p)
+
+    # Convert to ms
+    isi = np.concatenate(isi)
+    isi = isi * 1000
+    isi_p = np.concatenate(isi_p)
+    isi_p = isi_p * 1000
+
+    # Cut off the first part
+
+    # Compute Histograms
+    bins_nr1 = int(np.max(isi) / bin_size)
+    bins_nr2 = int(np.max(isi_p) / bin_size)
+    n1, bins1, patches1 = plt.hist(isi, bins_nr1, density=True, facecolor='k', alpha=0.5)
+    n2, bins2, patches2 = plt.hist(isi_p, bins_nr2, density=True, facecolor='green', alpha=0.75)
+
+    plt.xlabel('ISI [ms]')
+    plt.ylabel('Probability')
+    plt.xlim(0, x_limit)
+    plt.xticks(np.arange(0, x_limit, steps))
+    plt.title('period: ' + info[0] + ' ms, gap: ' + info[1] + 'ms')
+    plt.legend(['Data', 'Poisson'])
+
+    return 0
+
+
+def vs_range(spike_times, pp, parallel_cpu, tmin):
+    vs = np.zeros(shape=(len(spike_times), len(pp)))
+    phase = np.zeros(shape=(len(spike_times), len(pp)))
+
+    # Compute Vector Strength for all periods in pp
+    if parallel_cpu:
+        for p in tqdm(range(len(pp)), desc='Spike Trains'):
+            r = Parallel(n_jobs=-2)(delayed(sg.vectorstrength)(spike_times[q][spike_times[q] > tmin], pp[p]) for q in range(len(spike_times)))
+            for k in range(len(r)):
+                vs[k, p] = r[k][0]
+                phase[k, p] = r[k][1]
+    else:
+        for q in tqdm(range(len(spike_times)), desc='Spike Trains'):
+            for p in range(len(pp)):
+                vs[q, p], phase[q, p] = sg.vectorstrength(spike_times[q][spike_times[q] > tmin], pp[p])
+
+    # Compute desciptive statistics
+    vs_mean = vs.mean(axis=0)
+    vs_percentile = np.percentile(vs, 95, axis=0)
+    vs_std = np.std(vs, axis=0)
+
+    # Find Peaks in VS Distribution
+    th = pk.std_threshold(vs_mean, th_factor=2)
+    peaks, _ = pk.detect_peaks(vs_mean, th)
+
+    return vs, phase, vs_mean, vs_std, vs_percentile, peaks
 
 # ----------------------------------------------------------------------------------------------------------------------
 # FI FIELD:
@@ -4178,14 +4282,15 @@ def poission_spikes(trials, rate, tmax):
 
        """
     spikes = [[]] * trials
+    intervals = [[]] * trials
     mu = 1/rate
     nintervals = 2 * np.round(tmax/mu)
     for k in range(trials):
         # Exponential random numbers
-        intervals = np.random.exponential(mu, size=int(nintervals))
-        times = np.cumsum(intervals)
+        intervals[k] = np.random.exponential(mu, size=int(nintervals))
+        times = np.cumsum(intervals[k])
         spikes[k] = times[times <= tmax]
-    return spikes
+    return spikes, intervals
 
 # ----------------------------------------------------------------------------------------------------------------------
 # GAP PARADIGM

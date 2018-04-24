@@ -27,10 +27,10 @@ start_time = time.time()
 datasets = ['2018-02-20-aa']
 
 FIFIELD = False
-INTERVAL_MAS = True
+INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
-GAP = False
+GAP = True
 SOUND = False
 
 EPULSES = False
@@ -47,7 +47,7 @@ SELECT = True
 # **********************************************************************************************************************
 # Settings for Spike Detection =========================================================================================
 th_factor = 4
-mph_percent = 5
+mph_percent = 2
 bin_size = 0.01
 show = True
 
@@ -85,11 +85,23 @@ if SELECT:
             if INTERVAL_REC:
                 if row[2] == 'True':  # this is RectIntervals
                     datasets.append(row[0])
+            if GAP:
+                if row[1] == 'True':  # this is GAP
+                    datasets.append(row[0])
     datasets = sorted(datasets)
+
+if GAP:
+    # dat = datasets[5]
+    dat = datasets[-2]
+    print(dat)
+    p = "/media/brehm/Data/MasterMoth/figs/" + dat + "/DataFiles/"
+    tag_list = np.load(p + 'Gap_tag_list.npy')
+    spike_times = mf.spike_times_gap(dat, 'Gap', show=True, save_data=False, th_factor=th_factor, filter_on=True,
+                                     window=None, mph_percent=mph_percent, bin_size=bin_size)
 
 # Rect Intervals
 if INTERVAL_REC:
-    print(datasets[1])
+    print(datasets[4])
     protocol_name = 'PulseIntervalsRect'
     mf.spike_times_gap(datasets[1], protocol_name, show=show, save_data=False, th_factor=th_factor, filter_on=True,
                         window=None, mph_percent=mph_percent, bin_size=bin_size)
@@ -530,12 +542,6 @@ if PULSE_TRAIN_VANROSSUM:
             # print('Plot saved')
         else:
             plt.show()
-
-if GAP:
-    p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
-    tag_list = np.load(p + 'Gap_tag_list.npy')
-    spike_times = mf.spike_times_gap(datasets[0], 'Gap', show=True, save_data=False, th_factor=th_factor, filter_on=True,
-                                     window=None, mph_percent=mph_percent, bin_size=bin_size)
 
 if FI_OVERANIMALS:
     # Load data
