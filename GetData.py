@@ -8,6 +8,8 @@ import os
 import thunderfish.peakdetection
 from tqdm import tqdm
 
+
+
 # Data File Name
 # datasets = ['2017-11-03-aa', '2017-11-02-ad', '2017-11-02-ac', '2017-11-02-ab', '2017-11-02-aa', '2017-11-01-aa']
 # datasets = ['2017-11-17-aa', '2017-11-16-aa', '2017-11-14-aa']
@@ -39,7 +41,8 @@ SELECT = True
 # Select data
 if SELECT:
     import csv
-    with open('/media/brehm/Data/MasterMoth/overview.csv', newline='') as f:
+    p = os.path.join('..', 'overview.csv')
+    with open(p, newline='') as f:
         datasets = []
         reader = csv.reader(f)
         for row in reader:
@@ -51,6 +54,10 @@ if SELECT:
                     datasets.append(row[0])
     datasets = sorted(datasets)
 
+# Get relative paths ===================================================================================================
+data_name = datasets[0]
+#  path_names = [data_name, data_files_path, figs_path, nix_path]
+path_names = mf.get_directories(data_name=data_name)
 
 # Create Directory for Saving Data
 if MAKEDIR:
@@ -59,13 +66,13 @@ if MAKEDIR:
 # Session info
 if GetSession:
     # Get all Recordings in "/mothdata/"
-    file_list = os.listdir('/media/brehm/Data/MasterMoth/mothdata/')
+    file_list = os.listdir(path_names[3])
     file_list = sorted([st for st in file_list if '20' in st])
     mf.get_session_metadata(file_list)
 
 if VIEWNIX:
     # Get all Recordings in "/mothdata/"
-    file_list = os.listdir('/media/brehm/Data/MasterMoth/mothdata/')
+    file_list = os.listdir(path_names[3])
     file_list = sorted([st for st in file_list if '20' in st])
 
     # Get all stimulus information
@@ -87,26 +94,25 @@ if VIEWNIX:
 # FIField
 if FIFIELD:
     print('Starting FIField Data Gathering')
-    # mf.fifield_voltage2(datasets[0], 'FIField-sine_wave-1')
-    mf.fifield_spike_detection(datasets[0], th_factor=2, th_window=None, mph_percent=10, filter_on=True, valley=False,
+    mf.fifield_voltage2(path_names, 'FIField-sine_wave-1')
+    mf.fifield_spike_detection(path_names, th_factor=2, th_window=None, mph_percent=10, filter_on=True, valley=False,
                               min_th=50, save_data=False)
 
 # Intervals: MothASongs
 if INTERVAL_MAS:
     print('Starting Moth Intervals Data Gathering')
     try:
-        volt = mf.get_moth_intervals_data(datasets[-4], save_data=True)
+        volt = mf.get_moth_intervals_data(path_names, save_data=True)
     except:
-        print('Could not open: ' + datasets[0])
+        print('Could not open: ' + path_names[0])
 
 
 # Rect Intervals
 if INTERVAL_REC:
-    for d in tqdm(range(len(datasets)), desc='Get Data'):
-        protocol_name = 'PulseIntervalsRect'
-        target, p, mtarget, mp = mf.list_protocols(datasets[d], protocol_name,
-                                                   tag_name=['SingleStimulus_', 'SingleStimulus-file-'], save_txt=False)
-        voltage, tag_list = mf.get_voltage_trace_gap(datasets[d], target, protocol_name, multi_tag=False,
+    protocol_name = 'PulseIntervalsRect'
+    target, p, mtarget, mp = mf.list_protocols(path_names, protocol_name,
+                                               tag_name=['SingleStimulus_', 'SingleStimulus-file-'], save_txt=False)
+    voltage, tag_list = mf.get_voltage_trace_gap(path_names, target, protocol_name, multi_tag=False,
                                                      search_for_tags=False, save_data=True)
 
 # Sound Recording Stimuli
@@ -137,23 +143,16 @@ if SOUND:
 if SOUND2:
     # mf.get_metadata(datasets[0], 'MothASongs-moth_song-damped_oscillation*', 'Intervals')
     # mf.get_metadata(datasets[0], 'SingleStimulus-file-', 'Calls')
-    mf.get_voltage_trace(datasets[0], 'SingleStimulus-file-', 'Calls', multi_tag=True, search_for_tags=True)
+    mf.get_voltage_trace(path_names, 'SingleStimulus-file-', 'Calls', multi_tag=True, search_for_tags=True)
 
 if PYTOMAT:
-    mf.pytomat(datasets[0], 'Calls')
+    mf.pytomat(path_names, 'Calls')
 
-if CHECKPROTOCOLS:
-    gaps, p = mf.list_protocols(datasets[0], 'Gap')
-    # voltage, tag_list = mf.get_voltage_trace(datasets[0], gaps, 'Gap', multi_tag=False ,search_for_tags=False)
-    mf.gap_analysis(datasets[0], 'Gap')
-    embed()
 
 if GAP:
-    for i in tqdm(range(len(dat)), desc='DataSets'):
-        datasets = [dat[i]]
-        gaps, p, _, _ = mf.list_protocols(datasets[0], protocol_name='Gap',
+    gaps, p, _, _ = mf.list_protocols(path_names, protocol_name='Gap',
                                       tag_name=['SingleStimulus_', 'SingleStimulus-file-'], save_txt=False)
-        mf.get_voltage_trace_gap(datasets[0], gaps, 'Gap', multi_tag=False, search_for_tags=False, save_data=True)
+    mf.get_voltage_trace_gap(path_names, gaps, 'Gap', multi_tag=False, search_for_tags=False, save_data=True)
 
 
 if OVERVIEW:

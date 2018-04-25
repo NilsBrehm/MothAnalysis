@@ -22,11 +22,12 @@ import csv
 
 
 def get_directories(data_name):
-    data_files_path = os.path.join('..', 'figs', data_name, 'DataFiles')
-    figs_path = os.path.join('..', 'figs', data_name)
-    nix_path = os.path.join('..', 'mothdata', data_name)
+    data_files_path = os.path.join('..', 'figs', data_name, 'DataFiles', '')
+    figs_path = os.path.join('..', 'figs', data_name, '')
+    nix_path = os.path.join('..', 'mothdata', data_name, data_name)
 
-    return data_files_path, figs_path, nix_path
+    path_names = [data_name, data_files_path, figs_path, nix_path]
+    return path_names
 
 # ----------------------------------------------------------------------------------------------------------------------
 # PEAK DETECTION
@@ -220,7 +221,7 @@ def plot_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percen
     return 0
 
 
-def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter_on=True, window=None, mph_percent=2,
+def spike_times_gap(path_names, protocol_name, show, save_data, th_factor=1, filter_on=True, window=None, mph_percent=2,
                     bin_size=0.01):
     """Spike Detection for Gap and Rect Paradigm
 
@@ -247,7 +248,8 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
 
        """
     # Load Voltage Traces
-    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    dataset = path_names[0]
+    file_pathname = path_names[1]
     file_name = file_pathname + protocol_name + '_voltage.npy'
     tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
     voltage = np.load(file_name).item()
@@ -256,7 +258,7 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
     fs = 100*1000  # Sampling Rate of Ephys Recording
 
     # Get Stimulus Information
-    stim, stim_time, gap, pulse_duration, period = tagtostimulus_gap(dataset, protocol_name)
+    stim, stim_time, gap, pulse_duration, period = tagtostimulus_gap(path_names, protocol_name)
 
     # Possion Spikes
     plot_vs = True
@@ -450,7 +452,7 @@ def plot_detected_spikes(x, spike_times, spike_times_valley, marked, th, window,
     return 0
 
 
-def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1, mph_percent=0.8):
+def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1, mph_percent=0.8):
     """Get Spike Times using the thunderfish peak detection functions.
 
     Notes
@@ -475,7 +477,8 @@ def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filt
 
     # Load Voltage Traces
     save_fig = False
-    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    dataset = path_names[0]
+    file_pathname = path_names[1]
     file_name = file_pathname + protocol_name + '_voltage.npy'
     tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
     voltage = np.load(file_name).item()
@@ -483,7 +486,7 @@ def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filt
     spikes = {}
     fs = 100*1000  # Sampling Rate of Ephys Recording
 
-    _, connections = tagtostimulus(dataset)
+    _, connections = tagtostimulus(path_names)
 
     # Loop trough all tags in tag_list
     for i in tqdm(range(len(tag_list)), desc='Spike Detection'):
@@ -612,7 +615,7 @@ def spike_times_calls(dataset, protocol_name, show, save_data, th_factor=1, filt
 
             if save_fig:
                 # Save Plot to HDD
-                sp = '/media/brehm/Data/MasterMoth/figs/' + dataset + '/SpikeDetection/'
+                sp = path_names[2] + 'SpikeDetection/'
                 fig = plt.gcf()
                 fig.set_size_inches(15, 10)
                 fig.savefig(sp + connections[tag_list[i]] + '_SpikeDetection.png', bbox_inches='tight', dpi=150)
@@ -688,7 +691,7 @@ def rect_stimulus(period, pulse_duration, stimulus_duration, total_amplitude, sa
 # NIX Functions
 
 
-def get_voltage_trace(dataset, tag, protocol_name, multi_tag, search_for_tags):
+def get_voltage_trace(path_names, tag, protocol_name, multi_tag, search_for_tags):
     """Get Voltage Trace from nix file.
 
     Notes
@@ -709,8 +712,9 @@ def get_voltage_trace(dataset, tag, protocol_name, multi_tag, search_for_tags):
 
     """
 
-    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
-    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    dataset = path_names[0]
+    file_pathname = path_names[1]
+    nix_file = path_names[3] + '.nix'
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
     b = f.blocks[0]
     if search_for_tags:
@@ -754,7 +758,7 @@ def get_voltage_trace(dataset, tag, protocol_name, multi_tag, search_for_tags):
     return voltage, tag_list
 
 
-def get_voltage_trace_gap(dataset, tag, protocol_name, multi_tag, search_for_tags, save_data):
+def get_voltage_trace_gap(path_names, tag, protocol_name, multi_tag, search_for_tags, save_data):
     """Get Voltage Trace from nix file.
 
     Notes
@@ -775,8 +779,9 @@ def get_voltage_trace_gap(dataset, tag, protocol_name, multi_tag, search_for_tag
 
     """
 
-    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
-    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    dataset = path_names[0]
+    file_pathname = path_names[1]
+    nix_file = path_names[3] + '.nix'
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
     b = f.blocks[0]
     if search_for_tags:
@@ -872,7 +877,7 @@ def get_metadata(dataset, tag, protocol_name):
     return f, mtags
 
 
-def list_protocols(dataset, protocol_name, tag_name, save_txt):
+def list_protocols(path_names, protocol_name, tag_name, save_txt):
     """List all protocols in nix file
 
     Notes
@@ -895,21 +900,22 @@ def list_protocols(dataset, protocol_name, tag_name, save_txt):
     mp: List of protocols that were found in multi tags
 
     """
-    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
-    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    data_name = path_names[0]
+    file_pathname = path_names[1]
+    nix_file = path_names[3] + '.nix'
 
     # Try to open the nix file
     try:
         f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
         print('".nix" extension found')
-        print(dataset)
+        print(data_name)
     except RuntimeError:
         try:
             f = nix.File.open(nix_file + '.h5', nix.FileMode.ReadOnly)
             print('".nix.h5" extension found')
-            print(dataset)
+            print(data_name)
         except RuntimeError:
-            print(dataset)
+            print(data_name)
             print('File not found')
             return 1
     b = f.blocks[0]
@@ -943,7 +949,7 @@ def list_protocols(dataset, protocol_name, tag_name, save_txt):
         # Write to txt file
         if save_txt:
             with open(text_file_name, 'a') as text_file:
-                text_file.write(dataset + '\n')
+                text_file.write(data_name + '\n')
                 text_file.write(tag_name[0] + '\n\n')
                 for k in range(len(p)):
                     text_file.write(p[k] + '\n')
@@ -960,7 +966,7 @@ def list_protocols(dataset, protocol_name, tag_name, save_txt):
         # Write to txt file
         if save_txt:
             with open(text_file_name2, 'a') as text_file:
-                text_file.write(dataset + '\n')
+                text_file.write(data_name + '\n')
                 text_file.write(tag_name[1] + '\n\n')
                 for k in range(len(mp)):
                     text_file.write(mp[k] + '\n')
@@ -1230,8 +1236,10 @@ def plot_fifield(db_threshold, pathname, savefig):
     return 'FIField saved'
 
 
-def fifield_voltage2(data_name, tag):
-    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
+def fifield_voltage2(path_name, tag):
+    data_name = path_name[0]
+    nix_file = path_name[3] + '.nix'
+    data_files = path_name[1]
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
     b = f.blocks[0]
 
@@ -1251,9 +1259,8 @@ def fifield_voltage2(data_name, tag):
         parameters[k] = [k, frequency[k], amplitude[k]]
 
     # Save Data to HDD
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
-    dname = pathname + 'FIField_voltage'
-    dname2 = pathname + 'FIField_parameters.npy'
+    dname = data_files + 'FIField_voltage'
+    dname2 = data_files + 'FIField_parameters.npy'
     np.save(dname2, parameters)
     with open(dname, 'wb') as fp:
         pickle.dump(volt, fp)
@@ -1262,9 +1269,10 @@ def fifield_voltage2(data_name, tag):
     return 0
 
 
-def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0.8, filter_on=True, valley=False, min_th=20, save_data=True):
+def fifield_spike_detection(path_names, th_factor=4, th_window=400, mph_percent=0.8, filter_on=True, valley=False, min_th=20, save_data=True):
     # (data_name, dynamic, valley, th_factor=4, min_dist=70, maxph=10, th_window=400, filter_on=True):
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
+    data_name = path_names[0]
+    pathname = path_names[1]
     data_file = pathname + 'FIField_voltage'
     parameters_file = pathname + 'FIField_parameters.npy'
     parameters = np.load(parameters_file)
@@ -1341,8 +1349,9 @@ def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0
     return spike_times, spike_times_valley
 
 
-def fifield_analysis2(data_name, threshold, plot_fi):
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
+def fifield_analysis2(path_names, threshold, plot_fi):
+    data_name = path_names[0]
+    pathname = path_names[1]
     data_file = pathname + 'FIField_spike_times'
     parameters_file = pathname + 'FIField_parameters.npy'
     parameters = np.load(parameters_file)
@@ -1694,8 +1703,9 @@ def spike_train_distance(spike_times1, spike_times2, dt_factor, tau, plot):
     return d
 
 
-def trains_to_e_pulses(dataset, tau, duration, dt_factor, stim_type, whole_train, method):
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+def trains_to_e_pulses(path_names, tau, duration, dt_factor, stim_type, whole_train, method):
+    dataset = path_names[0]
+    pathname = path_names[1]
     spikes = np.load(pathname + 'Calls_spikes.npy').item()
 
     if stim_type == 'selected':
@@ -1927,7 +1937,7 @@ def trains_to_e_pulses(dataset, tau, duration, dt_factor, stim_type, whole_train
                  'callseries/bats/Vespertilio_murinus_1_s.wav']
 
     # Tags and Stimulus names
-    connection = tagtostimulus(dataset)
+    connection = tagtostimulus(path_names)
     stimulus_tags = [''] * len(stims)
     for p in range(len(stims)):
         stimulus_tags[p] = connection[stims[p]]
@@ -2534,15 +2544,15 @@ def pulse_train_matrix(samples, duration, profile):
 # Interval MothASongs functions:
 
 
-def get_moth_intervals_data(datasets, save_data):
+def get_moth_intervals_data(path_names, save_data):
     # Get voltage trace from nix file for Intervals MothASongs Protocol
     # data_set_numbers has to fit the the data names in the nix file!
     # Returns voltage trace, stimulus time, stimulus amplitude, gap and meta data for every single trial
     # datasets can be a list of many recordings
 
-    data_name = datasets
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
-    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
+    data_name = path_names[0]
+    pathname = path_names[1]
+    nix_file = path_names[3] + '.nix'
 
     # Open the nix file
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
@@ -2605,107 +2615,106 @@ def get_moth_intervals_data(datasets, save_data):
     return voltage
 
 
-def moth_intervals_spike_detection(datasets, window=None, th_factor=1, mph_percent=0.8, filter_on=True, save_data=True, show=True):
+def moth_intervals_spike_detection(path_names, window=None, th_factor=1, mph_percent=0.8, filter_on=True, save_data=True, show=True):
     # Load data
     fs = 100 * 1000
-    for dat in range(len(datasets)):
-        data_name = datasets
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/DataFiles/"
-        fname = pathname + 'intervals_mas_voltage.npy'
-        voltage = np.load(fname).item()
+    data_name = path_names[0]
+    pathname = path_names[1]
+    fname = pathname + 'intervals_mas_voltage.npy'
+    voltage = np.load(fname).item()
 
-        # Now detect spikes in each trial and update input data
-        for i in voltage:
-            spikes = []
-            stimulus = voltage[i]['stimulus']
-            stimulus_time = voltage[i]['stimulus_time']
-            info = str(voltage[i]['gap']*1000)
-            trial_number = voltage[i]['trials']
-            spike_times = [[]] * trial_number
-            spike_times_valley = [[]] * trial_number
+    # Now detect spikes in each trial and update input data
+    for i in voltage:
+        spikes = []
+        stimulus = voltage[i]['stimulus']
+        stimulus_time = voltage[i]['stimulus_time']
+        info = str(voltage[i]['gap']*1000)
+        trial_number = voltage[i]['trials']
+        spike_times = [[]] * trial_number
+        spike_times_valley = [[]] * trial_number
 
-            for k in range(trial_number):
-                x = voltage[i][k][0]
-                # Filter Voltage Trace
-                if filter_on:
-                    nyqst = 0.5 * fs
-                    lowcut = 300
-                    highcut = 2000
-                    low = lowcut / nyqst
-                    high = highcut / nyqst
-                    x = voltage_trace_filter(x, [low, high], ftype='band', order=2, filter_on=True)
+        for k in range(trial_number):
+            x = voltage[i][k][0]
+            # Filter Voltage Trace
+            if filter_on:
+                nyqst = 0.5 * fs
+                lowcut = 300
+                highcut = 2000
+                low = lowcut / nyqst
+                high = highcut / nyqst
+                x = voltage_trace_filter(x, [low, high], ftype='band', order=2, filter_on=True)
 
-                th = pk.std_threshold(x, fs, window, th_factor)
-                spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
+            th = pk.std_threshold(x, fs, window, th_factor)
+            spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
 
-                # Remove large spikes
-                t = np.arange(0, len(x) / fs, 1 / fs)
-                spike_size = pk.peak_size_width(t, x, spike_times[k], spike_times_valley[k], pfac=0.75)
-                spike_times[k], spike_times_valley[k], marked, marked_valley = \
-                    remove_large_spikes(x, spike_times[k], spike_times_valley[k], mph_percent=mph_percent, method='std')
+            # Remove large spikes
+            t = np.arange(0, len(x) / fs, 1 / fs)
+            spike_size = pk.peak_size_width(t, x, spike_times[k], spike_times_valley[k], pfac=0.75)
+            spike_times[k], spike_times_valley[k], marked, marked_valley = \
+                remove_large_spikes(x, spike_times[k], spike_times_valley[k], mph_percent=mph_percent, method='std')
 
-                # Plot Spike Detection
-                # Cut out spikes
-                fs = 100 * 1000
-                snippets = pk.snippets(x, spike_times[k], start=-100, stop=100)
-                snippets_removed = pk.snippets(x, marked, start=-100, stop=100)
+            # Plot Spike Detection
+            # Cut out spikes
+            fs = 100 * 1000
+            snippets = pk.snippets(x, spike_times[k], start=-100, stop=100)
+            snippets_removed = pk.snippets(x, marked, start=-100, stop=100)
 
-                if show and k == 0:
-                    plot_spike_detection_gaps(x, spike_times[k], spike_times_valley[k], marked, spike_size, mph_percent,
-                                              snippets, snippets_removed, th, window, info, stimulus_time, stimulus)
+            if show and k == 0:
+                plot_spike_detection_gaps(x, spike_times[k], spike_times_valley[k], marked, spike_size, mph_percent,
+                                          snippets, snippets_removed, th, window, info, stimulus_time, stimulus)
 
-                spike_times[k] = spike_times[k] / fs  # Now spike times are in real time (seconds)
-                spike_times_valley[k] = spike_times_valley[k] / fs
-                spikes = np.append(spikes, spike_times[k])  # Put spike times of each trial in one long array
-                spike_count = len(spike_times[k])
-                voltage[i][k].update({'spike_times': spike_times[k], 'spike_count': spike_count})
-            voltage[i].update({'all_spike_times': spikes})
+            spike_times[k] = spike_times[k] / fs  # Now spike times are in real time (seconds)
+            spike_times_valley[k] = spike_times_valley[k] / fs
+            spikes = np.append(spikes, spike_times[k])  # Put spike times of each trial in one long array
+            spike_count = len(spike_times[k])
+            voltage[i][k].update({'spike_times': spike_times[k], 'spike_count': spike_count})
+        voltage[i].update({'all_spike_times': spikes})
 
-            # Get mean firing rate over all trials
-            # bin_size = float(gap[i])/1000
-            bin_size = 0.005
-            n = len(spike_times)
-            f_rate, b = psth(spike_times, n, bin_size, plot=False, return_values=True, separate_trials=True)
-            mean_rate = np.mean(f_rate)
+        # Get mean firing rate over all trials
+        # bin_size = float(gap[i])/1000
+        bin_size = 0.005
+        n = len(spike_times)
+        f_rate, b = psth(spike_times, n, bin_size, plot=False, return_values=True, separate_trials=True)
+        mean_rate = np.mean(f_rate)
 
-            # Possion Spikes
-            nsamples = 100
-            tmax = 0.5
-            p_spikes = poission_spikes(nsamples, mean_rate, tmax)
+        # Possion Spikes
+        nsamples = 100
+        tmax = 0.5
+        p_spikes = poission_spikes(nsamples, mean_rate, tmax)
 
-            # Plot VS
-            gap = voltage[i]['gap']*1000
-            VS_plot = True
-            if VS_plot:
-                pp = np.arange(0.001, 0.1, 0.001)
-                vs = np.zeros(shape=(len(spike_times), len(pp)))
-                phase = np.zeros(shape=(len(spike_times), len(pp)))
-                for q in range(len(spike_times)):
-                    for p in range(len(pp)):
-                        vs[q, p], phase[q, p] = sg.vectorstrength(spike_times[q], pp[p])
+        # Plot VS
+        gap = voltage[i]['gap']*1000
+        VS_plot = True
+        if VS_plot:
+            pp = np.arange(0.001, 0.1, 0.001)
+            vs = np.zeros(shape=(len(spike_times), len(pp)))
+            phase = np.zeros(shape=(len(spike_times), len(pp)))
+            for q in range(len(spike_times)):
+                for p in range(len(pp)):
+                    vs[q, p], phase[q, p] = sg.vectorstrength(spike_times[q], pp[p])
 
-                vs_mean = vs.mean(axis=0)
-                th = pk.std_threshold(vs_mean, th_factor=1)
-                peaks, _ = pk.detect_peaks(vs_mean, th)
+            vs_mean = vs.mean(axis=0)
+            th = pk.std_threshold(vs_mean, th_factor=1)
+            peaks, _ = pk.detect_peaks(vs_mean, th)
 
-                # Poisson (bootstrap) VS
-                vs_boot = np.zeros(shape=(len(p_spikes), len(pp)))
-                phase_boot = np.zeros(shape=(len(p_spikes), len(pp)))
-                for j in range(len(p_spikes)):
-                    for p in range(len(pp)):
-                        vs_boot[j, p], phase_boot[j, p] = sg.vectorstrength(p_spikes[j], pp[p])
-                vs_boot_mean = vs_boot.mean(axis=0)
-                vs_95 = np.percentile(vs_boot, 95, axis=0)
+            # Poisson (bootstrap) VS
+            vs_boot = np.zeros(shape=(len(p_spikes), len(pp)))
+            phase_boot = np.zeros(shape=(len(p_spikes), len(pp)))
+            for j in range(len(p_spikes)):
+                for p in range(len(pp)):
+                    vs_boot[j, p], phase_boot[j, p] = sg.vectorstrength(p_spikes[j], pp[p])
+            vs_boot_mean = vs_boot.mean(axis=0)
+            vs_95 = np.percentile(vs_boot, 95, axis=0)
 
-                plt.plot(pp * 1000, vs_mean, 'k')
-                plt.plot(pp * 1000, vs_boot_mean, 'g')
-                plt.plot(pp * 1000, vs_95, 'g--')
-                plt.plot(pp[peaks] * 1000, vs_mean[peaks], 'ro')
-                plt.plot([gap, gap], [0, np.max(vs_mean)], 'bx--')
-                plt.xlabel('Gap [ms]')
-                plt.ylabel('Mean VS')
-                plt.title('gap =' + str(gap) + ', f_rate = ' + str(np.round(mean_rate)) + ' Hz')
-                plt.show()
+            plt.plot(pp * 1000, vs_mean, 'k')
+            plt.plot(pp * 1000, vs_boot_mean, 'g')
+            plt.plot(pp * 1000, vs_95, 'g--')
+            plt.plot(pp[peaks] * 1000, vs_mean[peaks], 'ro')
+            plt.plot([gap, gap], [0, np.max(vs_mean)], 'bx--')
+            plt.xlabel('Gap [ms]')
+            plt.ylabel('Mean VS')
+            plt.title('gap =' + str(gap) + ', f_rate = ' + str(np.round(mean_rate)) + ' Hz')
+            plt.show()
     # Save detected Spikes to HDD
     if save_data:
         dname = pathname + 'intervals_mas_spike_times.npy'
@@ -2871,10 +2880,10 @@ def rect_intervals_plot(data_name):
 # VECTOR STRENGTH AND BOOTSTRAPPING
 
 
-def bootstrapping_vs(datasets, nresamples, plot_histogram):
+def bootstrapping_vs(path_names, nresamples, plot_histogram):
     # Load data
-    data_name = datasets[0]
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+    data_name = path_names[0]
+    pathname = path_names[2]
     fname = pathname + 'intervals_mas_spike_times.npy'
     fname2 = pathname + 'intervals_mas_vs.npy'
     spike_times = np.load(fname).item()
@@ -2883,11 +2892,11 @@ def bootstrapping_vs(datasets, nresamples, plot_histogram):
     # nresamples = 1000  # Number of resamples
 
     # Create Directory
-    directory = os.path.dirname(pathname + 'vs/')
+    directory = os.path.dirname(pathname + os.path.join('vs', ''))
     if not os.path.isdir(directory):
         os.mkdir(directory)  # Make Directory
 
-    text_file_name = pathname + 'vs/bootstrap_vs.txt'
+    text_file_name = pathname + os.path.join('vs', 'bootstrap_vs.txt')
 
     try:
         text_file = open(text_file_name, 'r+')
@@ -3068,10 +3077,11 @@ def make_directory(dataset):
     return 0
 
 
-def tagtostimulus(dataset):
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+def tagtostimulus(path_names):
+    dataset = path_names[0]
+    pathname = path_names[1]
     tag_list = np.load(pathname + 'Calls_tag_list.npy')
-    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    nix_file = path_names[3] + '.nix'
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
     b = f.blocks[0]
     # mtags = {}
@@ -3088,10 +3098,11 @@ def tagtostimulus(dataset):
     return connection, connection2
 
 
-def tagtostimulus_gap(dataset, protocol_name):
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+def tagtostimulus_gap(path_names, protocol_name):
+    dataset = path_names[0]
+    pathname = path_names[1]
     tag_list = np.load(pathname + protocol_name + '_tag_list.npy')
-    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    nix_file = path_names[3] + '.nix'
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
     b = f.blocks[0]
     stim = {}
@@ -3123,9 +3134,10 @@ def tagtostimulus_gap(dataset, protocol_name):
     return stim, stim_time, gap, pd, pr
 
 
-def pytomat(dataset, protocol_name):
+def pytomat(path_names, protocol_name):
     # Load Voltage Traces
-    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    dataset = path_names[0]
+    file_pathname = path_names[1]
     file_name = file_pathname + protocol_name + '_voltage.npy'
     tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
     voltage = np.load(file_name).item()

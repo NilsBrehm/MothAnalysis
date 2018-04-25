@@ -7,6 +7,7 @@ from collections import OrderedDict
 import time
 from tqdm import tqdm
 from joblib import Parallel,delayed
+import os
 
 start_time = time.time()
 # Data File Name
@@ -49,7 +50,7 @@ SELECT = True
 th_factor = 4
 mph_percent = 2
 bin_size = 0.01
-show = True
+show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
@@ -75,7 +76,8 @@ taus = [1, 5, 10, 20, 30, 50]
 # Select data
 if SELECT:
     import csv
-    with open('/media/brehm/Data/MasterMoth/overview.csv', newline='') as f:
+    p = os.path.join('..', 'overview.csv')
+    with open(p, newline='') as f:
         datasets = []
         reader = csv.reader(f)
         for row in reader:
@@ -90,37 +92,40 @@ if SELECT:
                     datasets.append(row[0])
     datasets = sorted(datasets)
 
+# Get relative paths ===================================================================================================
+data_name = datasets[0]
+#  path_names = [data_name, data_files_path, figs_path, nix_path]
+path_names = mf.get_directories(data_name=data_name)
+
+
 if GAP:
     # dat = datasets[5]
-    dat = datasets[-2]
-    print(dat)
-    p = "/media/brehm/Data/MasterMoth/figs/" + dat + "/DataFiles/"
-    tag_list = np.load(p + 'Gap_tag_list.npy')
-    spike_times = mf.spike_times_gap(dat, 'Gap', show=True, save_data=False, th_factor=th_factor, filter_on=True,
+    # dat = datasets[-2]
+    tag_list = np.load(path_names[1] + 'Gap_tag_list.npy')
+    spike_times = mf.spike_times_gap(path_names, 'Gap', show=True, save_data=False, th_factor=th_factor, filter_on=True,
                                      window=None, mph_percent=mph_percent, bin_size=bin_size)
 
 # Rect Intervals
 if INTERVAL_REC:
-    print(datasets[4])
     protocol_name = 'PulseIntervalsRect'
-    mf.spike_times_gap(datasets[1], protocol_name, show=show, save_data=False, th_factor=th_factor, filter_on=True,
+    mf.spike_times_gap(path_names, protocol_name, show=show, save_data=False, th_factor=th_factor, filter_on=True,
                         window=None, mph_percent=mph_percent, bin_size=bin_size)
 
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:
-    mf.moth_intervals_spike_detection(datasets[-4], window=None, th_factor=th_factor, mph_percent=mph_percent,
+    mf.moth_intervals_spike_detection(path_names, window=None, th_factor=th_factor, mph_percent=mph_percent,
                                       filter_on=True, save_data=False, show=True)
     # mf.moth_intervals_analysis(datasets[0])
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
-    data = datasets[0]
     save_plot = True
     plot_fi_field = True
     single_fi = True
-    p = "/media/brehm/Data/MasterMoth/figs/" + data + "/DataFiles/"
+    data = path_names[0]
+    p = path_names[1]
     th = 6
-    spike_count, fi_field, fsl = mf.fifield_analysis2(data, th, plot_fi=False)
+    spike_count, fi_field, fsl = mf.fifield_analysis2(path_names, th, plot_fi=False)
     # freqs = np.zeros(len(spike_count))
     freqs = [[]] * len(spike_count)
     i = 0
@@ -225,22 +230,21 @@ if FIFIELD:
 if Bootstrapping:
     # mf.resampling(datasets)
     nresamples = 10000
-    mf.bootstrapping_vs(datasets, nresamples, plot_histogram=True)
+    mf.bootstrapping_vs(path_names, nresamples, plot_histogram=True)
 
 if SOUND:  # Stimuli = Calls
-    # spikes = mf.spike_times_indexes(datasets[0], 'Calls', th_factor=4, min_dist=50, maxph=0.8, show=False,
-    spikes = mf.spike_times_calls(datasets[0], 'Calls', show=False, save_data=True, th_factor=4, filter_on=True,
+    spikes = mf.spike_times_calls(path_names, 'Calls', show=False, save_data=True, th_factor=4, filter_on=True,
                                   window=None)
 
 if EPULSES:
     method = 'exp'
-    r = Parallel(n_jobs=-2)(delayed(mf.trains_to_e_pulses)(datasets[0], taus[k] / 1000, 0,dt_factor, stim_type=stim_type
+    r = Parallel(n_jobs=-2)(delayed(mf.trains_to_e_pulses)(path_names, taus[k] / 1000, 0,dt_factor, stim_type=stim_type
                                                            , whole_train=True, method=method) for k in range(len(taus)))
     print('Converting done')
 
 if VANROSSUM:
     # Try to load e pulses from HDD
-    p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
+    p = path_names[1]
 
     # Compute VanRossum Distances
     correct = np.zeros((len(duration), len(taus)))
@@ -275,7 +279,7 @@ if VANROSSUM:
 if PLOT_CORRECT:
     save_plot = True
     plot_vanrossum_matrix = False
-    p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
+    p = path_names[1]
     correct = np.load(p + 'distances_correct_' + stim_type + '.npy')
     vr = np.load(p + 'VanRossum_correct_' + stim_type + '.npy')
     # high_taus = np.load(p + 'VanRossum_correct_hightaus.npy')
@@ -305,7 +309,6 @@ if PLOT_CORRECT:
 
         if save_plot:
             # Save Plot to HDD
-            p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
             figname = p + 'VanRossum_TausAndDistMatrix_' + stim_type + '.png'
             fig = plt.gcf()
             fig.set_size_inches(10, 10)
@@ -337,7 +340,6 @@ if PLOT_CORRECT:
 
     if save_plot:
         # Save Plot to HDD
-        p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
         figname = p + 'Correct_all_distances_' + stim_type + '.png'
         fig = plt.gcf()
         fig.set_size_inches(20, 10)
@@ -348,7 +350,7 @@ if PLOT_CORRECT:
         plt.show()
 
 if ISI:
-    path_save = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
+    path_save = path_names[1]
     plot_correct = False
     save_fig = False
     dist_profs = {}
@@ -380,7 +382,7 @@ if ISI:
 
 if PULSE_TRAIN_ISI:
     save_plot = True
-    p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
+    p = path_names[1]
     dists = np.load(p + 'distances.npy').item()
 
     if stim_type == 'moth_single':
@@ -436,7 +438,6 @@ if PULSE_TRAIN_ISI:
 
             if save_plot:
                 # Save Plot to HDD
-                p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
                 figname = p + 'pulseVSspike_train_' + profs[j] + '_' + str(duration[i]*1000) + 'ms_.png'
                 fig = plt.gcf()
                 fig.set_size_inches(20, 10)
@@ -466,7 +467,7 @@ if PULSE_TRAIN_ISI:
 
 if PULSE_TRAIN_VANROSSUM:
     save_plot = True
-    p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
+    p = path_names[1]
     vanrossum = np.load(p + 'VanRossum.npy').item()
     # vanrossum[tau][duratiom][boot]
 
@@ -533,7 +534,6 @@ if PULSE_TRAIN_VANROSSUM:
         # plt.tight_layout()
         if save_plot:
             # Save Plot to HDD
-            p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
             figname = p + 'pulseVSspike_train_VanRossum_' + str(duration[q] * 1000) + 'ms_' + str(tau) + 'ms.png'
             fig = plt.gcf()
             fig.set_size_inches(20, 10)
