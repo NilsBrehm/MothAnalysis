@@ -18,394 +18,18 @@ from joblib import Parallel,delayed
 import csv
 
 # ----------------------------------------------------------------------------------------------------------------------
+# Directories
+
+
+def get_directories(data_name):
+    data_files_path = os.path.join('..', 'figs', data_name, 'DataFiles')
+    figs_path = os.path.join('..', 'figs', data_name)
+    nix_path = os.path.join('..', 'mothdata', data_name)
+
+    return data_files_path, figs_path, nix_path
+
+# ----------------------------------------------------------------------------------------------------------------------
 # PEAK DETECTION
-
-
-def plot_peaks(x, mph, mpd, threshold, edge, valley, ax, ind):
-    """Plot results of the detect_peaks function, see its help."""
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
-        print('matplotlib is not available.')
-    else:
-        if ax is None:
-            _, ax = plt.subplots(1, 1, figsize=(8, 4))
-
-        ax.plot(x, 'b', lw=1)
-        if ind.size:
-            label = 'valley' if valley else 'peak'
-            label = label + 's' if ind.size > 1 else label
-            ax.plot(ind, x[ind], '+', mfc=None, mec='r', mew=2, ms=8,
-                    label='%d %s' % (ind.size, label))
-            ax.legend(loc='best', framealpha=.5, numpoints=1)
-        ax.set_xlim(-.02 * x.size, x.size * 1.02 - 1)
-        ymin, ymax = x[np.isfinite(x)].min(), x[np.isfinite(x)].max()
-        yrange = ymax - ymin if ymax > ymin else 1
-        ax.set_ylim(ymin - 0.1 * yrange, ymax + 0.1 * yrange)
-        ax.set_xlabel('Data # ', fontsize=14)
-        ax.set_ylabel('Amplitude', fontsize=14)
-        mode = 'Valley detection' if valley else 'Peak detection'
-        ax.set_title("%s (mph=%s, mpd=%d, threshold=%s, edge='%s')"
-                     % (mode, str(mph), mpd, str(threshold), edge))
-        # plt.grid()
-        plt.show()
-
-    return 0
-
-
-def detect_peaks(x, peak_params):
-
-    """Detect peaks in data based on their amplitude and other features.
-
-    Parameters
-    ----------
-    x : 1D array_like
-        data.
-    peak_params: All the parameters listed below in a dict.
-    mph : {None, number}, optional (default = None)
-        detect peaks that are greater than minimum peak height.
-        if mph = 'dynamic': this value will be computed automatically
-    mpd : positive integer, optional (default = 1)
-        detect peaks that are at least separated by minimum peak distance (in
-        number of data).
-    threshold : positive number, optional (default = 0)
-        detect peaks (valleys) that are greater (smaller) than `threshold`
-        in relation to their immediate neighbors.
-    edge : {None, 'rising', 'falling', 'both'}, optional (default = 'rising')
-        for a flat peak, keep only the rising edge ('rising'), only the
-        falling edge ('falling'), both edges ('both'), or don't detect a
-        flat peak (None).
-    kpsh : bool, optional (default = False)
-        keep peaks with same height even if they are closer than `mpd`.
-    valley : bool, optional (default = False)
-        if True (1), detect valleys (local minima) instead of peaks.
-    show : bool, optional (default = False)
-        if True (1), plot data in matplotlib figure.
-    ax : a matplotlib.axes.Axes instance, optional (default = None).
-    maxph: maximal peak height: Peaks > maxph are removed. maxph = 'dynamic': maxph is computed automatically
-    filter_on: Bandpass filter
-
-    Returns
-    -------
-    ind : 1D array_like
-        indeces of the peaks in `x`.
-
-    Notes
-    -----
-    The detection of valleys instead of peaks is performed internally by simply
-    negating the data: `ind_valleys = detect_peaks(-x)`
-
-    The function can handle NaN's
-
-    References
-    ----------
-    .. [1] http://nbviewer.ipython.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.ipynb
-
-    modified by Nils Brehm 2018
-    """
-
-    # Set Parameters
-    mph = peak_params['mph']
-    mpd = peak_params['mpd']
-    valley = peak_params['valley']
-    show = peak_params['show']
-    maxph = peak_params['maxph']
-    filter_on = peak_params['filter_on']
-    threshold = 0
-    edge = 'rising'
-    kpsh = False
-    ax = None
-
-
-    # Filter Voltage Trace
-    if filter_on:
-        fs = 100 * 1000
-        nyqst = 0.5 * fs
-        lowcut = 300
-        highcut = 2000
-        low = lowcut / nyqst
-        high = highcut / nyqst
-        x = voltage_trace_filter(x, [low, high], ftype='band', order=4, filter_on=True)
-
-    # Dynamic mph
-    if mph == 'dynamic':
-        mph = 2 * np.median(abs(x)/0.6745)
-
-    x = np.atleast_1d(x).astype('float64')
-    if x.size < 3:
-        return np.array([], dtype=int)
-    if valley:
-        x = -x
-    # find indices of all peaks
-    dx = x[1:] - x[:-1]
-    # handle NaN's
-    indnan = np.where(np.isnan(x))[0]
-    if indnan.size:
-        x[indnan] = np.inf
-        dx[np.where(np.isnan(dx))[0]] = np.inf
-    ine, ire, ife = np.array([[], [], []], dtype=int)
-    if not edge:
-        ine = np.where((np.hstack((dx, 0)) < 0) & (np.hstack((0, dx)) > 0))[0]
-    else:
-        if edge.lower() in ['rising', 'both']:
-            ire = np.where((np.hstack((dx, 0)) <= 0) & (np.hstack((0, dx)) > 0))[0]
-        if edge.lower() in ['falling', 'both']:
-            ife = np.where((np.hstack((dx, 0)) < 0) & (np.hstack((0, dx)) >= 0))[0]
-    ind = np.unique(np.hstack((ine, ire, ife)))
-    # handle NaN's
-    if ind.size and indnan.size:
-        # NaN's and values close to NaN's cannot be peaks
-        ind = ind[np.in1d(ind, np.unique(np.hstack((indnan, indnan - 1, indnan + 1))), invert=True)]
-    # first and last values of x cannot be peaks
-    if ind.size and ind[0] == 0:
-        ind = ind[1:]
-    if ind.size and ind[-1] == x.size - 1:
-        ind = ind[:-1]
-    # remove peaks < minimum peak height
-    if ind.size and mph is not None:
-        ind = ind[x[ind] >= mph]
-
-    # remove peaks > maximum peak height
-    if ind.size and maxph is not None:
-        if maxph == 'dynamic':
-            hist, bins = np.histogram(x[ind])
-            # maxph = np.round(np.max(x)-50)
-            # idx = np.where(hist > 10)[0][-1]
-            maxph = np.round(bins[-2]-20)
-        ind = ind[x[ind] <= maxph]
-
-    # remove peaks - neighbors < threshold
-    if ind.size and threshold > 0:
-        dx = np.min(np.vstack([x[ind] - x[ind - 1], x[ind] - x[ind + 1]]), axis=0)
-        ind = np.delete(ind, np.where(dx < threshold)[0])
-    # detect small peaks closer than minimum peak distance
-    if ind.size and mpd > 1:
-        ind = ind[np.argsort(x[ind])][::-1]  # sort ind by peak height
-        idel = np.zeros(ind.size, dtype=bool)
-        for i in range(ind.size):
-            if not idel[i]:
-                # keep peaks with the same height if kpsh is True
-                idel = idel | (ind >= ind[i] - mpd) & (ind <= ind[i] + mpd) \
-                              & (x[ind[i]] > x[ind] if kpsh else True)
-                idel[i] = 0  # Keep current peak
-        # remove the small peaks and sort back the indices by their occurrence
-        ind = np.sort(ind[~idel])
-
-    if show:
-        if indnan.size:
-            x[indnan] = np.nan
-        if valley:
-            x = -x
-        plot_peaks(x, mph, mpd, threshold, edge, valley, ax, ind)
-    return ind
-
-
-def peak_seek(x, mpd, mph):
-    # Find all maxima and ties
-    localmax = (np.diff(np.sign(np.diff(x))) < 0).nonzero()[0] + 1
-    locs = localmax[x[localmax] > mph]
-
-    while 1:
-        idx = np.where(np.diff(locs) < mpd)
-        idx = idx[0]
-        if not idx.any():
-            break
-        rmv = list()
-        for i in range(len(idx)):
-            a = x[locs[idx[i]]]
-            b = x[locs[idx[i]+1]]
-            if a > b:
-                rmv.append(True)
-            else:
-                rmv.append(False)
-        locs = locs[idx[rmv]]
-
-    embed()
-    #locs = find(x(2:end - 1) >= x(1: end - 2) & x(2: end - 1) >= x(3: end))+1;
-
-
-def indexes(y, dynamic, th_factor=2, min_dist=50, maxph=0.8, th_window=200):
-    """Peak detection routine.
-    Finds the numeric index of the peaks in *y* by taking its first order difference. By using
-    *thres* and *min_dist* parameters, it is possible to reduce the number of
-    detected peaks. *y* must be signed.
-    Parameters
-    ----------
-    y : ndarray (signed)
-        1D amplitude data to search for peaks.
-    th_factor : trheshold = th_factor * median(y / 0.6745)
-        Only the peaks with amplitude higher than the threshold will be detected.
-    min_dist : int
-        Minimum distance between each detected peak. The peak with the highest
-        amplitude is preferred to satisfy this constraint.
-    maxph: All peaks larger than maxph * max(y) are removed.
-    th_window: end point of the range for computing threshold values
-
-    Returns
-    -------
-    ndarray
-        Array containing the numeric indexes of the peaks that were detected
-    """
-    if isinstance(th_window, str):
-        th_window = -1
-    # thres = th_factor * np.median(abs(y[0:th_window]) / 0.6745)
-    if dynamic:
-        thres = th_factor * np.median(abs(y[0:th_window] - np.median(y[0:th_window])))
-    else:
-        thres = th_factor
-    maxph = np.max(abs(y)) * maxph
-
-    if isinstance(y, np.ndarray) and np.issubdtype(y.dtype, np.unsignedinteger):
-        raise ValueError("y must be signed")
-
-    # thres = thres * (np.max(y) - np.min(y)) + np.min(y)
-    min_dist = int(min_dist)
-
-    # compute first order difference
-    dy = np.diff(y)
-
-    # propagate left and right values successively to fill all plateau pixels (0-value)
-    zeros, = np.where(dy == 0)
-
-    # check if the singal is totally flat
-    if len(zeros) == len(y) - 1:
-        return np.array([])
-
-    while len(zeros):
-        # add pixels 2 by 2 to propagate left and right value onto the zero-value pixel
-        zerosr = np.hstack([dy[1:], 0.])
-        zerosl = np.hstack([0., dy[:-1]])
-
-        # replace 0 with right value if non zero
-        dy[zeros] = zerosr[zeros]
-        zeros, = np.where(dy == 0)
-
-        # replace 0 with left value if non zero
-        dy[zeros] = zerosl[zeros]
-        zeros, = np.where(dy == 0)
-
-    # find the peaks by using the first order difference
-    peaks = np.where((np.hstack([dy, 0.]) < 0.)
-                     & (np.hstack([0., dy]) > 0.)
-                     & (y > thres)
-                     & (y < maxph))[0]
-
-    # handle multiple peaks, respecting the minimum distance
-    if peaks.size > 1 and min_dist > 1:
-        highest = peaks[np.argsort(y[peaks])][::-1]
-        rem = np.ones(y.size, dtype=bool)
-        rem[peaks] = False
-
-        for peak in highest:
-            if not rem[peak]:
-                sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
-                rem[sl] = True
-                rem[peak] = False
-
-        peaks = np.arange(y.size)[~rem]
-
-    return peaks, thres
-
-
-def get_spike_times(dataset, protocol_name, peak_params, show_detection):
-    """Get Spike Times using the detect_peak() function.
-
-    Notes
-    ----------
-    This function gets all the spike times in the voltage traces loaded from HDD.
-
-    Parameters
-    ----------
-    dataset :       Data set name (string)
-    protocol_name:  protocol name (string)
-    peak_params:    Parameters for spike detection (dict)
-    show_detection: If true spike detection of first trial is shown (boolean)
-
-    Returns
-    -------
-    spikes: Saves spike times (in seconds) to HDD in a .npy file (dict).
-
-    """
-
-    # Load Voltage Traces
-    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
-    file_name = file_pathname + protocol_name + '_voltage.npy'
-    tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
-    voltage = np.load(file_name).item()
-    tag_list = np.load(tag_list_path)
-    spikes = {}
-    fs = 100*1000  # Sampling Rate of Ephys Recording
-
-    # Loop trough all tags in tag_list
-    for i in range(len(tag_list)):
-        trials = len(voltage[tag_list[i]])
-        spike_times = [list()] * trials
-        for k in range(trials):  # loop trough all trials
-            if k == 0 & show_detection is True:  # For all tags plot the first trial spike detection
-                peak_params['show'] = True
-                spike_times[k] = detect_peaks(voltage[tag_list[i]][k], peak_params) / fs  # in seconds
-            else:
-                peak_params['show'] = False
-                spike_times[k] = detect_peaks(voltage[tag_list[i]][k], peak_params) / fs  # in seconds
-        spikes.update({tag_list[i]: spike_times})
-    # Save to HDD
-    file_name = file_pathname + protocol_name + '_spikes.npy'
-    np.save(file_name, spikes)
-    print('Spike Times saved (protocol: ' + protocol_name + ')')
-
-    return 0
-
-
-def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show, save_data):
-    """Get Spike Times using the indexes() function.
-
-    Notes
-    ----------
-    This function gets all the spike times in the voltage traces loaded from HDD.
-
-    Parameters
-    ----------
-    dataset :       Data set name (string)
-    protocol_name:  protocol name (string)
-    th_factor: threshold = th_factor * median(abs(x)/0.6745)
-    min_dist: Min. allowed distance between two spikes
-    maxph: Peaks larger than maxph * max(x) are removed
-
-    Returns
-    -------
-    spikes: Saves spike times (in seconds) to HDD in a .npy file (dict).
-
-    """
-
-    # Load Voltage Traces
-    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
-    file_name = file_pathname + protocol_name + '_voltage.npy'
-    tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
-    voltage = np.load(file_name).item()
-    tag_list = np.load(tag_list_path)
-    spikes = {}
-    fs = 100*1000  # Sampling Rate of Ephys Recording
-
-    # Loop trough all tags in tag_list
-    for i in range(len(tag_list)):
-        trials = len(voltage[tag_list[i]])
-        spike_times = [list()] * trials
-        for k in range(trials):  # loop trough all trials
-            spike_times[k] = indexes(voltage[tag_list[i]][k], th_factor=th_factor, min_dist=min_dist, maxph=maxph)
-            if k == 0 and show:
-                plt.plot(voltage[tag_list[i]][k], 'k')
-                plt.plot(spike_times[k], voltage[tag_list[i]][k][spike_times[k]], 'ro')
-                plt.show()
-            spike_times[k] = spike_times[k] / fs  # in seconds
-        spikes.update({tag_list[i]: spike_times})
-
-    # Save to HDD
-    if save_data:
-        file_name = file_pathname + protocol_name + '_spikes.npy'
-        np.save(file_name, spikes)
-        print('Spike Times saved (protocol: ' + protocol_name + ')')
-
-    return spikes
 
 
 def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets,
@@ -646,7 +270,6 @@ def spike_times_gap(dataset, protocol_name, show, save_data, th_factor=1, filter
                                                                                                   parallel_cpu=False, tmin=tmin)
 
     # Loop trough all tags in tag_list
-    vs_mean = [[]] * len(tag_list)
     for i in range(len(tag_list)):
         # if pulse_duration[i] == '10.0':
         #     continue
@@ -1022,21 +645,6 @@ def voltage_trace_filter(voltage, cutoff, order, ftype, filter_on=True):
 # Reconstruct Stimuli
 
 
-def square_wave(period, pulse_duration, stimulus_duration, sampling_rate):
-    # -- Square Wave --------------------------------------------------------------------------------------------------
-    # Unit: time in msec, frequency in Hz, dutycycle in %, value = 0: disabled
-    # N = 1000  # sample count
-    # freq = 0
-    # dutycycle = 0
-    # period = 200
-    # pulseduration = 50
-    sampling_rate = 800*1000
-    n = sampling_rate
-    t = np.linspace(0, stimulus_duration, stimulus_duration * sampling_rate, endpoint=False)
-    sw = np.arange(n) % period < pulse_duration  # Returns bool array (True=1, False=0)
-    return t, sw
-
-
 def rect_stimulus(period, pulse_duration, stimulus_duration, total_amplitude, sampling_rate, plotting):
     # Compute square wave stimulus in time.
     # Input needs to be in seconds.
@@ -1078,79 +686,6 @@ def rect_stimulus(period, pulse_duration, stimulus_duration, total_amplitude, sa
 
 # ----------------------------------------------------------------------------------------------------------------------
 # NIX Functions
-
-
-def view_nix(dataset):
-    # Open Nix File
-    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
-    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
-    try:
-        f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
-        print('".nix" extension found')
-        print(dataset)
-    except OSError:
-        print('File is damaged!')
-        return 1
-    except RuntimeError:
-        try:
-            f = nix.File.open(nix_file + '.h5', nix.FileMode.ReadOnly)
-            print('".nix.h5" extension found')
-            print(dataset)
-        except RuntimeError:
-            print(dataset)
-            print('File not found')
-            return 1
-
-    b = f.blocks[0]
-
-    # Create Text File:
-    text_file_name = file_pathname + 'stimulus.txt'
-
-    try:
-        text_file = open(text_file_name, 'r+')
-        text_file.truncate(0)
-    except FileNotFoundError:
-        print('create new stimulus.txt file')
-
-    # Get all multi tags
-    mtags = b.multi_tags
-
-    # print('\nMulti Tags found:')
-    with open(text_file_name, 'a') as text_file:
-        text_file.write(dataset + '\n\n')
-        text_file.write('Multi Tags found: \n')
-        for i in range(len(mtags)):
-            # print(mtags[i].name)
-            text_file.write(mtags[i].name + '\n')
-
-    # Get all tags
-    tags = b.tags
-    with open(text_file_name, 'a') as text_file:
-        # print('\nTags found:')
-        text_file.write('\nTags found: \n')
-        for i in range(len(tags)):
-            # print(tags[i].name)
-            text_file.write(tags[i].name + '\n')
-
-    f.close()
-    return 0
-
-
-def get_spiketimes_from_nix(tag,mtag,dataset):
-    if mtag == 1:
-        spike_times = tag.retrieve_data(dataset, 1)  # from multi tag get spiketimes (dataset,datatype)
-    else:
-        spike_times = tag.retrieve_data(1)  # from single tag get spiketimes
-    return spike_times
-
-
-def get_voltage(tag, mtag, dataset):
-    if mtag == 1:
-
-        volt = tag.retrieve_data(dataset, 0)  # for multi tags
-    else:
-        volt = tag.retrieve_data(0)  # for single tags
-    return volt
 
 
 def get_voltage_trace(dataset, tag, protocol_name, multi_tag, search_for_tags):
@@ -1548,20 +1083,6 @@ def inter_spike_interval(spikes):
     return isi
 
 
-def inst_firing_rate(spikes: object, tmax: object, dt: object) -> object:
-    time = np.arange(0, tmax, dt)
-    rate = np.zeros((time.shape[0]))
-    isi = np.diff(np.insert(spikes, 0, 0))
-    inst_rate = 1 / isi
-    spikes_id = np.round(spikes / dt)
-    spikes_id = np.insert(spikes_id, 0, 0)
-    spikes_id = spikes_id.astype(int)
-
-    for i in range(spikes_id.shape[0] - 1):
-        rate[spikes_id[i]:spikes_id[i + 1]] = inst_rate[i]
-    return time, rate
-
-
 def psth(spike_times, n, bin_size, plot, return_values, separate_trials):
     # spike times must be seconds!
     # Compute histogram and calculate time dependent firing rate (binned PSTH)
@@ -1648,8 +1169,7 @@ def vs_range(spike_times, pp, parallel_cpu, tmin):
                 phase[k, p] = r[k][1]
     else:
         for q in tqdm(range(len(spike_times)), desc='Spike Trains'):
-            for p in range(len(pp)):
-                vs[q, p], phase[q, p] = sg.vectorstrength(spike_times[q][spike_times[q] > tmin], pp[p])
+            vs[q, :], phase[q, :] = sg.vectorstrength(spike_times[q][spike_times[q] > tmin], pp)
 
     # Compute desciptive statistics
     vs_mean = vs.mean(axis=0)
@@ -1708,205 +1228,6 @@ def plot_fifield(db_threshold, pathname, savefig):
         fig.savefig(figname, bbox_inches='tight', dpi=300)
         plt.close(fig)
     return 'FIField saved'
-
-
-def loading_fifield_data(pathname):
-    # Load data: FIField and FICurves
-    file_name = pathname + 'FICurve.npy'
-    ficurve = np.load(file_name).item()  # Load dictionary data
-
-    file_name2 = pathname + 'FIField.npy'
-    fifield = np.load(file_name2)  # Load data array
-
-    file_name3 = pathname + 'frequencies.npy'
-    frequencies = np.load(file_name3)
-
-    return ficurve, fifield, frequencies
-
-
-def fifield_analysis(datasets, spike_threshold, peak_params):
-    for all_datasets in range(len(datasets)):
-        nix_name = datasets[all_datasets]
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + nix_name + "/"
-        filename = pathname + 'FIField_voltage.npy'
-
-        # Load data from HDD
-        fifield_volt = np.load(filename).item()  # Load dictionary data
-        freqs = np.load(pathname + 'frequencies.npy')
-        amps = np.load(pathname + 'amplitudes.npy')
-        amps_uni = np.unique(np.round(amps))
-        freqs_uni = np.unique(freqs) / 1000
-
-        # Find Spikes
-        fi = {}
-        for f in range(len(freqs_uni)):  # Loop through all different frequencies
-            dbSPL = {}
-            for a in fifield_volt[freqs_uni[f]].keys():  # Only loop through amps that exist
-                repeats = len(fifield_volt[freqs_uni[f]][a]) - 1
-                spike_count = np.zeros(repeats)
-                for trial in range(repeats):
-                    x = fifield_volt[freqs_uni[f]][a][trial]
-                    spike_times = indexes(x, th_factor=2, min_dist=50, maxph=0.8)
-                    '''
-                    spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
-                                               edge='rising', kpsh=False, valley=peak_params['valley'],
-                                               show=peak_params['show'], ax=None, maxph=peak_params['maxph'],
-                                               dynamic=peak_params['dynamic'], filter_on=peak_params['filter_on'])
-                    '''
-                    spike_count[trial] = len(spike_times)
-                # m = np.mean(spike_count)
-                # std = np.std(spike_count)
-                dummy = [np.mean(spike_count), np.std(spike_count), repeats]
-                dbSPL.update({a: dummy})
-            fi.update({freqs_uni[f]: dbSPL})
-
-        # Collect data for FI Curves and FIField
-        dbSPL_threshold = np.zeros((len(freqs_uni), 3))
-        for f in range(len(freqs_uni)):
-            amplitude_sorted = sorted(fi[freqs_uni[f]])
-            mean_spike_count = np.zeros((len(amplitude_sorted)))
-            std_spike_count = np.zeros((len(amplitude_sorted)))
-            k = 0
-            for i in amplitude_sorted:
-                mean_spike_count[k] = fi[freqs_uni[f]][i][0]
-                std_spike_count[k] = fi[freqs_uni[f]][i][1]
-                k += 1
-
-            # Find db SPL threshold
-            th = mean_spike_count >= spike_threshold
-            dbSPL_threshold[f, 0] = freqs_uni[f]
-            if th.any():
-                dbSPL_threshold[f, 1] = amplitude_sorted[np.min(np.where(th))]
-            else:
-                dbSPL_threshold[f, 1] = '100'  # no threshold could be found
-
-            # Save FIField data to HDD
-            dname1 = pathname + 'FICurve_' + str(freqs_uni[f])
-            np.savez(dname1, amplitude_sorted=amplitude_sorted, mean_spike_count=mean_spike_count, std_spike_count=std_spike_count,
-                     spike_threshold=spike_threshold, dbSPL_threshold=dbSPL_threshold, freq=freqs_uni[f])
-            # Plot FICurve for this frequency
-            # plot_ficurve(amplitude_sorted, mean_spike_count, std_spike_count, freqs_uni[f], spike_threshold,
-            #                pathname, savefig=True)
-
-            # Estimate Progress
-            percent = np.round(f / len(freqs_uni), 2)
-            print('--- %s %% done ---' % (percent * 100))
-
-        # Save FIField data to HDD
-        dname = pathname + 'FIField_plotdata.npy'
-        np.save(dname, dbSPL_threshold)
-
-        dname2 = pathname + 'FICurves.npy'
-        np.save(dname2, fi)
-
-        # Plot FIField and save it to HDD
-        # plot_fifield(dbSPL_threshold, pathname, savefig=True)
-
-        print('Analysis finished: %s' % datasets[all_datasets])
-
-        # Progress Bar
-        percent = np.round((all_datasets + 1) / len(datasets), 2)
-        print('-- Analysis total: %s %%  --' % (percent * 100))
-    return 0
-
-
-def compute_fifield(data_name, data_file, tag, spikethreshold):
-    # Old version
-    # Open the nix file
-    start_time = time.time()
-    f = nix.File.open(data_file, nix.FileMode.ReadOnly)
-    b = f.blocks[0]
-
-    # Get tags
-    mtag = b.multi_tags[tag]
-
-    # Get Meta Data
-    meta = mtag.metadata.sections[0]
-    duration = meta["Duration"]
-    frequency = mtag.features[5].data[:]
-    amplitude = mtag.features[4].data[:]
-    final_data = np.zeros((len(frequency), 3))
-
-    # Create Directory for Saving Data
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-    directory = os.path.dirname(pathname)
-    if not os.path.isdir(directory):
-        os.mkdir(directory)  # Make Directory
-
-    # Get data for all frequencies
-    freq = np.unique(frequency)  # All used frequencies in experiment
-    qq = 0
-    ficurve = {}
-    db_threshold = np.zeros((len(freq), 2))
-    timeneeded = np.zeros((len(freq)))
-    rawdata = {}
-    for q in freq:
-        intertime1 = time.time()
-        d = np.where(frequency == q)[0][:]
-        k = 0
-        data = np.zeros((len(d), 4))
-        for j in d:
-            spikes = mtag.retrieve_data(int(j), 1)[:]  # Spike Times
-            isi = np.diff(spikes)  # Inter Spike Intervals
-            spikecount = len(mtag.retrieve_data(int(j), 1)[:])  # Number of spikes per stimulus presentation
-            data[k, 0] = frequency[j]
-            data[k, 1] = amplitude[j]
-            data[k, 2] = spikecount
-            if isi.any():
-                data[k, 3] = np.mean(isi)
-            else:
-                data[k, 3] = 0
-            k += 1
-
-        # Now average all spike counts per amplitude
-        amps = np.unique(data[:, 1])  # All used amplitudes in experiment
-        k = 0
-        average = np.zeros((len(amps), 4))
-        for i in amps:
-            ids = np.where(data == i)[0]
-            average[k, 0] = i  # Amplitude
-            average[k, 1] = np.mean(data[ids, 2])  # Mean spike number per presentation
-            average[k, 2] = np.std(data[ids, 2])  # STD spike number per presentation
-            average[k, 3] = np.mean(data[ids, 3])  # Mean mean inter spike interval
-            k += 1
-
-        # Now find dB SPL threshold for FIField
-        db_threshold[qq, 0] = q
-        dummyID = np.where(average[:, 1] >= spikethreshold)
-        if dummyID[0].any():
-            db_threshold[qq, 1] = average[np.min(dummyID), 0]
-        else:
-            db_threshold[qq, 1] = 100
-
-        # Now store FICurve data in dictionary
-        ficurve.update({int(q): average})
-        rawdata.update({int(q): data})
-
-        # Estimate Time Remaining for Analysis
-        percent = np.round((qq + 1) / len(freq), 3)
-        print('--- %s %% done ---' % (percent * 100))
-        intertime2 = time.time()
-        timeneeded[qq] = np.round((intertime2 - intertime1) / 60, 2)
-        if qq > 0:
-            timeremaining = np.round(np.mean(timeneeded[0:qq]), 2) * (len(freq) - qq)
-        else:
-            timeremaining = np.round(np.mean(timeneeded[qq]), 2) * (len(freq) - qq)
-        print('--- Time remaining: %s minutes ---' % timeremaining)
-        qq += 1
-
-    # Save Data to HDD
-    dname = pathname + 'FICurve.npy'
-    dname2 = pathname + 'FIField.npy'
-    dname3 = pathname + 'frequencies.npy'
-    dname4 = pathname + 'rawdata.npy'
-    np.save(dname4, rawdata)
-    np.save(dname3, freq)
-    np.save(dname2, db_threshold)
-    np.save(dname, ficurve)
-
-    f.close()  # Close Nix File
-    print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60))
-    return 'FIField successfully computed'
 
 
 def fifield_voltage2(data_name, tag):
@@ -2018,78 +1339,6 @@ def fifield_spike_detection(data_name, th_factor=4, th_window=400, mph_percent=0
             pickle.dump(spike_times, fp)
 
     return spike_times, spike_times_valley
-
-
-def fifield_voltage(data_name, data_file, tag):
-    # Open the nix file
-    start_time = time.time()
-    f = nix.File.open(data_file, nix.FileMode.ReadOnly)
-    b = f.blocks[0]
-
-    # Get tags
-    mtag = b.multi_tags[tag]
-
-    # Get Meta Data
-    # meta = mtag.metadata.sections[0]
-    # duration = meta["Duration"]
-    frequency = mtag.features[5].data[:]
-    amplitude = mtag.features[4].data[:]
-
-    # Create Directory for Saving Data
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
-    directory = os.path.dirname(pathname)
-    if not os.path.isdir(directory):
-        os.mkdir(directory)  # Make Directory
-
-    # Get data for all frequencies
-    freq = np.unique(frequency)  # All used frequencies in experiment
-    # amps = np.unique(amplitude)
-    qq = 0
-    fifield_volt = {}
-    for q in freq:
-        volt2 = {}
-        ids_freq = np.where(frequency == q)[0][:]
-        amps = np.unique(amplitude[ids_freq])  # Used db SPL with this frequency
-        for a in amps:
-            volt1 = {}
-            id_amp = np.where(amplitude == a)[0][:]
-            for i in range(len(id_amp)):
-                v = mtag.retrieve_data(int(id_amp[i]), 0)[:]  # Voltage Trace
-                volt1.update({i: v})
-            volt1.update({i+1: a})
-            volt2.update({int(np.round(a)): volt1})
-        fifield_volt.update({int(q/1000): volt2})
-
-        # Estimate Progress
-        percent = np.round((qq + 1) / len(freq), 3)
-        print('--- %s %% done ---' % (percent * 100))
-        qq += 1
-
-    # Save Data to HDD
-    dname = pathname + 'FIField_voltage.npy'
-    np.save(dname, fifield_volt)
-    dname2 = pathname + 'frequencies.npy'
-    np.save(dname2, frequency)
-    dname3 = pathname + 'amplitudes.npy'
-    np.save(dname3, amplitude)
-
-    f.close()  # Close Nix File
-    return fifield_volt, frequency, amplitude
-
-
-def get_fifield_data(datasets):
-    for all_datasets in range(len(datasets)):
-        data_name = datasets[all_datasets]
-        nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
-        tag = 'FIField-sine_wave-1'
-
-        # Read Voltage Traces from nix file and save it to HDD
-        volt, freq, amp = fifield_voltage(data_name, nix_file, tag)
-        print('Got Data set: %s and saved it' % datasets[all_datasets])
-        percent = np.round((all_datasets + 1) / len(datasets), 2)
-        print('-- Getting data total: %s %%  --' % (percent * 100))
-
-    return volt, freq, amp
 
 
 def fifield_analysis2(data_name, threshold, plot_fi):
@@ -2265,57 +1514,6 @@ def get_soundfilestimuli_data(datasets, tag, plot):
 
     f.close()
     return 0
-
-
-def soundfilestimuli_spike_detection(datasets, peak_params):
-    data_name = datasets[0]
-    # stim_sets = [['/mothsongs/'], ['/batcalls/noisereduced/']]
-    stim_sets = '/naturalmothcalls/'
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + stim_sets
-    file_list = os.listdir(pathname)
-    dt = 100 * 1000
-    # Load voltage data
-    for k in range(len(file_list)):
-        if file_list[k][-11:] == 'voltage.npy':
-            # Load Voltage from HDD
-            file_name = pathname + file_list[k]
-            voltage = np.load(file_name).item()
-            sp = {}
-
-            # Go through all trials and detect spikes
-            trials = len(voltage)
-
-            for i in range(trials):
-                x = voltage[i]
-                spike_times = detect_peaks(x, peak_params)
-                spike_times = spike_times / dt  # Now spikes are in seconds
-                sp.update({i: spike_times})
-
-                # Save Spike Times to HDD
-                dname = file_name[:-12] + '_spike_times.npy'
-                np.save(dname, sp)
-
-    print('Spike Times saved')
-    return 0
-
-
-def soundfilestimuli_spike_distance(datasets):
-    data_name = datasets[0]
-    for p in ['/mothsongs/', '/batcalls/noisereduced/']:
-        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + p
-        file_list = os.listdir(pathname)
-
-        # Load spike times
-        for k in range(len(file_list)):
-            if file_list[k][-15:] == 'spike_times.npy':
-                file_name = pathname + file_list[k]
-                spike_times = np.load(file_name).item()
-                duration = spike_times[0][-1] + 0.01
-                dt = 100 * 1000
-                tau = 0.005
-                print('Stim: %s' % file_name[29:])
-                d = spike_train_distance(spike_times[0], spike_times[1], dt, duration, tau, plot=False)
-                print('\n')
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -3305,301 +2503,6 @@ def isi_matrix(dataset, duration, boot_sample, stim_type, profile, save_fig):
     return mm_mean, correct_matches, distances_per_boot
 
 
-def vanrossum_matrix_backup(dataset, tau, duration, dt_factor, boot_sample, stim_type, save_fig):
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
-    spikes = np.load(pathname + 'Calls_spikes.npy').item()
-    # tag_list = np.load(pathname + 'Calls_tag_list.npy')
-    '''
-    stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-             'naturalmothcalls/agaraea_semivitrea_07x07.wav', 'naturalmothcalls/carales_11x11_01.wav',
-             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
-             'naturalmothcalls/elysius_conspersus_05x05.wav', 'naturalmothcalls/epidesma_oceola_05x05.wav',
-             'naturalmothcalls/eucereon_appunctata_11x11.wav', 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
-             'naturalmothcalls/eucereon_obscurum_10x10.wav', 'naturalmothcalls/gl005_05x05.wav',
-             'naturalmothcalls/gl116_05x05.wav', 'naturalmothcalls/hypocladia_militaris_09x09.wav',
-             'naturalmothcalls/idalu_fasciipuncta_05x05.wav', 'naturalmothcalls/idalus_daga_18x18.wav',
-             'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
-             'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav']
-
-
-    stims = ['naturalmothcalls/BCI1062_07x07.wav',
-             'naturalmothcalls/agaraea_semivitrea_07x07.wav',
-             'naturalmothcalls/eucereon_hampsoni_07x07.wav',
-             'naturalmothcalls/neritos_cotes_07x07.wav']
-
-
-    stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-             'naturalmothcalls/carales_11x11_01.wav',
-             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
-             'naturalmothcalls/eucereon_obscurum_10x10.wav',
-             'naturalmothcalls/hypocladia_militaris_09x09.wav',
-             'naturalmothcalls/idalus_daga_18x18.wav',
-             'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav']
-
-
-    stims = ['batcalls/Barbastella_barbastellus_1_n.wav',
-                'batcalls/Eptesicus_nilssonii_1_s.wav',
-                'batcalls/Myotis_bechsteinii_1_n.wav',
-                'batcalls/Myotis_brandtii_1_n.wav',
-                'batcalls/Myotis_nattereri_1_n.wav',
-                'batcalls/Nyctalus_leisleri_1_n.wav',
-                'batcalls/Nyctalus_noctula_2_s.wav',
-                'batcalls/Pipistrellus_pipistrellus_1_n.wav',
-                'batcalls/Pipistrellus_pygmaeus_2_n.wav',
-                'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
-                'batcalls/Vespertilio_murinus_1_s.wav']
-
-    stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-             'naturalmothcalls/agaraea_semivitrea_07x07.wav', 'naturalmothcalls/carales_11x11_01.wav',
-             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
-             'naturalmothcalls/elysius_conspersus_05x05.wav', 'naturalmothcalls/epidesma_oceola_05x05.wav',
-             'naturalmothcalls/eucereon_appunctata_11x11.wav', 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
-             'naturalmothcalls/eucereon_obscurum_10x10.wav', 'naturalmothcalls/gl005_05x05.wav',
-             'naturalmothcalls/gl116_05x05.wav', 'naturalmothcalls/hypocladia_militaris_09x09.wav',
-             'naturalmothcalls/idalu_fasciipuncta_05x05.wav', 'naturalmothcalls/idalus_daga_18x18.wav',
-             'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
-             'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav',
-             'batcalls/Barbastella_barbastellus_1_n.wav',
-             'batcalls/Eptesicus_nilssonii_1_s.wav',
-             'batcalls/Myotis_bechsteinii_1_n.wav',
-             'batcalls/Myotis_brandtii_1_n.wav',
-             'batcalls/Myotis_nattereri_1_n.wav',
-             'batcalls/Nyctalus_leisleri_1_n.wav',
-             'batcalls/Nyctalus_noctula_2_s.wav',
-             'batcalls/Pipistrellus_pipistrellus_1_n.wav',
-             'batcalls/Pipistrellus_pygmaeus_2_n.wav',
-             'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
-             'batcalls/Vespertilio_murinus_1_s.wav']
-    '''
-
-    if stim_type == 'selected':
-        stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-                 'naturalmothcalls/agaraea_semivitrea_07x07.wav', 'naturalmothcalls/carales_11x11_01.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
-                 'naturalmothcalls/elysius_conspersus_05x05.wav', 'naturalmothcalls/epidesma_oceola_05x05.wav',
-                 'naturalmothcalls/eucereon_appunctata_11x11.wav', 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
-                 'naturalmothcalls/eucereon_obscurum_10x10.wav', 'naturalmothcalls/gl005_05x05.wav',
-                 'naturalmothcalls/gl116_05x05.wav', 'naturalmothcalls/hypocladia_militaris_09x09.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav', 'naturalmothcalls/idalus_daga_18x18.wav',
-                 'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav']
-
-    if stim_type == 'series':
-        stims = ['callseries/moths/A7838.wav',
-                 'callseries/moths/BCI1348.wav',
-                 'callseries/moths/Chrostosoma_thoracicum.wav',
-                 'callseries/moths/Chrostosoma_thoracicum_02.wav',
-                 'callseries/moths/Creatonotos.wav',
-                 'callseries/moths/Eucereon_appunctata.wav',
-                 'callseries/moths/Eucereon_hampsoni.wav',
-                 'callseries/moths/Eucereon_maia.wav',
-                 'callseries/moths/GL005.wav',
-                 'callseries/moths/Hyaleucera_erythrotelus.wav',
-                 'callseries/moths/Hypocladia_militaris.wav',
-                 'callseries/moths/PP241.wav',
-                 'callseries/moths/PP612.wav',
-                 'callseries/moths/PP643.wav',
-                 'callseries/moths/Saurita.wav',
-                 'callseries/moths/Uranophora_leucotelus.wav',
-                 'callseries/moths/carales_PK1275.wav',
-                 'callseries/moths/melese_PK1297_01.wav',
-                 'callseries/moths/melese_PK1298_01.wav',
-                 'callseries/moths/melese_PK1298_02.wav',
-                 'callseries/moths/melese_PK1299_01.wav',
-                 'callseries/moths/melese_PK1300_01.wav',
-                 'callseries/bats/Barbastella_barbastellus_1_n.wav',
-                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
-                 'callseries/bats/Myotis_brandtii_1_n.wav',
-                 'callseries/bats/Myotis_nattereri_1_n.wav',
-                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
-                 'callseries/bats/Nyctalus_noctula_2_s.wav',
-                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
-                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
-                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
-                 'callseries/bats/Vespertilio_murinus_1_s.wav']
-
-    if stim_type == 'single':
-        stims = ['naturalmothcalls/BCI1062_07x07.wav',
-                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-                 'naturalmothcalls/aclytia_gynamorpha_24x24_02.wav',
-                 'naturalmothcalls/agaraea_semivitrea_06x06.wav',
-                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
-                 'naturalmothcalls/carales_11x11_01.wav',
-                 'naturalmothcalls/carales_11x11_02.wav',
-                 'naturalmothcalls/carales_12x12_01.wav',
-                 'naturalmothcalls/carales_12x12_02.wav',
-                 'naturalmothcalls/carales_13x13_01.wav',
-                 'naturalmothcalls/carales_13x13_02.wav',
-                 'naturalmothcalls/carales_19x19.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_04x04.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_04x04_02.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05_02.wav',
-                 'naturalmothcalls/creatonotos_01x01.wav',
-                 'naturalmothcalls/creatonotos_01x01_02.wav',
-                 'naturalmothcalls/elysius_conspersus_05x05.wav',
-                 'naturalmothcalls/elysius_conspersus_08x08.wav',
-                 'naturalmothcalls/elysius_conspersus_11x11.wav',
-                 'naturalmothcalls/epidesma_oceola_05x05.wav',
-                 'naturalmothcalls/epidesma_oceola_05x05_02.wav',
-                 'naturalmothcalls/epidesma_oceola_06x06.wav',
-                 'naturalmothcalls/eucereon_appunctata_11x11.wav',
-                 'naturalmothcalls/eucereon_appunctata_12x12.wav',
-                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
-                 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
-                 'naturalmothcalls/eucereon_hampsoni_08x08.wav',
-                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
-                 'naturalmothcalls/eucereon_obscurum_10x10.wav',
-                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
-                 'naturalmothcalls/gl005_04x04.wav',
-                 'naturalmothcalls/gl005_05x05.wav',
-                 'naturalmothcalls/gl005_11x11.wav',
-                 'naturalmothcalls/gl116_04x04.wav',
-                 'naturalmothcalls/gl116_04x04_02.wav',
-                 'naturalmothcalls/gl116_05x05.wav',
-                 'naturalmothcalls/hypocladia_militaris_03x03.wav',
-                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
-                 'naturalmothcalls/hypocladia_militaris_09x09_02.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05_02.wav',
-                 'naturalmothcalls/idalus_daga_18x18.wav',
-                 'naturalmothcalls/melese_11x11_PK1299.wav',
-                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
-                 'naturalmothcalls/melese_12x12_PK1299.wav',
-                 'naturalmothcalls/melese_13x13_PK1299.wav',
-                 'naturalmothcalls/melese_14x14_PK1297.wav',
-                 'naturalmothcalls/neritos_cotes_07x07.wav',
-                 'naturalmothcalls/neritos_cotes_10x10.wav',
-                 'naturalmothcalls/neritos_cotes_10x10_02.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_08x08.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_30++.wav',
-                 'naturalmothcalls/syntrichura_07x07.wav',
-                 'naturalmothcalls/syntrichura_09x09.wav',
-                 'naturalmothcalls/syntrichura_12x12.wav',
-                 'batcalls/Barbastella_barbastellus_1_n.wav',
-                 'batcalls/Eptesicus_nilssonii_1_s.wav',
-                 'batcalls/Myotis_bechsteinii_1_n.wav',
-                 'batcalls/Myotis_brandtii_1_n.wav',
-                 'batcalls/Myotis_nattereri_1_n.wav',
-                 'batcalls/Nyctalus_leisleri_1_n.wav',
-                 'batcalls/Nyctalus_noctula_2_s.wav',
-                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
-                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
-                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
-                 'batcalls/Vespertilio_murinus_1_s.wav']
-    # Tags and Stimulus names
-
-    connection = tagtostimulus(dataset)
-    stimulus_tags = [''] * len(stims)
-    for p in range(len(stims)):
-        stimulus_tags[p] = connection[stims[p]]
-
-    # Convert all Spike Trains to e-pulses
-    # trial_nr = int(len(spikes[stimulus_tags[0]]))
-    # trial_nr = 20
-    trains = {}
-
-    for k in range(len(stimulus_tags)):
-        trial_nr = len(spikes[stimulus_tags[k]])
-        tr = [[]] * trial_nr
-        for j in range(trial_nr):
-            x = spikes[stimulus_tags[k]][j]
-            # tr.update({j: spike_e_pulses(x, dt_factor, tau)})
-            tr[j] = spike_e_pulses(x, dt_factor, tau, duration)
-        trains.update({stimulus_tags[k]: tr})
-
-        # for i in range(len(stims)):
-        # print(str(i) + ': ' + stims[i])
-
-    call_count = len(stimulus_tags)
-    # Select Template and Probes and bootstrap this process
-    mm = {}
-    for boot in range(boot_sample):
-        count = 0
-        match_matrix = np.zeros((call_count, call_count))
-        templates = {}
-        probes = {}
-        # rand_ids = np.random.randint(trial_nr, size=call_count)
-        for i in range(call_count):
-            trial_nr = len(spikes[stimulus_tags[i]])
-            rand_id = np.random.randint(trial_nr, size=1)
-            idx = np.arange(0, trial_nr, 1)
-            # idx = np.delete(idx, rand_ids[i])
-            # templates.update({i: trains[stimulus_tags[i]][rand_ids[i]]})
-            idx = np.delete(idx, rand_id[0])
-            templates.update({i: trains[stimulus_tags[i]][rand_id[0]]})
-            for q in range(len(idx)):
-                probes.update({count: [trains[stimulus_tags[i]][idx[q]], i]})
-                count += 1
-
-        # Compute VanRossum Distance
-        for pr in range(len(probes)):
-            d = np.zeros(len(templates))
-            for tmp in range(len(templates)):
-                d[tmp] = vanrossum_distance(templates[tmp], probes[pr][0], dt_factor, tau)
-
-            # What happens if there are two mins? - The first one is taken
-
-            template_match = np.where(d == np.min(d))[0][0]
-            song_id = probes[pr][1]
-            match_matrix[template_match, song_id] += 1
-            '''
-            if len(np.where(d == np.min(d))) > 1:
-                print('Found more than 1 min.')
-            if pr == 0:
-                print(d)
-                print('---------------')
-
-                plt.figure()
-                plt.subplot(3, 1, 1)
-                plt.plot(templates[template_match])
-                plt.title('Matched Template: ' + str(d[template_match]))
-                plt.subplot(3, 1, 2)
-                plt.plot(templates[song_id])
-                plt.title('Probes correct Template: ' + str(d[song_id]))
-                plt.subplot(3, 1, 3)
-                plt.plot(probes[pr][0])
-                plt.title('Probe')
-                plt.show()
-                embed()
-            '''
-        mm.update({boot: match_matrix})
-
-    mm_mean = sum(mm.values()) / len(mm)
-
-    # Percent Correct
-    percent_correct = np.zeros((len(mm_mean)))
-    correct_nr = np.zeros((len(mm_mean)))
-    for r in range(len(mm_mean)):
-        percent_correct[r] = mm_mean[r, r] / np.sum(mm_mean[:, r])
-        correct_nr[r] = mm_mean[r, r]
-
-    correct_matches = np.sum(correct_nr) / np.sum(mm_mean)
-
-    if save_fig:
-        # Plot Matrix
-        plt.imshow(mm_mean)
-        plt.xlabel('Original Calls')
-        plt.ylabel('Matched Calls')
-        plt.colorbar()
-        plt.xticks(np.arange(0, len(mm_mean), 1))
-        plt.yticks(np.arange(0, len(mm_mean), 1))
-        plt.title('tau = ' + str(tau * 1000) + ' ms' + ' T = ' + str(duration * 1000) + ' ms')
-
-        # Save Plot to HDD
-        figname = "/media/brehm/Data/MasterMoth/figs/" + dataset + '/VanRossumMatrix_' + str(tau * 1000) + \
-                  '_' + str(duration * 1000) + '.png'
-        fig = plt.gcf()
-        fig.set_size_inches(10, 10)
-        fig.savefig(figname, bbox_inches='tight', dpi=300)
-        plt.close(fig)
-        print('tau = ' + str(tau * 1000) + ' ms' + ' T = ' + str(duration * 1000) + ' ms done')
-
-    return mm_mean, correct_matches
-
-
 def pulse_train_matrix(samples, duration, profile):
     d = np.zeros((len(samples), len(samples)))
     edges = [0, duration]
@@ -4324,3 +3227,1114 @@ def gap_analysis(dataset, protocol_name):
 
     return voltage_new
 
+
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# Junkyard
+
+def plot_peaks(x, mph, mpd, threshold, edge, valley, ax, ind):
+    """Plot results of the detect_peaks function, see its help."""
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print('matplotlib is not available.')
+    else:
+        if ax is None:
+            _, ax = plt.subplots(1, 1, figsize=(8, 4))
+
+        ax.plot(x, 'b', lw=1)
+        if ind.size:
+            label = 'valley' if valley else 'peak'
+            label = label + 's' if ind.size > 1 else label
+            ax.plot(ind, x[ind], '+', mfc=None, mec='r', mew=2, ms=8,
+                    label='%d %s' % (ind.size, label))
+            ax.legend(loc='best', framealpha=.5, numpoints=1)
+        ax.set_xlim(-.02 * x.size, x.size * 1.02 - 1)
+        ymin, ymax = x[np.isfinite(x)].min(), x[np.isfinite(x)].max()
+        yrange = ymax - ymin if ymax > ymin else 1
+        ax.set_ylim(ymin - 0.1 * yrange, ymax + 0.1 * yrange)
+        ax.set_xlabel('Data # ', fontsize=14)
+        ax.set_ylabel('Amplitude', fontsize=14)
+        mode = 'Valley detection' if valley else 'Peak detection'
+        ax.set_title("%s (mph=%s, mpd=%d, threshold=%s, edge='%s')"
+                     % (mode, str(mph), mpd, str(threshold), edge))
+        # plt.grid()
+        plt.show()
+
+    return 0
+
+
+def detect_peaks(x, peak_params):
+
+    """Detect peaks in data based on their amplitude and other features.
+
+    Parameters
+    ----------
+    x : 1D array_like
+        data.
+    peak_params: All the parameters listed below in a dict.
+    mph : {None, number}, optional (default = None)
+        detect peaks that are greater than minimum peak height.
+        if mph = 'dynamic': this value will be computed automatically
+    mpd : positive integer, optional (default = 1)
+        detect peaks that are at least separated by minimum peak distance (in
+        number of data).
+    threshold : positive number, optional (default = 0)
+        detect peaks (valleys) that are greater (smaller) than `threshold`
+        in relation to their immediate neighbors.
+    edge : {None, 'rising', 'falling', 'both'}, optional (default = 'rising')
+        for a flat peak, keep only the rising edge ('rising'), only the
+        falling edge ('falling'), both edges ('both'), or don't detect a
+        flat peak (None).
+    kpsh : bool, optional (default = False)
+        keep peaks with same height even if they are closer than `mpd`.
+    valley : bool, optional (default = False)
+        if True (1), detect valleys (local minima) instead of peaks.
+    show : bool, optional (default = False)
+        if True (1), plot data in matplotlib figure.
+    ax : a matplotlib.axes.Axes instance, optional (default = None).
+    maxph: maximal peak height: Peaks > maxph are removed. maxph = 'dynamic': maxph is computed automatically
+    filter_on: Bandpass filter
+
+    Returns
+    -------
+    ind : 1D array_like
+        indeces of the peaks in `x`.
+
+    Notes
+    -----
+    The detection of valleys instead of peaks is performed internally by simply
+    negating the data: `ind_valleys = detect_peaks(-x)`
+
+    The function can handle NaN's
+
+    References
+    ----------
+    .. [1] http://nbviewer.ipython.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.ipynb
+
+    modified by Nils Brehm 2018
+    """
+
+    # Set Parameters
+    mph = peak_params['mph']
+    mpd = peak_params['mpd']
+    valley = peak_params['valley']
+    show = peak_params['show']
+    maxph = peak_params['maxph']
+    filter_on = peak_params['filter_on']
+    threshold = 0
+    edge = 'rising'
+    kpsh = False
+    ax = None
+
+
+    # Filter Voltage Trace
+    if filter_on:
+        fs = 100 * 1000
+        nyqst = 0.5 * fs
+        lowcut = 300
+        highcut = 2000
+        low = lowcut / nyqst
+        high = highcut / nyqst
+        x = voltage_trace_filter(x, [low, high], ftype='band', order=4, filter_on=True)
+
+    # Dynamic mph
+    if mph == 'dynamic':
+        mph = 2 * np.median(abs(x)/0.6745)
+
+    x = np.atleast_1d(x).astype('float64')
+    if x.size < 3:
+        return np.array([], dtype=int)
+    if valley:
+        x = -x
+    # find indices of all peaks
+    dx = x[1:] - x[:-1]
+    # handle NaN's
+    indnan = np.where(np.isnan(x))[0]
+    if indnan.size:
+        x[indnan] = np.inf
+        dx[np.where(np.isnan(dx))[0]] = np.inf
+    ine, ire, ife = np.array([[], [], []], dtype=int)
+    if not edge:
+        ine = np.where((np.hstack((dx, 0)) < 0) & (np.hstack((0, dx)) > 0))[0]
+    else:
+        if edge.lower() in ['rising', 'both']:
+            ire = np.where((np.hstack((dx, 0)) <= 0) & (np.hstack((0, dx)) > 0))[0]
+        if edge.lower() in ['falling', 'both']:
+            ife = np.where((np.hstack((dx, 0)) < 0) & (np.hstack((0, dx)) >= 0))[0]
+    ind = np.unique(np.hstack((ine, ire, ife)))
+    # handle NaN's
+    if ind.size and indnan.size:
+        # NaN's and values close to NaN's cannot be peaks
+        ind = ind[np.in1d(ind, np.unique(np.hstack((indnan, indnan - 1, indnan + 1))), invert=True)]
+    # first and last values of x cannot be peaks
+    if ind.size and ind[0] == 0:
+        ind = ind[1:]
+    if ind.size and ind[-1] == x.size - 1:
+        ind = ind[:-1]
+    # remove peaks < minimum peak height
+    if ind.size and mph is not None:
+        ind = ind[x[ind] >= mph]
+
+    # remove peaks > maximum peak height
+    if ind.size and maxph is not None:
+        if maxph == 'dynamic':
+            hist, bins = np.histogram(x[ind])
+            # maxph = np.round(np.max(x)-50)
+            # idx = np.where(hist > 10)[0][-1]
+            maxph = np.round(bins[-2]-20)
+        ind = ind[x[ind] <= maxph]
+
+    # remove peaks - neighbors < threshold
+    if ind.size and threshold > 0:
+        dx = np.min(np.vstack([x[ind] - x[ind - 1], x[ind] - x[ind + 1]]), axis=0)
+        ind = np.delete(ind, np.where(dx < threshold)[0])
+    # detect small peaks closer than minimum peak distance
+    if ind.size and mpd > 1:
+        ind = ind[np.argsort(x[ind])][::-1]  # sort ind by peak height
+        idel = np.zeros(ind.size, dtype=bool)
+        for i in range(ind.size):
+            if not idel[i]:
+                # keep peaks with the same height if kpsh is True
+                idel = idel | (ind >= ind[i] - mpd) & (ind <= ind[i] + mpd) \
+                              & (x[ind[i]] > x[ind] if kpsh else True)
+                idel[i] = 0  # Keep current peak
+        # remove the small peaks and sort back the indices by their occurrence
+        ind = np.sort(ind[~idel])
+
+    if show:
+        if indnan.size:
+            x[indnan] = np.nan
+        if valley:
+            x = -x
+        plot_peaks(x, mph, mpd, threshold, edge, valley, ax, ind)
+    return ind
+
+
+def peak_seek(x, mpd, mph):
+    # Find all maxima and ties
+    localmax = (np.diff(np.sign(np.diff(x))) < 0).nonzero()[0] + 1
+    locs = localmax[x[localmax] > mph]
+
+    while 1:
+        idx = np.where(np.diff(locs) < mpd)
+        idx = idx[0]
+        if not idx.any():
+            break
+        rmv = list()
+        for i in range(len(idx)):
+            a = x[locs[idx[i]]]
+            b = x[locs[idx[i]+1]]
+            if a > b:
+                rmv.append(True)
+            else:
+                rmv.append(False)
+        locs = locs[idx[rmv]]
+
+    embed()
+    #locs = find(x(2:end - 1) >= x(1: end - 2) & x(2: end - 1) >= x(3: end))+1;
+
+
+def indexes(y, dynamic, th_factor=2, min_dist=50, maxph=0.8, th_window=200):
+    """Peak detection routine.
+    Finds the numeric index of the peaks in *y* by taking its first order difference. By using
+    *thres* and *min_dist* parameters, it is possible to reduce the number of
+    detected peaks. *y* must be signed.
+    Parameters
+    ----------
+    y : ndarray (signed)
+        1D amplitude data to search for peaks.
+    th_factor : trheshold = th_factor * median(y / 0.6745)
+        Only the peaks with amplitude higher than the threshold will be detected.
+    min_dist : int
+        Minimum distance between each detected peak. The peak with the highest
+        amplitude is preferred to satisfy this constraint.
+    maxph: All peaks larger than maxph * max(y) are removed.
+    th_window: end point of the range for computing threshold values
+
+    Returns
+    -------
+    ndarray
+        Array containing the numeric indexes of the peaks that were detected
+    """
+    if isinstance(th_window, str):
+        th_window = -1
+    # thres = th_factor * np.median(abs(y[0:th_window]) / 0.6745)
+    if dynamic:
+        thres = th_factor * np.median(abs(y[0:th_window] - np.median(y[0:th_window])))
+    else:
+        thres = th_factor
+    maxph = np.max(abs(y)) * maxph
+
+    if isinstance(y, np.ndarray) and np.issubdtype(y.dtype, np.unsignedinteger):
+        raise ValueError("y must be signed")
+
+    # thres = thres * (np.max(y) - np.min(y)) + np.min(y)
+    min_dist = int(min_dist)
+
+    # compute first order difference
+    dy = np.diff(y)
+
+    # propagate left and right values successively to fill all plateau pixels (0-value)
+    zeros, = np.where(dy == 0)
+
+    # check if the singal is totally flat
+    if len(zeros) == len(y) - 1:
+        return np.array([])
+
+    while len(zeros):
+        # add pixels 2 by 2 to propagate left and right value onto the zero-value pixel
+        zerosr = np.hstack([dy[1:], 0.])
+        zerosl = np.hstack([0., dy[:-1]])
+
+        # replace 0 with right value if non zero
+        dy[zeros] = zerosr[zeros]
+        zeros, = np.where(dy == 0)
+
+        # replace 0 with left value if non zero
+        dy[zeros] = zerosl[zeros]
+        zeros, = np.where(dy == 0)
+
+    # find the peaks by using the first order difference
+    peaks = np.where((np.hstack([dy, 0.]) < 0.)
+                     & (np.hstack([0., dy]) > 0.)
+                     & (y > thres)
+                     & (y < maxph))[0]
+
+    # handle multiple peaks, respecting the minimum distance
+    if peaks.size > 1 and min_dist > 1:
+        highest = peaks[np.argsort(y[peaks])][::-1]
+        rem = np.ones(y.size, dtype=bool)
+        rem[peaks] = False
+
+        for peak in highest:
+            if not rem[peak]:
+                sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
+                rem[sl] = True
+                rem[peak] = False
+
+        peaks = np.arange(y.size)[~rem]
+
+    return peaks, thres
+
+
+def get_spike_times(dataset, protocol_name, peak_params, show_detection):
+    """Get Spike Times using the detect_peak() function.
+
+    Notes
+    ----------
+    This function gets all the spike times in the voltage traces loaded from HDD.
+
+    Parameters
+    ----------
+    dataset :       Data set name (string)
+    protocol_name:  protocol name (string)
+    peak_params:    Parameters for spike detection (dict)
+    show_detection: If true spike detection of first trial is shown (boolean)
+
+    Returns
+    -------
+    spikes: Saves spike times (in seconds) to HDD in a .npy file (dict).
+
+    """
+
+    # Load Voltage Traces
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    file_name = file_pathname + protocol_name + '_voltage.npy'
+    tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
+    voltage = np.load(file_name).item()
+    tag_list = np.load(tag_list_path)
+    spikes = {}
+    fs = 100*1000  # Sampling Rate of Ephys Recording
+
+    # Loop trough all tags in tag_list
+    for i in range(len(tag_list)):
+        trials = len(voltage[tag_list[i]])
+        spike_times = [list()] * trials
+        for k in range(trials):  # loop trough all trials
+            if k == 0 & show_detection is True:  # For all tags plot the first trial spike detection
+                peak_params['show'] = True
+                spike_times[k] = detect_peaks(voltage[tag_list[i]][k], peak_params) / fs  # in seconds
+            else:
+                peak_params['show'] = False
+                spike_times[k] = detect_peaks(voltage[tag_list[i]][k], peak_params) / fs  # in seconds
+        spikes.update({tag_list[i]: spike_times})
+    # Save to HDD
+    file_name = file_pathname + protocol_name + '_spikes.npy'
+    np.save(file_name, spikes)
+    print('Spike Times saved (protocol: ' + protocol_name + ')')
+
+    return 0
+
+
+def spike_times_indexes(dataset, protocol_name, th_factor, min_dist, maxph, show, save_data):
+    """Get Spike Times using the indexes() function.
+
+    Notes
+    ----------
+    This function gets all the spike times in the voltage traces loaded from HDD.
+
+    Parameters
+    ----------
+    dataset :       Data set name (string)
+    protocol_name:  protocol name (string)
+    th_factor: threshold = th_factor * median(abs(x)/0.6745)
+    min_dist: Min. allowed distance between two spikes
+    maxph: Peaks larger than maxph * max(x) are removed
+
+    Returns
+    -------
+    spikes: Saves spike times (in seconds) to HDD in a .npy file (dict).
+
+    """
+
+    # Load Voltage Traces
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    file_name = file_pathname + protocol_name + '_voltage.npy'
+    tag_list_path = file_pathname + protocol_name + '_tag_list.npy'
+    voltage = np.load(file_name).item()
+    tag_list = np.load(tag_list_path)
+    spikes = {}
+    fs = 100*1000  # Sampling Rate of Ephys Recording
+
+    # Loop trough all tags in tag_list
+    for i in range(len(tag_list)):
+        trials = len(voltage[tag_list[i]])
+        spike_times = [list()] * trials
+        for k in range(trials):  # loop trough all trials
+            spike_times[k] = indexes(voltage[tag_list[i]][k], th_factor=th_factor, min_dist=min_dist, maxph=maxph)
+            if k == 0 and show:
+                plt.plot(voltage[tag_list[i]][k], 'k')
+                plt.plot(spike_times[k], voltage[tag_list[i]][k][spike_times[k]], 'ro')
+                plt.show()
+            spike_times[k] = spike_times[k] / fs  # in seconds
+        spikes.update({tag_list[i]: spike_times})
+
+    # Save to HDD
+    if save_data:
+        file_name = file_pathname + protocol_name + '_spikes.npy'
+        np.save(file_name, spikes)
+        print('Spike Times saved (protocol: ' + protocol_name + ')')
+
+    return spikes
+
+
+def square_wave(period, pulse_duration, stimulus_duration, sampling_rate):
+    # -- Square Wave --------------------------------------------------------------------------------------------------
+    # Unit: time in msec, frequency in Hz, dutycycle in %, value = 0: disabled
+    # N = 1000  # sample count
+    # freq = 0
+    # dutycycle = 0
+    # period = 200
+    # pulseduration = 50
+    sampling_rate = 800*1000
+    n = sampling_rate
+    t = np.linspace(0, stimulus_duration, stimulus_duration * sampling_rate, endpoint=False)
+    sw = np.arange(n) % period < pulse_duration  # Returns bool array (True=1, False=0)
+    return t, sw
+
+
+def view_nix(dataset):
+    # Open Nix File
+    file_pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + dataset + '/' + dataset + '.nix'
+    try:
+        f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+        print('".nix" extension found')
+        print(dataset)
+    except OSError:
+        print('File is damaged!')
+        return 1
+    except RuntimeError:
+        try:
+            f = nix.File.open(nix_file + '.h5', nix.FileMode.ReadOnly)
+            print('".nix.h5" extension found')
+            print(dataset)
+        except RuntimeError:
+            print(dataset)
+            print('File not found')
+            return 1
+
+    b = f.blocks[0]
+
+    # Create Text File:
+    text_file_name = file_pathname + 'stimulus.txt'
+
+    try:
+        text_file = open(text_file_name, 'r+')
+        text_file.truncate(0)
+    except FileNotFoundError:
+        print('create new stimulus.txt file')
+
+    # Get all multi tags
+    mtags = b.multi_tags
+
+    # print('\nMulti Tags found:')
+    with open(text_file_name, 'a') as text_file:
+        text_file.write(dataset + '\n\n')
+        text_file.write('Multi Tags found: \n')
+        for i in range(len(mtags)):
+            # print(mtags[i].name)
+            text_file.write(mtags[i].name + '\n')
+
+    # Get all tags
+    tags = b.tags
+    with open(text_file_name, 'a') as text_file:
+        # print('\nTags found:')
+        text_file.write('\nTags found: \n')
+        for i in range(len(tags)):
+            # print(tags[i].name)
+            text_file.write(tags[i].name + '\n')
+
+    f.close()
+    return 0
+
+
+def get_spiketimes_from_nix(tag,mtag,dataset):
+    if mtag == 1:
+        spike_times = tag.retrieve_data(dataset, 1)  # from multi tag get spiketimes (dataset,datatype)
+    else:
+        spike_times = tag.retrieve_data(1)  # from single tag get spiketimes
+    return spike_times
+
+
+def get_voltage(tag, mtag, dataset):
+    if mtag == 1:
+
+        volt = tag.retrieve_data(dataset, 0)  # for multi tags
+    else:
+        volt = tag.retrieve_data(0)  # for single tags
+    return volt
+
+
+def inst_firing_rate(spikes: object, tmax: object, dt: object) -> object:
+    time = np.arange(0, tmax, dt)
+    rate = np.zeros((time.shape[0]))
+    isi = np.diff(np.insert(spikes, 0, 0))
+    inst_rate = 1 / isi
+    spikes_id = np.round(spikes / dt)
+    spikes_id = np.insert(spikes_id, 0, 0)
+    spikes_id = spikes_id.astype(int)
+
+    for i in range(spikes_id.shape[0] - 1):
+        rate[spikes_id[i]:spikes_id[i + 1]] = inst_rate[i]
+    return time, rate
+
+
+def loading_fifield_data(pathname):
+    # Load data: FIField and FICurves
+    file_name = pathname + 'FICurve.npy'
+    ficurve = np.load(file_name).item()  # Load dictionary data
+
+    file_name2 = pathname + 'FIField.npy'
+    fifield = np.load(file_name2)  # Load data array
+
+    file_name3 = pathname + 'frequencies.npy'
+    frequencies = np.load(file_name3)
+
+    return ficurve, fifield, frequencies
+
+
+def fifield_analysis(datasets, spike_threshold, peak_params):
+    for all_datasets in range(len(datasets)):
+        nix_name = datasets[all_datasets]
+        pathname = "/media/brehm/Data/MasterMoth/figs/" + nix_name + "/"
+        filename = pathname + 'FIField_voltage.npy'
+
+        # Load data from HDD
+        fifield_volt = np.load(filename).item()  # Load dictionary data
+        freqs = np.load(pathname + 'frequencies.npy')
+        amps = np.load(pathname + 'amplitudes.npy')
+        amps_uni = np.unique(np.round(amps))
+        freqs_uni = np.unique(freqs) / 1000
+
+        # Find Spikes
+        fi = {}
+        for f in range(len(freqs_uni)):  # Loop through all different frequencies
+            dbSPL = {}
+            for a in fifield_volt[freqs_uni[f]].keys():  # Only loop through amps that exist
+                repeats = len(fifield_volt[freqs_uni[f]][a]) - 1
+                spike_count = np.zeros(repeats)
+                for trial in range(repeats):
+                    x = fifield_volt[freqs_uni[f]][a][trial]
+                    spike_times = indexes(x, th_factor=2, min_dist=50, maxph=0.8)
+                    '''
+                    spike_times = detect_peaks(x, mph=peak_params['mph'], mpd=peak_params['mpd'], threshold=0,
+                                               edge='rising', kpsh=False, valley=peak_params['valley'],
+                                               show=peak_params['show'], ax=None, maxph=peak_params['maxph'],
+                                               dynamic=peak_params['dynamic'], filter_on=peak_params['filter_on'])
+                    '''
+                    spike_count[trial] = len(spike_times)
+                # m = np.mean(spike_count)
+                # std = np.std(spike_count)
+                dummy = [np.mean(spike_count), np.std(spike_count), repeats]
+                dbSPL.update({a: dummy})
+            fi.update({freqs_uni[f]: dbSPL})
+
+        # Collect data for FI Curves and FIField
+        dbSPL_threshold = np.zeros((len(freqs_uni), 3))
+        for f in range(len(freqs_uni)):
+            amplitude_sorted = sorted(fi[freqs_uni[f]])
+            mean_spike_count = np.zeros((len(amplitude_sorted)))
+            std_spike_count = np.zeros((len(amplitude_sorted)))
+            k = 0
+            for i in amplitude_sorted:
+                mean_spike_count[k] = fi[freqs_uni[f]][i][0]
+                std_spike_count[k] = fi[freqs_uni[f]][i][1]
+                k += 1
+
+            # Find db SPL threshold
+            th = mean_spike_count >= spike_threshold
+            dbSPL_threshold[f, 0] = freqs_uni[f]
+            if th.any():
+                dbSPL_threshold[f, 1] = amplitude_sorted[np.min(np.where(th))]
+            else:
+                dbSPL_threshold[f, 1] = '100'  # no threshold could be found
+
+            # Save FIField data to HDD
+            dname1 = pathname + 'FICurve_' + str(freqs_uni[f])
+            np.savez(dname1, amplitude_sorted=amplitude_sorted, mean_spike_count=mean_spike_count, std_spike_count=std_spike_count,
+                     spike_threshold=spike_threshold, dbSPL_threshold=dbSPL_threshold, freq=freqs_uni[f])
+            # Plot FICurve for this frequency
+            # plot_ficurve(amplitude_sorted, mean_spike_count, std_spike_count, freqs_uni[f], spike_threshold,
+            #                pathname, savefig=True)
+
+            # Estimate Progress
+            percent = np.round(f / len(freqs_uni), 2)
+            print('--- %s %% done ---' % (percent * 100))
+
+        # Save FIField data to HDD
+        dname = pathname + 'FIField_plotdata.npy'
+        np.save(dname, dbSPL_threshold)
+
+        dname2 = pathname + 'FICurves.npy'
+        np.save(dname2, fi)
+
+        # Plot FIField and save it to HDD
+        # plot_fifield(dbSPL_threshold, pathname, savefig=True)
+
+        print('Analysis finished: %s' % datasets[all_datasets])
+
+        # Progress Bar
+        percent = np.round((all_datasets + 1) / len(datasets), 2)
+        print('-- Analysis total: %s %%  --' % (percent * 100))
+    return 0
+
+
+def compute_fifield(data_name, data_file, tag, spikethreshold):
+    # Old version
+    # Open the nix file
+    start_time = time.time()
+    f = nix.File.open(data_file, nix.FileMode.ReadOnly)
+    b = f.blocks[0]
+
+    # Get tags
+    mtag = b.multi_tags[tag]
+
+    # Get Meta Data
+    meta = mtag.metadata.sections[0]
+    duration = meta["Duration"]
+    frequency = mtag.features[5].data[:]
+    amplitude = mtag.features[4].data[:]
+    final_data = np.zeros((len(frequency), 3))
+
+    # Create Directory for Saving Data
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+    directory = os.path.dirname(pathname)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+
+    # Get data for all frequencies
+    freq = np.unique(frequency)  # All used frequencies in experiment
+    qq = 0
+    ficurve = {}
+    db_threshold = np.zeros((len(freq), 2))
+    timeneeded = np.zeros((len(freq)))
+    rawdata = {}
+    for q in freq:
+        intertime1 = time.time()
+        d = np.where(frequency == q)[0][:]
+        k = 0
+        data = np.zeros((len(d), 4))
+        for j in d:
+            spikes = mtag.retrieve_data(int(j), 1)[:]  # Spike Times
+            isi = np.diff(spikes)  # Inter Spike Intervals
+            spikecount = len(mtag.retrieve_data(int(j), 1)[:])  # Number of spikes per stimulus presentation
+            data[k, 0] = frequency[j]
+            data[k, 1] = amplitude[j]
+            data[k, 2] = spikecount
+            if isi.any():
+                data[k, 3] = np.mean(isi)
+            else:
+                data[k, 3] = 0
+            k += 1
+
+        # Now average all spike counts per amplitude
+        amps = np.unique(data[:, 1])  # All used amplitudes in experiment
+        k = 0
+        average = np.zeros((len(amps), 4))
+        for i in amps:
+            ids = np.where(data == i)[0]
+            average[k, 0] = i  # Amplitude
+            average[k, 1] = np.mean(data[ids, 2])  # Mean spike number per presentation
+            average[k, 2] = np.std(data[ids, 2])  # STD spike number per presentation
+            average[k, 3] = np.mean(data[ids, 3])  # Mean mean inter spike interval
+            k += 1
+
+        # Now find dB SPL threshold for FIField
+        db_threshold[qq, 0] = q
+        dummyID = np.where(average[:, 1] >= spikethreshold)
+        if dummyID[0].any():
+            db_threshold[qq, 1] = average[np.min(dummyID), 0]
+        else:
+            db_threshold[qq, 1] = 100
+
+        # Now store FICurve data in dictionary
+        ficurve.update({int(q): average})
+        rawdata.update({int(q): data})
+
+        # Estimate Time Remaining for Analysis
+        percent = np.round((qq + 1) / len(freq), 3)
+        print('--- %s %% done ---' % (percent * 100))
+        intertime2 = time.time()
+        timeneeded[qq] = np.round((intertime2 - intertime1) / 60, 2)
+        if qq > 0:
+            timeremaining = np.round(np.mean(timeneeded[0:qq]), 2) * (len(freq) - qq)
+        else:
+            timeremaining = np.round(np.mean(timeneeded[qq]), 2) * (len(freq) - qq)
+        print('--- Time remaining: %s minutes ---' % timeremaining)
+        qq += 1
+
+    # Save Data to HDD
+    dname = pathname + 'FICurve.npy'
+    dname2 = pathname + 'FIField.npy'
+    dname3 = pathname + 'frequencies.npy'
+    dname4 = pathname + 'rawdata.npy'
+    np.save(dname4, rawdata)
+    np.save(dname3, freq)
+    np.save(dname2, db_threshold)
+    np.save(dname, ficurve)
+
+    f.close()  # Close Nix File
+    print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60))
+    return 'FIField successfully computed'
+
+
+def fifield_voltage(data_name, data_file, tag):
+    # Open the nix file
+    start_time = time.time()
+    f = nix.File.open(data_file, nix.FileMode.ReadOnly)
+    b = f.blocks[0]
+
+    # Get tags
+    mtag = b.multi_tags[tag]
+
+    # Get Meta Data
+    # meta = mtag.metadata.sections[0]
+    # duration = meta["Duration"]
+    frequency = mtag.features[5].data[:]
+    amplitude = mtag.features[4].data[:]
+
+    # Create Directory for Saving Data
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + "/"
+    directory = os.path.dirname(pathname)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)  # Make Directory
+
+    # Get data for all frequencies
+    freq = np.unique(frequency)  # All used frequencies in experiment
+    # amps = np.unique(amplitude)
+    qq = 0
+    fifield_volt = {}
+    for q in freq:
+        volt2 = {}
+        ids_freq = np.where(frequency == q)[0][:]
+        amps = np.unique(amplitude[ids_freq])  # Used db SPL with this frequency
+        for a in amps:
+            volt1 = {}
+            id_amp = np.where(amplitude == a)[0][:]
+            for i in range(len(id_amp)):
+                v = mtag.retrieve_data(int(id_amp[i]), 0)[:]  # Voltage Trace
+                volt1.update({i: v})
+            volt1.update({i+1: a})
+            volt2.update({int(np.round(a)): volt1})
+        fifield_volt.update({int(q/1000): volt2})
+
+        # Estimate Progress
+        percent = np.round((qq + 1) / len(freq), 3)
+        print('--- %s %% done ---' % (percent * 100))
+        qq += 1
+
+    # Save Data to HDD
+    dname = pathname + 'FIField_voltage.npy'
+    np.save(dname, fifield_volt)
+    dname2 = pathname + 'frequencies.npy'
+    np.save(dname2, frequency)
+    dname3 = pathname + 'amplitudes.npy'
+    np.save(dname3, amplitude)
+
+    f.close()  # Close Nix File
+    return fifield_volt, frequency, amplitude
+
+
+def get_fifield_data(datasets):
+    for all_datasets in range(len(datasets)):
+        data_name = datasets[all_datasets]
+        nix_file = '/media/brehm/Data/MasterMoth/mothdata/' + data_name + '/' + data_name + '.nix'
+        tag = 'FIField-sine_wave-1'
+
+        # Read Voltage Traces from nix file and save it to HDD
+        volt, freq, amp = fifield_voltage(data_name, nix_file, tag)
+        print('Got Data set: %s and saved it' % datasets[all_datasets])
+        percent = np.round((all_datasets + 1) / len(datasets), 2)
+        print('-- Getting data total: %s %%  --' % (percent * 100))
+
+    return volt, freq, amp
+
+
+def soundfilestimuli_spike_detection(datasets, peak_params):
+    data_name = datasets[0]
+    # stim_sets = [['/mothsongs/'], ['/batcalls/noisereduced/']]
+    stim_sets = '/naturalmothcalls/'
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + stim_sets
+    file_list = os.listdir(pathname)
+    dt = 100 * 1000
+    # Load voltage data
+    for k in range(len(file_list)):
+        if file_list[k][-11:] == 'voltage.npy':
+            # Load Voltage from HDD
+            file_name = pathname + file_list[k]
+            voltage = np.load(file_name).item()
+            sp = {}
+
+            # Go through all trials and detect spikes
+            trials = len(voltage)
+
+            for i in range(trials):
+                x = voltage[i]
+                spike_times = detect_peaks(x, peak_params)
+                spike_times = spike_times / dt  # Now spikes are in seconds
+                sp.update({i: spike_times})
+
+                # Save Spike Times to HDD
+                dname = file_name[:-12] + '_spike_times.npy'
+                np.save(dname, sp)
+
+    print('Spike Times saved')
+    return 0
+
+
+def soundfilestimuli_spike_distance(datasets):
+    data_name = datasets[0]
+    for p in ['/mothsongs/', '/batcalls/noisereduced/']:
+        pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + p
+        file_list = os.listdir(pathname)
+
+        # Load spike times
+        for k in range(len(file_list)):
+            if file_list[k][-15:] == 'spike_times.npy':
+                file_name = pathname + file_list[k]
+                spike_times = np.load(file_name).item()
+                duration = spike_times[0][-1] + 0.01
+                dt = 100 * 1000
+                tau = 0.005
+                print('Stim: %s' % file_name[29:])
+                d = spike_train_distance(spike_times[0], spike_times[1], dt, duration, tau, plot=False)
+                print('\n')
+
+
+def vanrossum_matrix_backup(dataset, tau, duration, dt_factor, boot_sample, stim_type, save_fig):
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    spikes = np.load(pathname + 'Calls_spikes.npy').item()
+    # tag_list = np.load(pathname + 'Calls_tag_list.npy')
+    '''
+    stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+             'naturalmothcalls/agaraea_semivitrea_07x07.wav', 'naturalmothcalls/carales_11x11_01.wav',
+             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
+             'naturalmothcalls/elysius_conspersus_05x05.wav', 'naturalmothcalls/epidesma_oceola_05x05.wav',
+             'naturalmothcalls/eucereon_appunctata_11x11.wav', 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+             'naturalmothcalls/eucereon_obscurum_10x10.wav', 'naturalmothcalls/gl005_05x05.wav',
+             'naturalmothcalls/gl116_05x05.wav', 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+             'naturalmothcalls/idalu_fasciipuncta_05x05.wav', 'naturalmothcalls/idalus_daga_18x18.wav',
+             'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
+             'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav']
+
+
+    stims = ['naturalmothcalls/BCI1062_07x07.wav',
+             'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+             'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+             'naturalmothcalls/neritos_cotes_07x07.wav']
+
+
+    stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+             'naturalmothcalls/carales_11x11_01.wav',
+             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
+             'naturalmothcalls/eucereon_obscurum_10x10.wav',
+             'naturalmothcalls/hypocladia_militaris_09x09.wav',
+             'naturalmothcalls/idalus_daga_18x18.wav',
+             'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav']
+
+
+    stims = ['batcalls/Barbastella_barbastellus_1_n.wav',
+                'batcalls/Eptesicus_nilssonii_1_s.wav',
+                'batcalls/Myotis_bechsteinii_1_n.wav',
+                'batcalls/Myotis_brandtii_1_n.wav',
+                'batcalls/Myotis_nattereri_1_n.wav',
+                'batcalls/Nyctalus_leisleri_1_n.wav',
+                'batcalls/Nyctalus_noctula_2_s.wav',
+                'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+                'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+                'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+                'batcalls/Vespertilio_murinus_1_s.wav']
+
+    stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+             'naturalmothcalls/agaraea_semivitrea_07x07.wav', 'naturalmothcalls/carales_11x11_01.wav',
+             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
+             'naturalmothcalls/elysius_conspersus_05x05.wav', 'naturalmothcalls/epidesma_oceola_05x05.wav',
+             'naturalmothcalls/eucereon_appunctata_11x11.wav', 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+             'naturalmothcalls/eucereon_obscurum_10x10.wav', 'naturalmothcalls/gl005_05x05.wav',
+             'naturalmothcalls/gl116_05x05.wav', 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+             'naturalmothcalls/idalu_fasciipuncta_05x05.wav', 'naturalmothcalls/idalus_daga_18x18.wav',
+             'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
+             'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav',
+             'batcalls/Barbastella_barbastellus_1_n.wav',
+             'batcalls/Eptesicus_nilssonii_1_s.wav',
+             'batcalls/Myotis_bechsteinii_1_n.wav',
+             'batcalls/Myotis_brandtii_1_n.wav',
+             'batcalls/Myotis_nattereri_1_n.wav',
+             'batcalls/Nyctalus_leisleri_1_n.wav',
+             'batcalls/Nyctalus_noctula_2_s.wav',
+             'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+             'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+             'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+             'batcalls/Vespertilio_murinus_1_s.wav']
+    '''
+
+    if stim_type == 'selected':
+        stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav', 'naturalmothcalls/carales_11x11_01.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/elysius_conspersus_05x05.wav', 'naturalmothcalls/epidesma_oceola_05x05.wav',
+                 'naturalmothcalls/eucereon_appunctata_11x11.wav', 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+                 'naturalmothcalls/eucereon_obscurum_10x10.wav', 'naturalmothcalls/gl005_05x05.wav',
+                 'naturalmothcalls/gl116_05x05.wav', 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav', 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav']
+
+    if stim_type == 'series':
+        stims = ['callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Chrostosoma_thoracicum_02.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1297_01.wav',
+                 'callseries/moths/melese_PK1298_01.wav',
+                 'callseries/moths/melese_PK1298_02.wav',
+                 'callseries/moths/melese_PK1299_01.wav',
+                 'callseries/moths/melese_PK1300_01.wav',
+                 'callseries/bats/Barbastella_barbastellus_1_n.wav',
+                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
+                 'callseries/bats/Myotis_brandtii_1_n.wav',
+                 'callseries/bats/Myotis_nattereri_1_n.wav',
+                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
+                 'callseries/bats/Nyctalus_noctula_2_s.wav',
+                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
+                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
+                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
+                 'callseries/bats/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'single':
+        stims = ['naturalmothcalls/BCI1062_07x07.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24_02.wav',
+                 'naturalmothcalls/agaraea_semivitrea_06x06.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+                 'naturalmothcalls/carales_11x11_01.wav',
+                 'naturalmothcalls/carales_11x11_02.wav',
+                 'naturalmothcalls/carales_12x12_01.wav',
+                 'naturalmothcalls/carales_12x12_02.wav',
+                 'naturalmothcalls/carales_13x13_01.wav',
+                 'naturalmothcalls/carales_13x13_02.wav',
+                 'naturalmothcalls/carales_19x19.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_04x04.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_04x04_02.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05_02.wav',
+                 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/creatonotos_01x01_02.wav',
+                 'naturalmothcalls/elysius_conspersus_05x05.wav',
+                 'naturalmothcalls/elysius_conspersus_08x08.wav',
+                 'naturalmothcalls/elysius_conspersus_11x11.wav',
+                 'naturalmothcalls/epidesma_oceola_05x05.wav',
+                 'naturalmothcalls/epidesma_oceola_05x05_02.wav',
+                 'naturalmothcalls/epidesma_oceola_06x06.wav',
+                 'naturalmothcalls/eucereon_appunctata_11x11.wav',
+                 'naturalmothcalls/eucereon_appunctata_12x12.wav',
+                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
+                 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+                 'naturalmothcalls/eucereon_hampsoni_08x08.wav',
+                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+                 'naturalmothcalls/eucereon_obscurum_10x10.wav',
+                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
+                 'naturalmothcalls/gl005_04x04.wav',
+                 'naturalmothcalls/gl005_05x05.wav',
+                 'naturalmothcalls/gl005_11x11.wav',
+                 'naturalmothcalls/gl116_04x04.wav',
+                 'naturalmothcalls/gl116_04x04_02.wav',
+                 'naturalmothcalls/gl116_05x05.wav',
+                 'naturalmothcalls/hypocladia_militaris_03x03.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09_02.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05_02.wav',
+                 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_11x11_PK1299.wav',
+                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
+                 'naturalmothcalls/melese_12x12_PK1299.wav',
+                 'naturalmothcalls/melese_13x13_PK1299.wav',
+                 'naturalmothcalls/melese_14x14_PK1297.wav',
+                 'naturalmothcalls/neritos_cotes_07x07.wav',
+                 'naturalmothcalls/neritos_cotes_10x10.wav',
+                 'naturalmothcalls/neritos_cotes_10x10_02.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_08x08.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_30++.wav',
+                 'naturalmothcalls/syntrichura_07x07.wav',
+                 'naturalmothcalls/syntrichura_09x09.wav',
+                 'naturalmothcalls/syntrichura_12x12.wav',
+                 'batcalls/Barbastella_barbastellus_1_n.wav',
+                 'batcalls/Eptesicus_nilssonii_1_s.wav',
+                 'batcalls/Myotis_bechsteinii_1_n.wav',
+                 'batcalls/Myotis_brandtii_1_n.wav',
+                 'batcalls/Myotis_nattereri_1_n.wav',
+                 'batcalls/Nyctalus_leisleri_1_n.wav',
+                 'batcalls/Nyctalus_noctula_2_s.wav',
+                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+                 'batcalls/Vespertilio_murinus_1_s.wav']
+    # Tags and Stimulus names
+
+    connection = tagtostimulus(dataset)
+    stimulus_tags = [''] * len(stims)
+    for p in range(len(stims)):
+        stimulus_tags[p] = connection[stims[p]]
+
+    # Convert all Spike Trains to e-pulses
+    # trial_nr = int(len(spikes[stimulus_tags[0]]))
+    # trial_nr = 20
+    trains = {}
+
+    for k in range(len(stimulus_tags)):
+        trial_nr = len(spikes[stimulus_tags[k]])
+        tr = [[]] * trial_nr
+        for j in range(trial_nr):
+            x = spikes[stimulus_tags[k]][j]
+            # tr.update({j: spike_e_pulses(x, dt_factor, tau)})
+            tr[j] = spike_e_pulses(x, dt_factor, tau, duration)
+        trains.update({stimulus_tags[k]: tr})
+
+        # for i in range(len(stims)):
+        # print(str(i) + ': ' + stims[i])
+
+    call_count = len(stimulus_tags)
+    # Select Template and Probes and bootstrap this process
+    mm = {}
+    for boot in range(boot_sample):
+        count = 0
+        match_matrix = np.zeros((call_count, call_count))
+        templates = {}
+        probes = {}
+        # rand_ids = np.random.randint(trial_nr, size=call_count)
+        for i in range(call_count):
+            trial_nr = len(spikes[stimulus_tags[i]])
+            rand_id = np.random.randint(trial_nr, size=1)
+            idx = np.arange(0, trial_nr, 1)
+            # idx = np.delete(idx, rand_ids[i])
+            # templates.update({i: trains[stimulus_tags[i]][rand_ids[i]]})
+            idx = np.delete(idx, rand_id[0])
+            templates.update({i: trains[stimulus_tags[i]][rand_id[0]]})
+            for q in range(len(idx)):
+                probes.update({count: [trains[stimulus_tags[i]][idx[q]], i]})
+                count += 1
+
+        # Compute VanRossum Distance
+        for pr in range(len(probes)):
+            d = np.zeros(len(templates))
+            for tmp in range(len(templates)):
+                d[tmp] = vanrossum_distance(templates[tmp], probes[pr][0], dt_factor, tau)
+
+            # What happens if there are two mins? - The first one is taken
+
+            template_match = np.where(d == np.min(d))[0][0]
+            song_id = probes[pr][1]
+            match_matrix[template_match, song_id] += 1
+            '''
+            if len(np.where(d == np.min(d))) > 1:
+                print('Found more than 1 min.')
+            if pr == 0:
+                print(d)
+                print('---------------')
+
+                plt.figure()
+                plt.subplot(3, 1, 1)
+                plt.plot(templates[template_match])
+                plt.title('Matched Template: ' + str(d[template_match]))
+                plt.subplot(3, 1, 2)
+                plt.plot(templates[song_id])
+                plt.title('Probes correct Template: ' + str(d[song_id]))
+                plt.subplot(3, 1, 3)
+                plt.plot(probes[pr][0])
+                plt.title('Probe')
+                plt.show()
+                embed()
+            '''
+        mm.update({boot: match_matrix})
+
+    mm_mean = sum(mm.values()) / len(mm)
+
+    # Percent Correct
+    percent_correct = np.zeros((len(mm_mean)))
+    correct_nr = np.zeros((len(mm_mean)))
+    for r in range(len(mm_mean)):
+        percent_correct[r] = mm_mean[r, r] / np.sum(mm_mean[:, r])
+        correct_nr[r] = mm_mean[r, r]
+
+    correct_matches = np.sum(correct_nr) / np.sum(mm_mean)
+
+    if save_fig:
+        # Plot Matrix
+        plt.imshow(mm_mean)
+        plt.xlabel('Original Calls')
+        plt.ylabel('Matched Calls')
+        plt.colorbar()
+        plt.xticks(np.arange(0, len(mm_mean), 1))
+        plt.yticks(np.arange(0, len(mm_mean), 1))
+        plt.title('tau = ' + str(tau * 1000) + ' ms' + ' T = ' + str(duration * 1000) + ' ms')
+
+        # Save Plot to HDD
+        figname = "/media/brehm/Data/MasterMoth/figs/" + dataset + '/VanRossumMatrix_' + str(tau * 1000) + \
+                  '_' + str(duration * 1000) + '.png'
+        fig = plt.gcf()
+        fig.set_size_inches(10, 10)
+        fig.savefig(figname, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print('tau = ' + str(tau * 1000) + ' ms' + ' T = ' + str(duration * 1000) + ' ms done')
+
+    return mm_mean, correct_matches
