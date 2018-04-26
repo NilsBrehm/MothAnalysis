@@ -28,10 +28,10 @@ start_time = time.time()
 datasets = ['2018-02-20-aa']
 
 FIFIELD = False
-INTERVAL_MAS = False
+INTERVAL_MAS = True
 Bootstrapping = False
 INTERVAL_REC = False
-GAP = True
+GAP = False
 SOUND = False
 
 EPULSES = False
@@ -47,10 +47,11 @@ SELECT = True
 
 # **********************************************************************************************************************
 # Settings for Spike Detection =========================================================================================
-th_factor = 4
-mph_percent = 2
-bin_size = 0.01
-show = False
+th_factor = 3
+mph_percent = 4
+bin_size = 0.005
+# If true show plots (list: 0: spike detection, 1: overview, 2: vector strength)
+show = [True, True, True]
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
@@ -93,7 +94,8 @@ if SELECT:
     datasets = sorted(datasets)
 
 # Get relative paths ===================================================================================================
-data_name = datasets[0]
+data_name = datasets[-5]
+print(data_name)
 #  path_names = [data_name, data_files_path, figs_path, nix_path]
 path_names = mf.get_directories(data_name=data_name)
 
@@ -102,7 +104,7 @@ if GAP:
     # dat = datasets[5]
     # dat = datasets[-2]
     tag_list = np.load(path_names[1] + 'Gap_tag_list.npy')
-    spike_times = mf.spike_times_gap(path_names, 'Gap', show=True, save_data=False, th_factor=th_factor, filter_on=True,
+    spike_times = mf.spike_times_gap(path_names, 'Gap', show=show, save_data=False, th_factor=th_factor, filter_on=True,
                                      window=None, mph_percent=mph_percent, bin_size=bin_size)
 
 # Rect Intervals
@@ -114,7 +116,7 @@ if INTERVAL_REC:
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:
     mf.moth_intervals_spike_detection(path_names, window=None, th_factor=th_factor, mph_percent=mph_percent,
-                                      filter_on=True, save_data=False, show=True)
+                                      filter_on=True, save_data=False, show=show, bin_size=bin_size)
     # mf.moth_intervals_analysis(datasets[0])
 
 # Analyse FIField data stored on HDD
