@@ -28,9 +28,9 @@ start_time = time.time()
 datasets = ['2018-02-20-aa']
 
 FIFIELD = False
-INTERVAL_MAS = True
+INTERVAL_MAS = False
 Bootstrapping = False
-INTERVAL_REC = False
+INTERVAL_REC = True
 GAP = False
 SOUND = False
 
@@ -48,10 +48,10 @@ SELECT = True
 # **********************************************************************************************************************
 # Settings for Spike Detection =========================================================================================
 th_factor = 3
-mph_percent = 4
-bin_size = 0.005
+mph_percent = 1
+bin_size = 0.01
 # If true show plots (list: 0: spike detection, 1: overview, 2: vector strength)
-show = [True, True, True]
+show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
@@ -94,7 +94,7 @@ if SELECT:
     datasets = sorted(datasets)
 
 # Get relative paths ===================================================================================================
-data_name = datasets[-5]
+data_name = datasets[-2]
 print(data_name)
 #  path_names = [data_name, data_files_path, figs_path, nix_path]
 path_names = mf.get_directories(data_name=data_name)
@@ -109,9 +109,11 @@ if GAP:
 
 # Rect Intervals
 if INTERVAL_REC:
+    # good: [-2]
     protocol_name = 'PulseIntervalsRect'
-    mf.spike_times_gap(path_names, protocol_name, show=show, save_data=False, th_factor=th_factor, filter_on=True,
-                        window=None, mph_percent=mph_percent, bin_size=bin_size)
+    # mf.spike_times_gap(path_names, protocol_name, show=show, save_data=True, th_factor=th_factor, filter_on=True,
+    #                     window=None, mph_percent=mph_percent)
+    mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=False, show=False)
 
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:
