@@ -48,7 +48,7 @@ SELECT = True
 # **********************************************************************************************************************
 # Settings for Spike Detection =========================================================================================
 th_factor = 3
-mph_percent = 1
+mph_percent = 1.5
 bin_size = 0.01
 # If true show plots (list: 0: spike detection, 1: overview, 2: vector strength)
 show = False
@@ -94,26 +94,40 @@ if SELECT:
     datasets = sorted(datasets)
 
 # Get relative paths ===================================================================================================
-data_name = datasets[-2]
-print(data_name)
-#  path_names = [data_name, data_files_path, figs_path, nix_path]
-path_names = mf.get_directories(data_name=data_name)
+# RECT: good recs: all Estigmene
+datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2018-02-16-aa', '2017-12-05-ab']
+
+print('data set count: ' + str(len(datasets)))
+
+# data_name = datasets[4]
+# print(data_name)
+#
+# #  path_names = [data_name, data_files_path, figs_path, nix_path]
+# path_names = mf.get_directories(data_name=data_name)
 
 
 if GAP:
     # dat = datasets[5]
     # dat = datasets[-2]
     tag_list = np.load(path_names[1] + 'Gap_tag_list.npy')
-    spike_times = mf.spike_times_gap(path_names, 'Gap', show=show, save_data=False, th_factor=th_factor, filter_on=True,
-                                     window=None, mph_percent=mph_percent, bin_size=bin_size)
+    # spike_times = mf.spike_times_gap(path_names, 'Gap', show=show, save_data=False, th_factor=th_factor, filter_on=True,
+    #                                  window=None, mph_percent=mph_percent, bin_size=bin_size)
 
 # Rect Intervals
 if INTERVAL_REC:
-    # good: [-2]
     protocol_name = 'PulseIntervalsRect'
-    # mf.spike_times_gap(path_names, protocol_name, show=show, save_data=True, th_factor=th_factor, filter_on=True,
-    #                     window=None, mph_percent=mph_percent)
-    mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=False, show=False)
+    spike_detection = False
+    if spike_detection:
+        show = False
+        mf.spike_times_gap(path_names, protocol_name, show=show, save_data=True, th_factor=th_factor, filter_on=True,
+                            window=None, mph_percent=mph_percent)
+
+    for dat in range(len(datasets)):
+        print(str(dat) + ' of' + str(len(datasets)))
+        data_name = datasets[dat]
+        path_names = mf.get_directories(data_name=data_name)
+        print(data_name)
+        mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=False, show=False)
 
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:

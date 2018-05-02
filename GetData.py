@@ -25,8 +25,8 @@ GetSession = False
 
 FIFIELD = False
 
-INTERVAL_MAS = True
-INTERVAL_REC = False
+INTERVAL_MAS = False
+INTERVAL_REC = True
 GAP = False
 
 SOUND = False
@@ -55,7 +55,7 @@ if SELECT:
     datasets = sorted(datasets)
 
 # Get relative paths ===================================================================================================
-data_name = datasets[-5]
+data_name = datasets[5]
 #  path_names = [data_name, data_files_path, figs_path, nix_path]
 path_names = mf.get_directories(data_name=data_name)
 
