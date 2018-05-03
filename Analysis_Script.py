@@ -116,18 +116,20 @@ if GAP:
 # Rect Intervals
 if INTERVAL_REC:
     protocol_name = 'PulseIntervalsRect'
-    spike_detection = False
-    if spike_detection:
-        show = False
-        mf.spike_times_gap(path_names, protocol_name, show=show, save_data=True, th_factor=th_factor, filter_on=True,
-                            window=None, mph_percent=mph_percent)
+    # spike_detection = False
+    # if spike_detection:
+    #     show = False
+    #     mf.spike_times_gap(path_names, protocol_name, show=show, save_data=True, th_factor=th_factor, filter_on=True,
+    #                         window=None, mph_percent=mph_percent)
+    #
+    # for dat in range(len(datasets)):
+    #     print(str(dat) + ' of ' + str(len(datasets)))
+    #     data_name = datasets[dat]
+    #     path_names = mf.get_directories(data_name=data_name)
+    #     print(data_name)
+    #     mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=False, show=False, save_data=True)
 
-    for dat in range(len(datasets)):
-        print(str(dat) + ' of' + str(len(datasets)))
-        data_name = datasets[dat]
-        path_names = mf.get_directories(data_name=data_name)
-        print(data_name)
-        mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=False, show=False)
+    mf.plot_cohen(protocol_name, datasets[:-1])
 
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:

@@ -49,6 +49,7 @@ def plot_settings():
     matplotlib.rcParams['xtick.major.size'] = 4
     matplotlib.rcParams['axes.titlesize'] = 10
     matplotlib.rcParams['axes.labelsize'] = 10
+    matplotlib.rcParams['axes.linewidth'] = 1.5
     matplotlib.rcParams['xtick.labelsize'] = 8
     matplotlib.rcParams['ytick.labelsize'] = 8
     matplotlib.rcParams['lines.linewidth'] = 2
@@ -60,8 +61,88 @@ def plot_settings():
     return 0
 
 
-def interval_analysis(path_names, protocol_name, bin_size, save_fig, show):
+def plot_cohen(protocol_name, datasets):
+    plot_settings()
+
+    # d = [[]] * len(datasets)
+    d = np.zeros(shape=(17, len(datasets)))
+    r = np.zeros(shape=(17, len(datasets)))
+    for i in range(len(datasets)):
+        data_name = datasets[i]
+        path_names = get_directories(data_name=data_name)
+        # d[i] = np.load(path_names[1] + protocol_name + '_cohensD.npy')[:17]
+        d[:, i] = np.load(path_names[1] + protocol_name + '_cohensD.npy')[:17, 1]
+        r[:, i] = np.load(path_names[1] + protocol_name + '_cohensD.npy')[:17, 2]
+
+    gaps = np.flip(np.load(path_names[1] + protocol_name + '_cohensD.npy')[:17, 0], axis=0)
+    mean_d = np.flip(np.mean(d, axis=1), axis=0)
+    mean_r = np.flip(np.mean(r, axis=1), axis=0)
+    max_d = np.flip(np.max(d, axis=1), axis=0)
+    min_d = np.flip(np.min(d, axis=1), axis=0)
+    max_r = np.flip(np.max(r, axis=1), axis=0)
+    min_r = np.flip(np.min(r, axis=1), axis=0)
+
+    # Plot
+    fig, ax = plt.subplots()
+    # fig = plt.figure()
+    # ax = plt.gca()
+
+    # ax.errorbar(gaps, mean_r, yerr=[mean_r-abs(min_r), max_r-mean_r], color='k', marker='s', label="Pearson's r", markersize=10)
+    # ax.fill_between(gaps, min_r, max_r, facecolors='0.25', edgecolor='0.25', alpha=0.5)
+    ax.plot(gaps, np.flip(r, axis=0), 'ks--', markersize=5)
+    ax.plot(gaps, mean_r, 'ks-', label="Pearson's r")
+    ax.set_ylabel("Pearson's r", color='k')
+    ax.set_ylim(0, 1.1)
+    ax.set_yticks(np.arange(0, 1.2, .2))
+    ax.set_xlabel('Gap [ms]')
+
+    ax2 = ax.twinx()
+    # ax2.errorbar(gaps, mean_d, yerr=[mean_d-abs(min_d), max_d-mean_d], color='0.3', marker='x', linestyle='--', markersize=10)
+    # ax2.fill_between(gaps, min_d, max_d, facecolors='0.5', edgecolor='0.5', alpha=0.5)
+    ax2.plot(gaps, np.flip(d, axis=0), 'x', markersize=5, color='0.3')
+    ax2.plot(gaps, mean_d, 'x--', color='0.3')
+
+    ax.plot(np.nan, '--x', color='0.3', label="Cohen's d")  # Make an agent in ax for legend
+    ax2.set_ylabel("Cohen's d", color='0.3')
+
+    ax2.set_xlim(-1, 21)
+    ax2.set_xticks(np.arange(0, 21, 1))
+
+    ax2.set_ylim(0, 11)
+    ax2.set_yticks(np.arange(0, 12, 2))
+
+    ax2.spines['right'].set_color('0.3')
+    ax2.tick_params(axis='y', colors='0.3')
+
+    ax.legend(loc='upper center', shadow=True)
+    sns.despine(top=True, right=False, left=False, bottom=False, offset=None, trim=False)
+    plt.show()
+
+    return 0
+
+
+def bootstrap_ci(data, n_boot, level):
+    n = len(data)
+    idx = np.random.randint(n, size=(n_boot, n))
+    resample = data[idx]
+
+    m_data = np.mean(data)
+    m_boot = np.mean(resample, axis=1)
+
+    d_dist = m_boot - m_data
+
+    d1 = np.percentile(d_dist, level+((100-level)/2))
+    d2 = np.percentile(d_dist, ((100-level)/2))
+
+    ci = [m_data - d1, m_data - d2]
+
+    return ci
+
+
+
+def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_data):
     # Load Spikes
+    plot_settings()
     dataset = path_names[0]
     file_pathname = path_names[1]
     file_name = file_pathname + protocol_name + '_spikes.npy'
@@ -84,6 +165,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show):
 
     vector_strength = np.zeros(shape=(len(tag_list), 7))
     aa = 0
+    cohen_d = np.zeros(shape=(len(tag_list), 3))
     # Loop trough all tags in tag_list
     for i in tqdm(range(len(tag_list)), desc='Interval Analysis'):
         # Get mean firing rate over all trials
@@ -102,7 +184,10 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show):
         # VS Range
         vs, phase, vs_mean, vs_std, vs_percentile, peaks = vs_range(spike_times, pp/1000, parallel_cpu=False, tmin=tmin,
                                                                     progress_bar=False)
+        # Convert stimulus parameters into floats
         period_num = int(float(period[i]))
+        pd = int(float(pulse_duration[i]))
+        gaps = period_num - pd
         idx = pp == period_num
 
         # Poisson Boot
@@ -125,6 +210,14 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show):
         mu = np.mean(vector)
         p_vtest, z_vtest = c_stat.vtest(vector_phase, np.angle(mu))
 
+
+        # Cohens d and pearsons r
+
+        cohen_d[i, 0] = gaps
+        sd_pooled = np.sqrt((vs_std[idx][0]**2 + vs_std_boot[idx][0]**2)/2)
+        cohen_d[i, 1] = (vs_mean[idx][0]-vs_mean_boot[idx][0]) / sd_pooled
+        cohen_d[i, 2] = cohen_d[i, 1] / np.sqrt(cohen_d[i, 1]**2 + 4)
+
         # Put Data together
         vs = [[]] * 7
         vs[0] = vs_mean
@@ -141,8 +234,6 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show):
         vs_boot[2] = vs_percentile_boot
         vs_boot[3] = vector_phase_boot
 
-        pd = int(float(pulse_duration[i]))
-        gaps = period_num - pd
         vector_strength[i, :] = [period_num, pd, gaps, vs_mean[idx][0], vs_std[idx][0], vs_mean_boot[idx][0], vs_percentile_boot[idx][0]]
 
         # Now Plot it
@@ -159,7 +250,25 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show):
             else:
                 plt.show()
 
-    plot_settings()
+
+    # Plot Cohens d
+    if not save_data:
+        fig, ax = plt.subplots()
+        ax.plot(cohen_d[:17, 0], cohen_d[:17, 1], 'ko--', label="Cohen's d")
+        ax.set_ylabel("Cohen's d")
+        ax.set_xlim(-0.1, 20.1)
+        ax.set_xticks(np.arange(0, 20, 1))
+        ax.set_ylim(0, 10.1)
+        ax.set_yticks(np.arange(0, 10, 2))
+
+        ax2 = ax.twinx()
+        ax2.plot(cohen_d[:17, 0], cohen_d[:17, 2], 'ks--', label="Pearson's r")
+        ax2.set_ylabel("Pearson's r")
+        ax2.set_xlabel('Gap [ms]')
+        ax2.set_ylim(0, 1.2)
+        ax2.set_yticks(np.arange(0, 1.2, .2))
+        fig.legend(loc='upper center', shadow=True)
+
     fig, ax = plt.subplots()
     if aa == 0:
         plot_vs_gap(vector_strength, ax)
@@ -179,6 +288,13 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show):
         plt.close(fig)
     else:
         plt.show()
+
+    # Save Data to HDD
+    if save_data:
+        file_name = file_pathname + protocol_name + '_cohensD.npy'
+        np.save(file_name, cohen_d)
+        print('Cohens d saved (protocol: ' + protocol_name + ')')
+
     return 0
 
 
