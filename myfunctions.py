@@ -37,31 +37,28 @@ def get_directories(data_name):
 
 
 def plot_settings():
-    # sns.set_context('paper')
-    # sns.set_style("ticks", {"xtick.major.size": 4, "ytick.major.size": 4})
-
-    matplotlib.rcParams.update({'font.size': 8})
     matplotlib.rcParams['font.family'] = 'serif'
     matplotlib.rcParams['font.sans-serif'] = ['Times']
+    matplotlib.rcParams['font.size'] = 8
     matplotlib.rcParams['xtick.major.pad'] = '2'
     matplotlib.rcParams['ytick.major.pad'] = '2'
     matplotlib.rcParams['ytick.major.size'] = 4
     matplotlib.rcParams['xtick.major.size'] = 4
-    matplotlib.rcParams['axes.titlesize'] = 10
-    matplotlib.rcParams['axes.labelsize'] = 10
-    matplotlib.rcParams['axes.linewidth'] = 1.5
-    matplotlib.rcParams['xtick.labelsize'] = 8
-    matplotlib.rcParams['ytick.labelsize'] = 8
-    matplotlib.rcParams['lines.linewidth'] = 2
-    matplotlib.rcParams['lines.markersize'] = 6
+    matplotlib.rcParams['axes.titlesize'] = 8
+    matplotlib.rcParams['axes.labelsize'] = 8
+    matplotlib.rcParams['axes.linewidth'] = 1.25
+    matplotlib.rcParams['xtick.labelsize'] = 6
+    matplotlib.rcParams['ytick.labelsize'] = 6
+    matplotlib.rcParams['lines.linewidth'] = 1
+    matplotlib.rcParams['lines.markersize'] = 2
     matplotlib.rcParams['lines.color'] = 'k'
-    matplotlib.rcParams['errorbar.capsize'] = 3
-    matplotlib.rcParams['legend.fontsize'] = 6
+    matplotlib.rcParams['errorbar.capsize'] = 2
+    matplotlib.rcParams['legend.fontsize'] = 3
 
-    return 0
+    return matplotlib.rcParams
 
 
-def plot_cohen(protocol_name, datasets):
+def plot_cohen(protocol_name, datasets, save_fig):
     plot_settings()
 
     # d = [[]] * len(datasets)
@@ -83,40 +80,54 @@ def plot_cohen(protocol_name, datasets):
     min_r = np.flip(np.min(r, axis=1), axis=0)
 
     # Plot
-    fig, ax = plt.subplots()
-    # fig = plt.figure()
-    # ax = plt.gca()
-
+    marks = ['*-', 'x-', 'd-', 's-', 'v-', '>-', 'h-']
+    fig = plt.figure()
+    ax = plt.subplot(1, 2, 1)
+    fig.set_size_inches(3.9, 1.9)
+    fig.subplots_adjust(left=0.15, top=0.98, bottom=0.2, right=0.85, wspace=0.5, hspace=0.2)
     # ax.errorbar(gaps, mean_r, yerr=[mean_r-abs(min_r), max_r-mean_r], color='k', marker='s', label="Pearson's r", markersize=10)
     # ax.fill_between(gaps, min_r, max_r, facecolors='0.25', edgecolor='0.25', alpha=0.5)
-    ax.plot(gaps, np.flip(r, axis=0), 'ks--', markersize=5)
-    ax.plot(gaps, mean_r, 'ks-', label="Pearson's r")
+    for k in range(r.shape[1]):
+        ax.plot(gaps, np.flip(r[:, k], axis=0), marks[k], markersize=1, color='0.6', linewidth=0.5)
+    ax.plot(gaps, mean_r, 'k-', label="Pearson's r", markersize=3, linewidth=1)
     ax.set_ylabel("Pearson's r", color='k')
     ax.set_ylim(0, 1.1)
     ax.set_yticks(np.arange(0, 1.2, .2))
-    ax.set_xlabel('Gap [ms]')
+    # ax.set_xlabel('Gap [ms]')
+    ax.set_xlim(-1, 21)
+    ax.set_xticks(np.arange(0, 21, 5))
 
-    ax2 = ax.twinx()
+    ax2 = plt.subplot(1, 2, 2)
     # ax2.errorbar(gaps, mean_d, yerr=[mean_d-abs(min_d), max_d-mean_d], color='0.3', marker='x', linestyle='--', markersize=10)
     # ax2.fill_between(gaps, min_d, max_d, facecolors='0.5', edgecolor='0.5', alpha=0.5)
-    ax2.plot(gaps, np.flip(d, axis=0), 'x', markersize=5, color='0.3')
-    ax2.plot(gaps, mean_d, 'x--', color='0.3')
+    for k in range(r.shape[1]):
+        ax2.plot(gaps, np.flip(d[:, k], axis=0), marks[k], markersize=1, color='0.6', linewidth=0.5)
+    ax2.plot(gaps, mean_d, 'k-', markersize=3, linewidth=1)
 
-    ax.plot(np.nan, '--x', color='0.3', label="Cohen's d")  # Make an agent in ax for legend
-    ax2.set_ylabel("Cohen's d", color='0.3')
+    # ax.plot(np.nan, '--x', color='0.3', label="Cohen's d")  # Make an agent in ax for legend
 
+    ax2.set_ylabel("Cohen's d")
     ax2.set_xlim(-1, 21)
-    ax2.set_xticks(np.arange(0, 21, 1))
+    ax2.set_xticks(np.arange(0, 21, 5))
 
     ax2.set_ylim(0, 11)
     ax2.set_yticks(np.arange(0, 12, 2))
 
-    ax2.spines['right'].set_color('0.3')
-    ax2.tick_params(axis='y', colors='0.3')
+    fig.text(0.5, 0.02, 'Gap [ms]', ha='center', fontdict=None)
 
-    ax.legend(loc='upper center', shadow=True)
-    sns.despine(top=True, right=False, left=False, bottom=False, offset=None, trim=False)
-    plt.show()
+    # ax2.spines['right'].set_color('0.3')
+    # ax2.tick_params(axis='y', colors='0.3')
+
+    #ax.legend(loc='upper center', shadow=True)
+    sns.despine(top=True, right=True, left=False, bottom=False, offset=None, trim=False)
+    if save_fig:
+        # Save Plot to HDD
+        figname = path_names[1][:8] + protocol_name + '_cohensd.pdf'
+        fig.savefig(figname, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print('Cohens d plot saved')
+    else:
+        plt.show()
 
     return 0
 
@@ -237,37 +248,39 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         vector_strength[i, :] = [period_num, pd, gaps, vs_mean[idx][0], vs_std[idx][0], vs_mean_boot[idx][0], vs_percentile_boot[idx][0]]
 
         # Now Plot it
-        if show:
+        if show and i == 8:
             info = [gap[i], pulse_duration[i], period[i]]
             plot_gaps(spike_times, info, stim_time[i], stim[i], bin_size, p_spikes, isi_p, vs, vs_boot, mark_intervals=False)
             if save_fig:
                 # Save Plot to HDD
-                figname = path_names[2] + protocol_name + '_pd_' + pulse_duration[i] + '_gap_' + gap[i] + '.png'
+                figname = path_names[2] + protocol_name + '_pd_' + pulse_duration[i] + '_gap_' + gap[i] + '.pdf'
                 fig = plt.gcf()
-                fig.set_size_inches(7, 7)
-                fig.savefig(figname, bbox_inches='tight', dpi=300)
+                fig.set_size_inches(5.9, 5.9)
+                fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.8)
+                # fig.savefig(figname, bbox_inches='tight', dpi=300)
+                fig.savefig(figname)
                 plt.close(fig)
             else:
                 plt.show()
 
 
-    # Plot Cohens d
-    if not save_data:
-        fig, ax = plt.subplots()
-        ax.plot(cohen_d[:17, 0], cohen_d[:17, 1], 'ko--', label="Cohen's d")
-        ax.set_ylabel("Cohen's d")
-        ax.set_xlim(-0.1, 20.1)
-        ax.set_xticks(np.arange(0, 20, 1))
-        ax.set_ylim(0, 10.1)
-        ax.set_yticks(np.arange(0, 10, 2))
-
-        ax2 = ax.twinx()
-        ax2.plot(cohen_d[:17, 0], cohen_d[:17, 2], 'ks--', label="Pearson's r")
-        ax2.set_ylabel("Pearson's r")
-        ax2.set_xlabel('Gap [ms]')
-        ax2.set_ylim(0, 1.2)
-        ax2.set_yticks(np.arange(0, 1.2, .2))
-        fig.legend(loc='upper center', shadow=True)
+    # # Plot Cohens d
+    # if not save_data:
+    #     fig, ax = plt.subplots()
+    #     ax.plot(cohen_d[:17, 0], cohen_d[:17, 1], 'ko--', label="Cohen's d")
+    #     ax.set_ylabel("Cohen's d")
+    #     ax.set_xlim(-0.1, 20.1)
+    #     ax.set_xticks(np.arange(0, 20, 1))
+    #     ax.set_ylim(0, 10.1)
+    #     ax.set_yticks(np.arange(0, 10, 2))
+    #
+    #     ax2 = ax.twinx()
+    #     ax2.plot(cohen_d[:17, 0], cohen_d[:17, 2], 'ks--', label="Pearson's r")
+    #     ax2.set_ylabel("Pearson's r")
+    #     ax2.set_xlabel('Gap [ms]')
+    #     ax2.set_ylim(0, 1.2)
+    #     ax2.set_yticks(np.arange(0, 1.2, .2))
+    #     fig.legend(loc='upper center', shadow=True)
 
     fig, ax = plt.subplots()
     if aa == 0:
@@ -281,7 +294,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
 
     if save_fig:
         # Save Plot to HDD
-        figname = path_names[2] + protocol_name + '_VS_vs_gaps.png'
+        figname = path_names[2] + protocol_name + '_VS_vs_gaps.pdf'
         fig = plt.gcf()
         # fig.set_size_inches(5, 5)
         fig.savefig(figname, bbox_inches='tight', dpi=300)
@@ -300,7 +313,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
 
 def plot_vs_gap(vs, ax):
     # vs: period, pulse duration, gap, vs mean, vs std, vs boot mean, vs boot percentile
-
+    plot_settings()
     pd = vs[:, 1]
     pd_idx_5 = pd == 5
     pd_idx_10 = pd == 10
@@ -313,11 +326,11 @@ def plot_vs_gap(vs, ax):
     if pd_idx_10.any():
         ax.errorbar(gaps[pd_idx_10], vs_mean[pd_idx_10], yerr=vs_std[pd_idx_10], marker='s', color='k', label='10 ms pulse duration')
     if pd_idx_5.any():
-        ax.errorbar(gaps[pd_idx_5], vs_mean[pd_idx_5], yerr=vs_std[pd_idx_5], marker='d', color='0.5', label='5 ms pulse duration')
+        ax.errorbar(gaps[pd_idx_5], vs_mean[pd_idx_5], yerr=vs_std[pd_idx_5], marker='d', color='0.4', label='5 ms pulse duration')
     if pd_idx_10.any():
-        ax.plot(gaps[pd_idx_10], vs_boot[pd_idx_10], 'r', label='poisson spikes')
-        ax.plot(gaps[pd_idx_10], vs_boot_percentile[pd_idx_10], 'r--', label='95 % percentile of poisson spikes')
-    ax.legend()
+        ax.plot(gaps[pd_idx_10], vs_boot[pd_idx_10], 'k--', label='poisson spikes', linewidth=0.5)
+        ax.plot(gaps[pd_idx_10], vs_boot_percentile[pd_idx_10], 'k:', label='95 % percentile of poisson spikes', linewidth=0.5)
+    ax.legend(loc='upper right', shadow=False)
     ax.set_ylabel('Vector Strength')
     ax.set_xlabel('Gaps [ms]')
     ax.set_yticks(np.arange(0, 1.2, 0.2))
@@ -415,6 +428,7 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
        -------
        Plot
        """
+    plot_settings()
     # Get Data
     fs = 100*1000
 
@@ -448,54 +462,81 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
     vector_phase_boot = vs_boot[3]
 
     # Prepare Axes
-    plot_settings()
     x_limit = stim_time[-1]
-    fig = plt.figure(figsize=(7, 7))
+    fig = plt.figure()
     # fig.set_size_inches(3.9, 3.1)
-    fig.subplots_adjust(left=0.05, top=0.95, bottom=0.05, right=0.95, wspace=0.15, hspace=0.5)
+    # fig.subplots_adjust(left=0.05, top=0.95, bottom=0.05, right=0.95, wspace=0.15, hspace=0.5)
 
-    fig_size = (5, 3)
+    fig_size = (4, 3)
     isi_ax = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
     vs_ax = plt.subplot2grid(fig_size, (0, 2), rowspan=1, colspan=1)
-    vs_hist_ax = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1, projection='polar')
+    # vs_hist_ax = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1, projection='polar')
+    vs_hist_ax = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
     raster = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=3)
     psth_ax = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=3, sharex=raster)
     distance = plt.subplot2grid(fig_size, (3, 0), rowspan=1, colspan=3, sharex=raster)
-    stim_trace = plt.subplot2grid(fig_size, (4, 0), rowspan=1, colspan=3, sharex=raster)
+    # stim_trace = plt.subplot2grid(fig_size, (4, 0), rowspan=1, colspan=3, sharex=raster)
+
+    label_x_pos1 = -0.44
+    label_x_pos2 = label_x_pos1 / 4
+    label_y_pos = 1.4
 
     # ISI Histogram ====================================================================================================
     bs = 1  # in ms
     plot_isi_histogram(spike_times, p_spikes, bs, x_limit=50, steps=5, info=[''],
                        intervals=isi_p, tmin=tmin, plot_title=False, ax=isi_ax)
-    isi_ax.legend(loc='upper right', shadow=True)
+    isi_ax.legend(loc='upper right', shadow=False)
+    isi_ax.set_xlim(0, 30)
+    isi_ax.set_xticks(np.arange(0, 30, 5))
+    isi_ax.yaxis.set_label_coords(-0.24, 0.5)
     sns.despine(ax=isi_ax)
+    isi_ax.text(label_x_pos1, label_y_pos, 'a', transform=isi_ax.transAxes, size=8)
 
     # VS vs period =====================================================================================================
-    vs_ax.plot(pp, vs_mean_boot, 'g', label='Poisson')
-    vs_ax.plot(pp, vs_percentile_boot, 'g--')
+    vs_ax.plot(pp, vs_mean_boot, 'g', label='Poisson', linewidth=0.5)
+    vs_ax.plot(pp, vs_percentile_boot, 'g--', linewidth=0.5)
     # vs_ax.plot(pp, vs_std_boot + vs_mean_boot, 'g--')
     # if peaks.any():
     #     vs_ax.plot(pp[peaks], vs_mean[peaks], 'bo')
-    vs_ax.plot([float(period), float(period)], [0, 1], 'bx--')
+    vs_ax.plot([float(period), float(period)], [0, 1], 'bx:', linewidth=0.3)
     vs_ax.plot(pp, vs_mean, 'k', label='Data')
     vs_ax.fill_between(pp, vs_mean - vs_std, vs_mean + vs_std, facecolor='k', alpha=0.5)
     vs_ax.set_xlabel('Period [ms]')
     vs_ax.set_ylabel('Mean VS')
+    vs_ax.set_xlim(0, 50+1)
+    vs_ax.set_xticks(np.arange(0, 50+1, 10))
     vs_ax.set_ylim(0, 1)
     vs_ax.set_yticks(np.arange(0, 1.1, 0.2))
-    vs_ax.legend(loc='upper right', shadow=True)
+    vs_ax.legend(loc='upper right', shadow=False)
+    vs_ax.yaxis.set_label_coords(-0.24, 0.5)
     sns.despine(ax=vs_ax)
+    vs_ax.text(label_x_pos1, label_y_pos, 'c', transform=vs_ax.transAxes, size=8)
 
     # Polar Hist =======================================================================================================
-    vs_hist_ax.grid(True)
-    vs_hist_ax.hist(vector_phase_boot, bins='auto', density=True, facecolor='k', alpha=0.75)
-    vs_hist_ax.hist(vector_phase, bins='auto', density=True, facecolor='r', alpha=0.5)
-    xL = ['0', '', r'$\frac{\pi}{2}$', '', r'$\pi$', '', r'$\frac{3\pi}{2}$', '']
-    vs_hist_ax.set_xticklabels(xL)
-    vs_hist_ax.arrow(0, 0, np.angle(mu), np.abs(mu), head_starts_at_zero=False, color='r', linewidth=2)
-    vs_hist_ax.set_ylim(0, 1)
-    vs_hist_ax.set_yticks(np.arange(0.5, 1.1, 0.5))
+    # Convert radians to phase
+    idx = vector_phase < 0
+    vector_phase[idx] = vector_phase[idx] + 2 * np.pi
+    idx = vector_phase_boot < 0
+    vector_phase_boot[idx] = vector_phase_boot[idx] + 2 * np.pi
+    # vs_hist_ax.grid(True, linewidth=0.2)
+    # vs_hist_ax.axhline(linewidth=0.5, color="k")  # inc. width of y-axis and color it red
+    vs_hist_ax.hist(vector_phase, bins=20, density=True, facecolor='k', alpha=1, label='Data')
+    vs_hist_ax.hist(vector_phase_boot, bins=20, density=True, facecolor='g', alpha=0.75, label='Poisson Spikes')
+    # xL = ['0', '', r'$\frac{\pi}{2}$', '', r'$\pi$', '', r'$\frac{3\pi}{2}$', '']
+    vs_hist_ax.set_xlim(0, 2*np.pi+0.1)
+    vs_hist_ax.set_xticks(np.arange(0, 2*np.pi+0.1, np.pi/2))
 
+    xL = ['0', r'$\frac{\pi}{2}$', r'$\pi$', r'$\frac{3\pi}{2}$', r'2$\pi$']
+    vs_hist_ax.set_xticklabels(xL)
+    vs_hist_ax.set_xlabel('Phase of Stimulus Period')
+
+    vs_hist_ax.legend(loc='upper right', shadow=False)
+    # vs_hist_ax.arrow(0, 0, np.angle(mu), np.abs(mu), head_starts_at_zero=False, color='r', linewidth=2)
+    # vs_hist_ax.plot(92, 1, 'r-')
+    vs_hist_ax.set_ylim(0, 1)
+    vs_hist_ax.set_yticks(np.arange(0, 1.1, 0.5))
+    vs_hist_ax.text(label_x_pos1+0.2, label_y_pos, 'b', transform=vs_hist_ax.transAxes, size=8)
+    sns.despine(ax=vs_hist_ax)
 
     # Raster Plot ======================================================================================================
     # raster.set_title('Period = ' + info[2] + ' ms, Gap =' + info[0] + ' ms' + ', PD = ' + info[1] + ' ms, MFR: ' +
@@ -512,7 +553,9 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
     raster.set_ylim(0, len(spike_times)+1)
     raster.set_yticks(np.arange(0, len(spike_times)+1, 5))
     raster.set_ylabel('Trial')
+    raster.yaxis.set_label_coords(-0.06, 0.5)
     sns.despine(ax=raster)
+    raster.text(label_x_pos2, label_y_pos, 'd', transform=raster.transAxes, size=8)
 
     # PSTH Plot ========================================================================================================
     psth_ax.plot(bin_edges[:-1], frate, 'r', label='Mean Firing Rate')
@@ -520,9 +563,13 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
     psth_ax.fill_between(bin_edges[:-1], frate - frate_std, frate + frate_std, facecolor='red', alpha=0.25)
     psth_ax.fill_between([0, bin_edges[-1]], overall_frate - overall_frate_std, overall_frate + overall_frate_std, facecolor='blue', alpha=0.25)
     psth_ax.set_xlim(0, x_limit)
+    psth_ax.set_ylim(0, np.max(frate))
+    psth_ax.set_yticks(np.arange(0, np.max(frate), 100))
     psth_ax.set_ylabel('Firing Rate [Hz]')
-    psth_ax.legend(loc='upper right', shadow=True)
+    psth_ax.legend(loc='upper right', shadow=False)
+    psth_ax.yaxis.set_label_coords(-0.06, 0.5)
     sns.despine(ax=psth_ax)
+    psth_ax.text(label_x_pos2, label_y_pos, 'e', transform=psth_ax.transAxes, size=8)
 
     # Distances Profiles Plot ==========================================================================================
     trains = [[]] * len(spike_times)
@@ -536,25 +583,44 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
     spike_x, spike_y = spike_profile.get_plottable_data()
     sync_x, sync_y = sync_profile.get_plottable_data()
 
-    distance.plot(sync_x, sync_y, 'g', label='SYNC')
-    distance.plot(isi_x, isi_y, 'k', label='ISI')
-    distance.plot(spike_x, spike_y, 'r', label='SPIKE')
+    # Running Aveage
+    N = 10
+    sync_ra = np.convolve(sync_y, np.ones((N,)) / N, mode='valid')
+    t_sync_ra = np.linspace(0, x_limit, len(sync_ra))
+    spike_ra = np.convolve(spike_y, np.ones((N,)) / N, mode='valid')
+    t_spike_ra = np.linspace(0, x_limit, len(spike_ra))
+    isi_ra = np.convolve(isi_y, np.ones((N,)) / N, mode='valid')
+    t_isi_ra = np.linspace(0, x_limit, len(isi_ra))
+
+    distance.plot(stim_time, stim, 'k', alpha=0.5, label='Stimulus')
+    distance.plot(t_sync_ra, sync_ra, 'r', label='SYNC')
+    # distance.plot(t_spike_ra, spike_ra, 'k:', label='SPIKE')
+    # distance.plot(t_isi_ra, isi_ra, 'r:', label='ISI')
+    # distance.plot(sync_x, sync_y, 'g', label='SYNC')
+    # distance.plot(isi_x, isi_y, 'k', label='ISI')
+    # distance.plot(spike_x, spike_y, 'r', label='SPIKE')
     distance.set_xlim(0, x_limit)
     distance.set_ylim(0, 1.1)
     distance.set_yticks(np.arange(0, 1.1, 0.5))
-    distance.set_ylabel('Distance Profile')
-    distance.legend(loc='upper right', shadow=True)
+    distance.set_ylabel('Distance')
+    distance.legend(loc='upper right', shadow=False)
+    distance.yaxis.set_label_coords(-0.06, 0.5)
     sns.despine(ax=distance)
+    distance.text(label_x_pos2, label_y_pos, 'f', transform=distance.transAxes, size=8)
+    distance.set_xlabel('Time [s]')
+
 
     # Stimulus Plot ====================================================================================================
-    stim_trace.plot(stim_time, stim, 'k')
-    stim_trace.set_xlim(0, x_limit)
-    stim_trace.set_yticks(np.arange(0, 1.1, 1))
-    stim_trace.set_xlabel('Time [s]')
-    stim_trace.set_ylabel('Stimulus')
+    # stim_trace.plot(stim_time, stim, 'k')
+    # stim_trace.set_xlim(0, x_limit)
+    # stim_trace.set_yticks(np.arange(0, 1.1, 1))
+    # stim_trace.set_xlabel('Time [s]')
+    # stim_trace.set_ylabel('Stimulus')
     # fig.tight_layout()
     # Remove Box
-    sns.despine(ax=stim_trace)
+    # stim_trace.yaxis.set_label_coords(-0.06, 0.5)
+    # sns.despine(ax=stim_trace)
+    # stim_trace.text(label_x_pos2, label_y_pos, 'g', transform=stim_trace.transAxes, size=8)
 
     return 0
 
@@ -1432,13 +1498,15 @@ def plot_isi_histogram(spike_times, p_spike_times, bin_size, x_limit, steps, inf
     # Compute Histograms
     bins_nr1 = int(np.max(isi) / bin_size)
     bins_nr2 = int(np.max(isi_p) / bin_size)
-    n1, bins1, patches1 = ax.hist(isi, bins_nr1, density=True, facecolor='k', alpha=0.5, label='Data')
+    n1, bins1, patches1 = ax.hist(isi, bins_nr1, density=True, facecolor='k', alpha=1, label='Data')
     n2, bins2, patches2 = ax.hist(isi_p, bins_nr2, density=True, facecolor='green', alpha=0.75, label='Poisson Spikes')
 
     ax.set_xlabel('ISI [ms]')
     ax.set_ylabel('Probability')
-    ax.set_xlim(0, x_limit)
-    ax.set_xticks(np.arange(0, x_limit, steps))
+    ax.set_ylim(0, np.max(n1)+0.05)
+    ax.set_yticks(np.arange(0, np.max(n1)+0.1, 0.1))
+    # ax.set_xlim(0, x_limit)
+    # ax.set_xticks(np.arange(0, x_limit, steps))
     if plot_title:
         plt.title('period: ' + info[0] + ' ms, gap: ' + info[1] + 'ms')
     #ax.set_legend(['Data', 'Poisson'])
