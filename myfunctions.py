@@ -171,10 +171,10 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
     tmin = 0.1
     p_spikes, isi_p = poission_spikes(nsamples, 100, tmax)
     pp = np.arange(0.5, 50, 0.5)
-    vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, peaks_boot = \
-        vs_range(p_spikes, pp/1000, parallel_cpu=False, tmin=tmin, progress_bar=True)
+    vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, vs_ci_boot, peaks_boot = \
+        vs_range(p_spikes, pp/1000, tmin=tmin)
 
-    vector_strength = np.zeros(shape=(len(tag_list), 7))
+    vector_strength = np.zeros(shape=(len(tag_list), 8))
     aa = 0
     cohen_d = np.zeros(shape=(len(tag_list), 3))
     # Loop trough all tags in tag_list
@@ -193,8 +193,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         std_rate = np.std(f_rate)
 
         # VS Range
-        vs, phase, vs_mean, vs_std, vs_percentile, peaks = vs_range(spike_times, pp/1000, parallel_cpu=False, tmin=tmin,
-                                                                    progress_bar=False)
+        vs, phase, vs_mean, vs_std, vs_percentile, vs_ci, peaks = vs_range(spike_times, pp/1000, tmin=tmin)
         # Convert stimulus parameters into floats
         period_num = int(float(period[i]))
         pd = int(float(pulse_duration[i]))
@@ -232,7 +231,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         # Put Data together
         vs = [[]] * 7
         vs[0] = vs_mean
-        vs[1] = vs_percentile
+        vs[1] = vs_ci
         vs[2] = vector_phase
         vs[3] = mu
         vs[4] = peaks
@@ -245,7 +244,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         vs_boot[2] = vs_percentile_boot
         vs_boot[3] = vector_phase_boot
 
-        vector_strength[i, :] = [period_num, pd, gaps, vs_mean[idx][0], vs_std[idx][0], vs_mean_boot[idx][0], vs_percentile_boot[idx][0]]
+        vector_strength[i, :] = [period_num, pd, gaps, vs_mean[idx][0], vs_ci[idx, 0], vs_ci[idx, 1], vs_mean_boot[idx][0], vs_percentile_boot[idx][0]]
 
         # Now Plot it
         if show and i == 8:
@@ -319,14 +318,18 @@ def plot_vs_gap(vs, ax):
     pd_idx_10 = pd == 10
     gaps = vs[:, 2]
     vs_mean = vs[:, 3]
-    vs_std = vs[:, 4]
-    vs_boot = vs[:, 5]
-    vs_boot_percentile = vs[:, 6]
-
+    vs_ci_low = vs[:, 4]
+    vs_ci_up = vs[:, 5]
+    vs_boot = vs[:, 6]
+    vs_boot_percentile = vs[:, 7]
     if pd_idx_10.any():
-        ax.errorbar(gaps[pd_idx_10], vs_mean[pd_idx_10], yerr=vs_std[pd_idx_10], marker='s', color='k', label='10 ms pulse duration')
+        low = vs_mean[pd_idx_10] - vs_ci_low[pd_idx_10]
+        up = vs_ci_up[pd_idx_10] - vs_mean[pd_idx_10]
+        ax.errorbar(gaps[pd_idx_10], vs_mean[pd_idx_10], yerr=[low, up], marker='s', color='k', label='10 ms pulse duration')
     if pd_idx_5.any():
-        ax.errorbar(gaps[pd_idx_5], vs_mean[pd_idx_5], yerr=vs_std[pd_idx_5], marker='d', color='0.4', label='5 ms pulse duration')
+        low = vs_mean[pd_idx_5] - vs_ci_low[pd_idx_5]
+        up = vs_ci_up[pd_idx_5] - vs_mean[pd_idx_5]
+        ax.errorbar(gaps[pd_idx_5], vs_mean[pd_idx_5], yerr=[low, up], marker='d', color='0.4', label='5 ms pulse duration')
     if pd_idx_10.any():
         ax.plot(gaps[pd_idx_10], vs_boot[pd_idx_10], 'k--', label='poisson spikes', linewidth=0.5)
         ax.plot(gaps[pd_idx_10], vs_boot_percentile[pd_idx_10], 'k:', label='95 % percentile of poisson spikes', linewidth=0.5)
@@ -449,7 +452,7 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
 
     # Get Vector Strength Data
     vs_mean = vs[0]
-    vs_std = vs[1]
+    vs_ci = vs[1]
     vector_phase = vs[2]
     mu = vs[3]
     peaks = vs[4]
@@ -493,14 +496,16 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
     isi_ax.text(label_x_pos1, label_y_pos, 'a', transform=isi_ax.transAxes, size=8)
 
     # VS vs period =====================================================================================================
-    vs_ax.plot(pp, vs_mean_boot, 'g', label='Poisson', linewidth=0.5)
-    vs_ax.plot(pp, vs_percentile_boot, 'g--', linewidth=0.5)
     # vs_ax.plot(pp, vs_std_boot + vs_mean_boot, 'g--')
     # if peaks.any():
     #     vs_ax.plot(pp[peaks], vs_mean[peaks], 'bo')
-    vs_ax.plot([float(period), float(period)], [0, 1], 'bx:', linewidth=0.3)
+    # vs_ax.plot([float(period), float(period)], [0, 1], 'bx:', linewidth=0.3)
     vs_ax.plot(pp, vs_mean, 'k', label='Data')
-    vs_ax.fill_between(pp, vs_mean - vs_std, vs_mean + vs_std, facecolor='k', alpha=0.5)
+    vs_ax.plot(pp, vs_mean_boot, 'g', label='Poisson', linewidth=0.5)
+    vs_ax.plot(pp, vs_percentile_boot, 'g--', linewidth=0.5)
+    vs_ax.fill_between(pp, vs_ci[:, 0], vs_ci[:, 1], facecolor='k', alpha=0.5)
+    vs_ax.arrow(float(period), 1, 0, -0.95, head_width=0.5, head_length=0.025, fc='r', ec='r', head_starts_at_zero=False,
+                alpha=0.75, linewidth=0.5)
     vs_ax.set_xlabel('Period [ms]')
     vs_ax.set_ylabel('Mean VS')
     vs_ax.set_xlim(0, 50+1)
@@ -546,10 +551,11 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
         for ii in range(len(spike_times[kk])-1):
             isi = spike_times[kk][ii+1] - spike_times[kk][ii]
             if isi < 0.012 and isi > 0.008 and mark_intervals:
-                raster.plot([spike_times[kk][ii], spike_times[kk][ii+1]], [1 + kk, 1 + kk], 'g|--')
+                raster.plot([spike_times[kk][ii]*1000, spike_times[kk][ii+1]]*1000, [1 + kk, 1 + kk], 'g|--')
             else:
-                raster.plot(spike_times[kk][ii], 1 + kk, 'k|')
-    raster.set_xlim(0, x_limit)
+                raster.plot(spike_times[kk][ii]*1000, 1 + kk, 'k|')
+    raster.set_xlim(0, x_limit*1000)
+    raster.set_xticks(np.arange(0, x_limit * 1000+1, 50))
     raster.set_ylim(0, len(spike_times)+1)
     raster.set_yticks(np.arange(0, len(spike_times)+1, 5))
     raster.set_ylabel('Trial')
@@ -558,11 +564,12 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
     raster.text(label_x_pos2, label_y_pos, 'd', transform=raster.transAxes, size=8)
 
     # PSTH Plot ========================================================================================================
-    psth_ax.plot(bin_edges[:-1], frate, 'r', label='Mean Firing Rate')
-    psth_ax.plot([0, bin_edges[-1]], [overall_frate, overall_frate], 'b', label='Ground Firing Rate')
-    psth_ax.fill_between(bin_edges[:-1], frate - frate_std, frate + frate_std, facecolor='red', alpha=0.25)
-    psth_ax.fill_between([0, bin_edges[-1]], overall_frate - overall_frate_std, overall_frate + overall_frate_std, facecolor='blue', alpha=0.25)
-    psth_ax.set_xlim(0, x_limit)
+    psth_ax.plot(bin_edges[:-1]*1000, frate, 'r', label='Mean Firing Rate')
+    psth_ax.plot([0, bin_edges[-1]*1000], [overall_frate, overall_frate], 'b', label='Ground Firing Rate')
+    psth_ax.fill_between(bin_edges[:-1]*1000, frate - frate_std, frate + frate_std, facecolor='red', alpha=0.25)
+    psth_ax.fill_between([0, bin_edges[-1]*1000], overall_frate - overall_frate_std, overall_frate + overall_frate_std, facecolor='blue', alpha=0.25)
+    psth_ax.set_xlim(0, x_limit*1000)
+    psth_ax.set_xticks(np.arange(0, x_limit * 1000+1, 50))
     psth_ax.set_ylim(0, np.max(frate))
     psth_ax.set_yticks(np.arange(0, np.max(frate), 100))
     psth_ax.set_ylabel('Firing Rate [Hz]')
@@ -592,14 +599,15 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
     isi_ra = np.convolve(isi_y, np.ones((N,)) / N, mode='valid')
     t_isi_ra = np.linspace(0, x_limit, len(isi_ra))
 
-    distance.plot(stim_time, stim, 'k', alpha=0.5, label='Stimulus')
-    distance.plot(t_sync_ra, sync_ra, 'r', label='SYNC')
+    distance.plot(stim_time*1000, stim, 'k', alpha=0.5, label='Stimulus')
+    distance.plot(t_sync_ra*1000, sync_ra, 'r', label='SYNC')
     # distance.plot(t_spike_ra, spike_ra, 'k:', label='SPIKE')
     # distance.plot(t_isi_ra, isi_ra, 'r:', label='ISI')
     # distance.plot(sync_x, sync_y, 'g', label='SYNC')
     # distance.plot(isi_x, isi_y, 'k', label='ISI')
     # distance.plot(spike_x, spike_y, 'r', label='SPIKE')
-    distance.set_xlim(0, x_limit)
+    distance.set_xlim(0, x_limit*1000)
+    distance.set_xticks(np.arange(0, x_limit*1000+1, 50))
     distance.set_ylim(0, 1.1)
     distance.set_yticks(np.arange(0, 1.1, 0.5))
     distance.set_ylabel('Distance')
@@ -607,7 +615,7 @@ def plot_gaps(spike_times, info, stim_time, stim, bin_size, p_spikes, isi_p, vs,
     distance.yaxis.set_label_coords(-0.06, 0.5)
     sns.despine(ax=distance)
     distance.text(label_x_pos2, label_y_pos, 'f', transform=distance.transAxes, size=8)
-    distance.set_xlabel('Time [s]')
+    distance.set_xlabel('Time [ms]')
 
 
     # Stimulus Plot ====================================================================================================
@@ -1514,35 +1522,28 @@ def plot_isi_histogram(spike_times, p_spike_times, bin_size, x_limit, steps, inf
     return 0
 
 
-def vs_range(spike_times, pp, parallel_cpu, tmin, progress_bar):
+def vs_range(spike_times, pp, tmin):
     vs = np.zeros(shape=(len(spike_times), len(pp)))
     phase = np.zeros(shape=(len(spike_times), len(pp)))
-
+    vs_ci = np.zeros(shape=(len(pp), 2))
     # Compute Vector Strength for all periods in pp
-    if parallel_cpu:
-        for p in tqdm(range(len(pp)), desc='Spike Trains'):
-            r = Parallel(n_jobs=-2)(delayed(sg.vectorstrength)(spike_times[q][spike_times[q] > tmin], pp[p]) for q in range(len(spike_times)))
-            for k in range(len(r)):
-                vs[k, p] = r[k][0]
-                phase[k, p] = r[k][1]
-    else:
-        if progress_bar:
-            for q in tqdm(range(len(spike_times)), desc='Spike Trains'):
-                vs[q, :], phase[q, :] = sg.vectorstrength(spike_times[q][spike_times[q] > tmin], pp)
-        else:
-            for q in range(len(spike_times)):
-                vs[q, :], phase[q, :] = sg.vectorstrength(spike_times[q][spike_times[q] > tmin], pp)
+    for q in range(len(spike_times)):
+        vs[q, :], phase[q, :] = sg.vectorstrength(spike_times[q][spike_times[q] > tmin], pp)
 
     # Compute desciptive statistics
     vs_mean = vs.mean(axis=0)
     vs_percentile = np.percentile(vs, 95, axis=0)
     vs_std = np.std(vs, axis=0)
 
+    # Compute CI for every period (gap)
+    for i in range(len(pp)):
+        vs_ci[i, :] = bootstrap_ci(vs[:, i], n_boot=1000, level=95)
+
     # Find Peaks in VS Distribution
     th = pk.std_threshold(vs_mean, th_factor=2)
     peaks, _ = pk.detect_peaks(vs_mean, th)
 
-    return vs, phase, vs_mean, vs_std, vs_percentile, peaks
+    return vs, phase, vs_mean, vs_std, vs_percentile, vs_ci, peaks
 
 # ----------------------------------------------------------------------------------------------------------------------
 # FI FIELD:
@@ -2987,7 +2988,7 @@ def moth_intervals_spike_detection(path_names, window=None, th_factor=1, mph_per
     p_spikes, isi_p = poission_spikes(nsamples, 100, tmax)
     pp = np.arange(0.0005, 0.05, 0.0005)
     vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, peaks_boot = \
-        vs_range(p_spikes, pp, parallel_cpu=False, tmin=tmin, progress_bar=True)
+        vs_range(p_spikes, pp, tmin=tmin)
 
     # Now detect spikes in each trial and update input data
     for i in voltage:
@@ -3042,8 +3043,7 @@ def moth_intervals_spike_detection(path_names, window=None, th_factor=1, mph_per
         std_rate = np.std(f_rate)
 
         # VS Range
-        vs, phase, vs_mean, vs_std, vs_percentile, peaks = vs_range(spike_times, pp, parallel_cpu=False, tmin=tmin,
-                                                                    progress_bar=False)
+        vs, phase, vs_mean, vs_std, vs_percentile, peaks = vs_range(spike_times, pp, tmin=tmin)
 
         # Poisson Boot
         # Project spike times onto circle and get the phase (angle)

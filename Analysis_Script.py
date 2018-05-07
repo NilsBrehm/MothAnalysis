@@ -136,7 +136,7 @@ if INTERVAL_REC:
 if INTERVAL_MAS:
     mf.moth_intervals_spike_detection(path_names, window=None, th_factor=th_factor, mph_percent=mph_percent,
                                       filter_on=True, save_data=False, show=show, bin_size=bin_size)
-    # mf.moth_intervals_analysis(datasets[0])
+    mf.moth_intervals_analysis(datasets[0])
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
