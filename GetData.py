@@ -25,8 +25,8 @@ GetSession = False
 
 FIFIELD = False
 
-INTERVAL_MAS = False
-INTERVAL_REC = True
+INTERVAL_MAS = True
+INTERVAL_REC = False
 GAP = False
 
 SOUND = False
@@ -101,10 +101,13 @@ if FIFIELD:
 # Intervals: MothASongs
 if INTERVAL_MAS:
     print('Starting Moth Intervals Data Gathering')
-    try:
-        volt = mf.get_moth_intervals_data(path_names, save_data=True)
-    except:
-        print('Could not open: ' + path_names[0])
+    data_name = datasets[-18]
+    print(data_name)
+    #  path_names = [data_name, data_files_path, figs_path, nix_path]
+    path_names = mf.get_directories(data_name=data_name)
+
+    mf.get_moth_intervals_data(path_names, save_data=True)
+
 
 
 # Rect Intervals
