@@ -147,7 +147,8 @@ if INTERVAL_MAS:
     protocol_name = 'intervals_mas'
     spike_detection = False
     show_detection = False
-    data_name = datasets[-21]
+    data_name = datasets[-2]
+    # old 0:9
     print(data_name)
     if old:
         print('OLD MAS Protocol!')

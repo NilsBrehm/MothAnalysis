@@ -19,6 +19,8 @@ import csv
 import pycircstat as c_stat
 import seaborn as sns
 import matplotlib
+import warnings
+from scipy.optimize import curve_fit
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Directories
@@ -151,6 +153,8 @@ def bootstrap_ci(data, n_boot, level):
 
 
 def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_data, old):
+    warnings.catch_warnings()
+    warnings.simplefilter("ignore", category=RuntimeWarning)
     # Load Spikes
     plot_settings()
     dataset = path_names[0]
@@ -189,7 +193,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         if protocol_name is 'intervals_mas':
             pp = np.arange(0.5, 50, 0.5)
 
-        vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, vs_ci_boot, peaks_boot = \
+        vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, vs_ci_boot = \
             vs_range(p_spikes, pp/1000, tmin=tmin)
 
     vector_strength = np.zeros(shape=(len(tag_list), 8))
@@ -226,17 +230,52 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
             tmax = stim_time[i][-1]
             tmin = tmax * 0.2
 
-            f_rate, b = psth(spike_times, bin_size, plot=False, return_values=True, tmax=tmax, tmin=tmin)
-            mean_rate = np.round(np.mean(f_rate))
-            print(str(mean_rate) + ' Hz')
-            # std_rate = np.std(f_rate)
+            tmin = 0
+            # f_rate, b = psth(spike_times, bin_size, plot=False, return_values=True, tmax=tmax, tmin=tmin)
+            # dt = 1 / (100 * 1000)
+            # sigma = 0.001
+            # t2, f2 = convolution_rate(spike_times, t_max=tmax, dt=dt, sigma=sigma)
 
-            p_spikes, isi_p = poission_spikes(nsamples, mean_rate, tmax)
-            vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, vs_ci_boot, peaks_boot = \
-                vs_range(p_spikes, pp / 1000, tmin=tmin)
+            # mean_rate = np.round(np.mean(f_rate))
+            # print(str(mean_rate) + ' Hz')
+            # std_rate = np.std(f_rate)
+            # vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, vs_ci_boot = \
+            #     vs_range(p_spikes, pp / 1000, tmin=tmin)
+
+            # ts = np.arange(0.005, 1, 0.005)
+            ts = np.logspace(np.log(0.05), np.log(1), 200, base=np.exp(1))
+            rates = [50, 100, 200, 400]
+            # rates = [100]
+            vs_tmax = np.zeros(shape=(len(rates), len(ts)))
+            # vs_tmax2 = np.zeros(shape=(len(ts), len(pp)))
+            for jj in range(len(rates)):
+                for tt in range(len(ts)):
+                    # t1 = time.time()
+                    p_spikes, isi_p = poission_spikes(nsamples, rates[jj], ts[tt])
+                    # t2 = time.time()
+                    _, _, vs_mean_boot, _, vs_percentile_boot, vs_ci_boot = \
+                        vs_range(p_spikes, pp / 1000, tmin=tmin, n_ci=0)
+                    # t3 = time.time()
+                    # print('p spikes: ' + str(t2-t1))
+                    # print('vs range: ' + str(t3 - t2))
+                    vs_tmax[jj, tt] = np.nanmean(vs_mean_boot)
+                    # vs_tmax2[tmax, :] = vs_mean_boot
+
+            # Fit
+            poisson_vs_duration(ts, vs_tmax, rates)
+            plt.show()
+            embed()
+            exit()
+
+            # Save Plot to HDD
+            figname = '/media/brehm/Data/MasterMoth/figs/' + protocol_name + 'Poisson_tmax_VS.pdf'
+            fig = plt.gcf()
+            fig.set_size_inches(1.9, 3.9)
+            fig.savefig(figname, bbox_inches='tight', dpi=300)
+            plt.close(fig)
 
         # VS Range
-        vs, phase, vs_mean, vs_std, vs_percentile, vs_ci, peaks = vs_range(spike_times, pp / 1000, tmin=tmin)
+        vs, phase, vs_mean, vs_std, vs_percentile, vs_ci = vs_range(spike_times, pp / 1000, tmin=tmin)
 
         # Poisson Boot
         # Project spike times onto circle and get the phase (angle)
@@ -308,15 +347,15 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
 
     fig, ax = plt.subplots()
     if show[1]:
-        if aa == 0 and protocol_name is not 'intervals_mas':
+        if aa == 0:
             plot_vs_gap(vector_strength, ax, protocol_name)
-            print(1)
+            print('VS Data Cutting Mode: ' + str(1))
         elif aa == 2 and protocol_name is 'intervals_mas':
             plot_vs_gap(vector_strength[1:stop_id], ax, protocol_name)
-            print(2)
-        else:
+            print('VS Data Cutting Mode: ' + str(2))
+        elif aa == 2 and protocol_name is not 'intervals_mas':
             plot_vs_gap(vector_strength[0:34], ax, protocol_name)
-            print(3)
+            print('VS Data Cutting Mode: ' + str(3))
 
     sns.despine(fig=fig)
     fig.set_size_inches(3.9, 1.9)
@@ -340,6 +379,44 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
 
     return 0
 
+
+def poisson_vs_duration(ts, vs_tmax, rates):
+    def func(x, a, c, d):
+        # return a * np.exp(-d * x) + c
+        # return a * np.log(d * x) + c
+        # return a * k**(-d * x) + c
+        return a * np.exp(-d * x) + c
+
+    def func2(x, d, c):
+        # return np.exp(-d * x) + c
+        return -d * x + c
+        # return a * x ** -d + c
+
+    if np.isnan(vs_tmax).any():
+        print('Warning: Found NaNs')
+
+    plot_settings()
+    fig, ax = plt.subplots()
+    cc = ['black', 'blue', 'red', 'green', 'yellow', 'magenta']
+    init_vals = [0.5, 0.5, 0.01]  # for [a, c, d]
+    for i in range(vs_tmax.shape[0]):
+        vs = np.delete(vs_tmax[i], np.where(np.isnan(vs_tmax[i])))
+        ts_no_nan = np.delete(ts, np.where(np.isnan(vs_tmax[i])))
+        id_fit2 = ts_no_nan >= ts[-1]*0.5
+        id_fit = ts_no_nan <= ts[-1]
+
+        popt, pcov = curve_fit(func, ts_no_nan[id_fit], vs[id_fit], maxfev=10000)
+        popt2, pcov2 = curve_fit(func2, ts_no_nan[id_fit2], vs[id_fit2], maxfev=1000)
+        ax.plot(ts_no_nan, vs, 'o', label=str(rates[i]) + ' Hz', color=cc[i], alpha=0.5)
+        ax.plot(ts_no_nan[ts_no_nan <= ts[-1]*0.5], func(ts_no_nan[ts_no_nan <= ts[-1]*0.5], *popt), '-', color=cc[i], linewidth=2)
+        ax.plot(ts_no_nan[id_fit], func(ts_no_nan[id_fit], *popt), '-', color=cc[i], linewidth=2, alpha=0.5)
+        ax.plot(ts_no_nan[id_fit2], func2(ts_no_nan[id_fit2], *popt2), '--', color=cc[i], linewidth=2)
+
+    ax.set_xlabel('Spike Train Duration [ms]')
+    ax.set_ylabel('Mean Vector Strength')
+    ax.legend()
+    sns.despine()
+    return 0
 
 def plot_vs_gap(vs, ax, protocol_name):
     # vs: period, pulse duration, gap, vs mean, vs std, vs boot mean, vs boot percentile
@@ -481,7 +558,7 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
        Plot
        """
     plot_settings()
-    # Get Data
+    # Voltage Sampling Rate [Hz]
     fs = 100*1000
 
     # Compute PSTH
@@ -498,6 +575,11 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     overall_frate_std = np.std(overall_frate)
     overall_frate = np.mean(overall_frate)
     mean_rate = overall_frate
+
+    # Compute Convolved Firing Rate
+    dt = 1 / fs
+    sigma = 0.001  # in seconds
+    rate_conv_time, rate_conv, rate_conv_std = convolution_rate(spike_times, tmax, dt, sigma)
 
     # Get Vector Strength Data
     vs_mean = vs[0]
@@ -620,6 +702,9 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     psth_ax.plot([0, bin_edges[-1]*1000], [overall_frate, overall_frate], 'b', label='Ground Firing Rate')
     psth_ax.fill_between(bin_edges[:-1]*1000, frate - frate_std, frate + frate_std, facecolor='red', alpha=0.25)
     psth_ax.fill_between([0, bin_edges[-1]*1000], overall_frate - overall_frate_std, overall_frate + overall_frate_std, facecolor='blue', alpha=0.25)
+    psth_ax.plot(rate_conv_time * 1000, rate_conv, 'g')
+    psth_ax.fill_between(rate_conv_time * 1000, rate_conv - rate_conv_std, rate_conv + rate_conv_std, facecolor='green', alpha=0.25)
+
     psth_ax.set_xlim(0, x_limit*1000)
     psth_ax.set_xticks(np.arange(0, x_limit * 1000+1, 50))
     psth_ax.set_ylim(0, np.max(frate))
@@ -1524,6 +1609,29 @@ def overview_recordings(look_for_mtags):
 # SPIKE STATISTICS
 
 
+def convolution_rate(spikes, t_max, dt, sigma):
+    def gauss_kernel(s, step):
+        x = np.arange(-4 * s, 4 * s, step)
+        y = np.exp(-0.5 * (x/s)**2) / (np.sqrt(2 * np.pi) * s)
+        # y = np.exp(-(x**2 / 2*s**2)) / (np.sqrt(2 * np.pi) * s)
+        return y
+
+    rate = [[]] * len(spikes)
+    for k in range(len(spikes)):
+        spike_times = spikes[k][spikes[k] <= t_max]
+        t = np.arange(0, t_max-dt, dt)
+        r = np.zeros(len(t))
+        spike_ids = np.round(spike_times / dt)
+        r[spike_ids.astype('int')] = 1
+        kernel = gauss_kernel(sigma, dt)
+        rate[k] = np.convolve(r, kernel, mode='same')
+
+    firing_rate = np.mean(rate, axis=0)
+    std = np.std(rate, axis=0)
+    return t, firing_rate, std
+
+
+
 def inter_spike_interval(spikes):
     isi = np.diff(spikes)
     return isi
@@ -1606,7 +1714,7 @@ def plot_isi_histogram(spike_times, p_spike_times, bin_size, x_limit, steps, inf
     return 0
 
 
-def vs_range(spike_times, pp, tmin):
+def vs_range(spike_times, pp, tmin, n_ci):
     vs = np.zeros(shape=(len(spike_times), len(pp)))
     phase = np.zeros(shape=(len(spike_times), len(pp)))
     vs_ci = np.zeros(shape=(len(pp), 2))
@@ -1621,13 +1729,15 @@ def vs_range(spike_times, pp, tmin):
     vs_std = np.nanstd(vs, axis=0)
 
     # Compute CI for every period (gap)
-    for i in range(len(pp)):
-        vs_ci[i, :] = bootstrap_ci(vs[:, i], n_boot=1000, level=95)
-
+    if n_ci > 0:
+        for i in range(len(pp)):
+            vs_ci[i, :] = bootstrap_ci(vs[:, i], n_boot=n_ci, level=95)
+    else:
+        vs_ci = np.nan
     # Find Peaks in VS Distribution
-    th = pk.std_threshold(vs_mean, th_factor=2)
-    peaks, _ = pk.detect_peaks(vs_mean, th)
-    return vs, phase, vs_mean, vs_std, vs_percentile, vs_ci, peaks
+    # th = pk.std_threshold(vs_mean, th_factor=2)
+    # peaks, _ = pk.detect_peaks(vs_mean, th)
+    return vs, phase, vs_mean, vs_std, vs_percentile, vs_ci
 
 # ----------------------------------------------------------------------------------------------------------------------
 # FI FIELD:
