@@ -194,7 +194,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
             pp = np.arange(0.5, 50, 0.5)
 
         vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, vs_ci_boot = \
-            vs_range(p_spikes, pp/1000, tmin=tmin)
+            vs_range(p_spikes, pp/1000, tmin=tmin, n_ci=0)
 
     vector_strength = np.zeros(shape=(len(tag_list), 8))
     aa = 0
@@ -225,54 +225,20 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
 
         # For Old MAS the Poisson Spikes must be computed for each stimulus
         if protocol_name is 'intervals_mas' and old is True:
-            pp = np.arange(0.5, 50, 0.5)
             nsamples = 100
             tmax = stim_time[i][-1]
             tmin = tmax * 0.2
+            p_spikes, isi_p = poission_spikes(nsamples, 100, tmax)
+            if protocol_name == 'PulseIntervalsRect':
+                pp = np.arange(0.5, 50, 0.5)
+            if protocol_name == 'Gap':
+                # pp = np.arange(175, 225, 0.5)
+                pp = np.arange(0.5, 50, 0.5)
+            if protocol_name is 'intervals_mas':
+                pp = np.arange(0.5, 50, 0.5)
 
-            tmin = 0
-            # f_rate, b = psth(spike_times, bin_size, plot=False, return_values=True, tmax=tmax, tmin=tmin)
-            # dt = 1 / (100 * 1000)
-            # sigma = 0.001
-            # t2, f2 = convolution_rate(spike_times, t_max=tmax, dt=dt, sigma=sigma)
-
-            # mean_rate = np.round(np.mean(f_rate))
-            # print(str(mean_rate) + ' Hz')
-            # std_rate = np.std(f_rate)
-            # vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, vs_ci_boot = \
-            #     vs_range(p_spikes, pp / 1000, tmin=tmin)
-
-            # ts = np.arange(0.005, 1, 0.005)
-            ts = np.logspace(np.log(0.05), np.log(1), 200, base=np.exp(1))
-            rates = [50, 100, 200, 400]
-            # rates = [100]
-            vs_tmax = np.zeros(shape=(len(rates), len(ts)))
-            # vs_tmax2 = np.zeros(shape=(len(ts), len(pp)))
-            for jj in range(len(rates)):
-                for tt in range(len(ts)):
-                    # t1 = time.time()
-                    p_spikes, isi_p = poission_spikes(nsamples, rates[jj], ts[tt])
-                    # t2 = time.time()
-                    _, _, vs_mean_boot, _, vs_percentile_boot, vs_ci_boot = \
-                        vs_range(p_spikes, pp / 1000, tmin=tmin, n_ci=0)
-                    # t3 = time.time()
-                    # print('p spikes: ' + str(t2-t1))
-                    # print('vs range: ' + str(t3 - t2))
-                    vs_tmax[jj, tt] = np.nanmean(vs_mean_boot)
-                    # vs_tmax2[tmax, :] = vs_mean_boot
-
-            # Fit
-            poisson_vs_duration(ts, vs_tmax, rates)
-            plt.show()
-            embed()
-            exit()
-
-            # Save Plot to HDD
-            figname = '/media/brehm/Data/MasterMoth/figs/' + protocol_name + 'Poisson_tmax_VS.pdf'
-            fig = plt.gcf()
-            fig.set_size_inches(1.9, 3.9)
-            fig.savefig(figname, bbox_inches='tight', dpi=300)
-            plt.close(fig)
+            vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, vs_ci_boot = \
+                vs_range(p_spikes, pp / 1000, tmin=tmin, n_ci=0)
 
         # VS Range
         vs, phase, vs_mean, vs_std, vs_percentile, vs_ci = vs_range(spike_times, pp / 1000, tmin=tmin)
@@ -380,7 +346,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
     return 0
 
 
-def poisson_vs_duration(ts, vs_tmax, rates):
+def poisson_vs_duration(ts, vs_tmax, rates, mode):
     def func(x, a, c, d):
         # return a * np.exp(-d * x) + c
         # return a * np.log(d * x) + c
@@ -407,13 +373,28 @@ def poisson_vs_duration(ts, vs_tmax, rates):
 
         popt, pcov = curve_fit(func, ts_no_nan[id_fit], vs[id_fit], maxfev=10000)
         popt2, pcov2 = curve_fit(func2, ts_no_nan[id_fit2], vs[id_fit2], maxfev=1000)
-        ax.plot(ts_no_nan, vs, 'o', label=str(rates[i]) + ' Hz', color=cc[i], alpha=0.5)
-        ax.plot(ts_no_nan[ts_no_nan <= ts[-1]*0.5], func(ts_no_nan[ts_no_nan <= ts[-1]*0.5], *popt), '-', color=cc[i], linewidth=2)
-        ax.plot(ts_no_nan[id_fit], func(ts_no_nan[id_fit], *popt), '-', color=cc[i], linewidth=2, alpha=0.5)
-        ax.plot(ts_no_nan[id_fit2], func2(ts_no_nan[id_fit2], *popt2), '--', color=cc[i], linewidth=2)
 
+        if mode is 'rates':
+            ax.plot(ts_no_nan, vs, '.', label=str(rates[i]) + ' Hz', color=cc[i], markersize=1, alpha=0.4)
+            ax.plot(ts_no_nan[ts_no_nan <= ts[-1]*0.5], func(ts_no_nan[ts_no_nan <= ts[-1]*0.5], *popt), '-', color=cc[i], linewidth=0.5)
+            ax.plot(ts_no_nan[id_fit], func(ts_no_nan[id_fit], *popt), '-', color=cc[i], linewidth=0.5, alpha=0.25)
+            ax.plot(ts_no_nan[id_fit2], func2(ts_no_nan[id_fit2], *popt2), '--', color=cc[i], linewidth=0.5)
+
+        if mode is 'nsamples':
+            cc = ['0.9', '0.6', '0.2']
+            symbols = ['s', 'd', 'o']
+            ax.plot(ts_no_nan, vs, 'o', label='n = ' + str(rates[i]), markerfacecolor=cc[i], markeredgecolor='black', markersize=1.5, markeredgewidth=0.2)
+            # ax.scatter(ts_no_nan, vs,s=1, color=cc[i], label='n = ' + str(rates[i]))
+
+    # if mode is 'nsamples':
+    #     ax.plot(ts_no_nan[ts_no_nan <= ts[-1] * 0.5], func(ts_no_nan[ts_no_nan <= ts[-1] * 0.5], *popt), '-',
+    #             color='k', linewidth=0.5)
+    #     ax.plot(ts_no_nan[id_fit], func(ts_no_nan[id_fit], *popt), '-', color='k', linewidth=0.5, alpha=0.25)
+    #     ax.plot(ts_no_nan[id_fit2], func2(ts_no_nan[id_fit2], *popt2), '--', color='k', linewidth=0.5)
     ax.set_xlabel('Spike Train Duration [ms]')
     ax.set_ylabel('Mean Vector Strength')
+    ax.set_ylim(0, 1.1)
+    ax.set_yticks(np.arange(0, 1.1, 0.2))
     ax.legend()
     sns.despine()
     return 0
