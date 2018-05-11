@@ -28,12 +28,12 @@ start_time = time.time()
 datasets = ['2018-02-20-aa']
 
 FIFIELD = False
-INTERVAL_MAS = False
+INTERVAL_MAS = True
 Bootstrapping = False
 INTERVAL_REC = False
 GAP = False
 SOUND = False
-POISSON = True
+POISSON = False
 
 EPULSES = False
 ISI = False
@@ -144,11 +144,12 @@ if INTERVAL_REC:
 
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:
-    old = True
+    old = False
+    vs_order = 2
     protocol_name = 'intervals_mas'
     spike_detection = False
     show_detection = False
-    data_name = datasets[-2]
+    data_name = datasets[18]
     # old 0:9
     print(data_name)
     if old:
@@ -159,7 +160,7 @@ if INTERVAL_MAS:
         mf.spike_times_gap(path_names, protocol_name, show=show_detection, save_data=True, th_factor=th_factor,
                            filter_on=True, window=None, mph_percent=mph_percent)
 
-    mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=[True, True], save_data=False, old=old)
+    mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=[True, True], save_data=False, old=old, vs_order=vs_order)
 
     # OLD:
     # mf.moth_intervals_spike_detection(path_names, window=None, th_factor=th_factor, mph_percent=mph_percent,
@@ -167,22 +168,31 @@ if INTERVAL_MAS:
     # mf.moth_intervals_analysis(datasets[0])
 
 if POISSON:
-    compute_pspikes = False
-    mode = 'nsamples'
+    vs_order = 2
+    mode = 'all'
     pp = np.arange(0.5, 50, 0.5)
 
     if mode is 'nsamples':
+        compute_pspikes = True
+        plot_it = False
         nsamples = [1, 10, 100]
         info = nsamples
         xx = len(nsamples)
         rates = [100] * xx
         info2 = 'f=' + str(rates[0]) + '_Hz'
     if mode is 'rates':
+        compute_pspikes = True
+        plot_it = False
         rates = [50, 100, 200, 400]
         info = rates
         xx = len(rates)
-        nsamples = [100] * xx
+        nsamples = [10] * xx
         info2 = 'n=' + str(nsamples[0])
+    if mode is 'all':
+        rates = np.array([50, 100, 200, 400])
+        nsamples = np.array([1, 10, 100])
+        compute_pspikes = False
+        plot_it = True
 
     tmin = 0
     # ts = np.arange(0.005, 1, 0.005)
@@ -192,27 +202,31 @@ if POISSON:
         vs_tmax = np.zeros(shape=(xx, len(ts)))
         for jj in tqdm(range(xx)):
             for tt in range(len(ts)):
-                # t1 = time.time()
                 p_spikes, isi_p = mf.poission_spikes(nsamples[jj], rates[jj], ts[tt])
-                # t2 = time.time()
                 _, _, vs_mean_boot, _, vs_percentile_boot, vs_ci_boot = \
-                    mf.vs_range(p_spikes, pp / 1000, tmin=tmin, n_ci=0)
-                # t3 = time.time()
-                # print('p spikes: ' + str(t2-t1))
-                # print('vs range: ' + str(t3 - t2))
+                    mf.vs_range(p_spikes, pp / 1000, tmin=tmin, n_ci=0, order=vs_order)
                 vs_tmax[jj, tt] = np.nanmean(vs_mean_boot)
-        np.save('/media/brehm/Data/MasterMoth/figs/' + 'vs_tmax_' + mode + '.npy', vs_tmax)
+        np.save('/media/brehm/Data/MasterMoth/figs/' + 'vs_tmax_' + mode + '_order_' + str(vs_order) + '.npy', vs_tmax)
+        print('Data Saved')
     else:
-       vs_tmax = np.load('/media/brehm/Data/MasterMoth/figs/' + 'vs_tmax_' + mode + '.npy')
+        # vs_tmax = np.load('/media/brehm/Data/MasterMoth/figs/' + 'vs_tmax_' + mode + '.npy')
+        vs_rates = np.load('/media/brehm/Data/MasterMoth/figs/' + 'vs_tmax_' + 'rates' + '_order_' + str(vs_order) + '.npy')
+        vs_samples = np.load('/media/brehm/Data/MasterMoth/figs/' + 'vs_tmax_' + 'nsamples' + '_order_' + str(vs_order) + '.npy')
 
-    # Fit and Plot
-    mf.poisson_vs_duration(ts, vs_tmax, info, mode=mode)
-    # Save Plot to HDD
-    figname = '/media/brehm/Data/MasterMoth/figs/' + 'Poisson_tmax_VS_' + info2 + '.pdf'
-    fig = plt.gcf()
-    fig.set_size_inches(2.9, 1.9)
-    fig.savefig(figname, bbox_inches='tight', dpi=300)
-    plt.close(fig)
+    if plot_it:
+        # Fit and Plot
+        # mf.poisson_vs_duration(ts, vs_tmax, info, mode=mode)
+        a = [True] * len(vs_rates)
+        # a[1] = False
+        mf.poisson_vs_duration2(ts, vs_rates[a], vs_samples, rates[a], nsamples)
+
+        # Save Plot to HDD
+        # figname = '/media/brehm/Data/MasterMoth/figs/' + 'Poisson_tmax_VS_' + info2 + '.pdf'
+        figname = '/media/brehm/Data/MasterMoth/figs/PoissonDuration_VS_order_' + str(vs_order) + '.pdf'
+        fig = plt.gcf()
+        fig.set_size_inches(3.9, 1.9)
+        fig.savefig(figname, bbox_inches='tight', dpi=300)
+        plt.close(fig)
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
