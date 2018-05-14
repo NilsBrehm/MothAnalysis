@@ -23,9 +23,9 @@ VIEWNIX = False
 OVERVIEW = False
 GetSession = False
 
-FIFIELD = False
+FIFIELD = True
 
-INTERVAL_MAS = True
+INTERVAL_MAS = False
 INTERVAL_REC = False
 GAP = False
 
@@ -51,6 +51,12 @@ if SELECT:
                     datasets.append(row[0])
             if INTERVAL_REC:
                 if row[2] == 'True':  # this is RectIntervals
+                    datasets.append(row[0])
+            if GAP:
+                if row[1] == 'True':  # this is GAP
+                    datasets.append(row[0])
+            if FIFIELD:
+                if row[4] == 'True':  # this is FI
                     datasets.append(row[0])
     datasets = sorted(datasets)
 
@@ -93,10 +99,22 @@ if VIEWNIX:
 
 # FIField
 if FIFIELD:
+    spike_detection = True
+    collect_volt = True
+    show_detection = True
     print('Starting FIField Data Gathering')
-    mf.fifield_voltage2(path_names, 'FIField-sine_wave-1')
-    mf.fifield_spike_detection(path_names, th_factor=2, th_window=None, mph_percent=10, filter_on=True, valley=False,
-                              min_th=50, save_data=False)
+    data_set_number = -5
+    data_name = datasets[data_set_number]
+    print(str(data_set_number) + ' of ' + str(len(datasets)))
+    print(data_name)
+    path_names = mf.get_directories(data_name=data_name)
+
+    if collect_volt:
+        mf.fifield_voltage2(path_names, 'FIField-sine_wave-1')
+
+    if spike_detection:
+        mf.fifield_spike_detection(path_names, th_factor=2, th_window=None, mph_percent=10, filter_on=True, valley=False,
+                                   min_th=50, save_data=True, show=show_detection)
 
 # Intervals: MothASongs
 if INTERVAL_MAS:

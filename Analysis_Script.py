@@ -27,8 +27,8 @@ start_time = time.time()
 
 datasets = ['2018-02-20-aa']
 
-FIFIELD = False
-INTERVAL_MAS = True
+FIFIELD = True
+INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
 GAP = False
@@ -48,9 +48,9 @@ SELECT = True
 
 # **********************************************************************************************************************
 # Settings for Spike Detection =========================================================================================
-th_factor = 3
+th_factor = 4
 mph_percent = 2
-bin_size = 0.005
+bin_size = 0.001
 # If true show plots (list: 0: spike detection, 1: overview, 2: vector strength)
 show = False
 
@@ -92,6 +92,9 @@ if SELECT:
             if GAP:
                 if row[1] == 'True':  # this is GAP
                     datasets.append(row[0])
+            if FIFIELD:
+                if row[4] == 'True':  # this is FI
+                    datasets.append(row[0])
     datasets = sorted(datasets)
 
 # Get relative paths ===================================================================================================
@@ -110,21 +113,29 @@ print('data set count: ' + str(len(datasets)))
 if GAP:
     # dat = datasets[5]
     # dat = datasets[-2]
+    old = False
+    vs_order = 2
     protocol_name = 'Gap'
-    spike_detection = False
-    data_name = datasets[-2]
+    spike_detection = True
+    show_detection = False
+    data_set_number = 11
+    data_name = datasets[data_set_number]
+    print(str(data_set_number) + ' of ' + str(len(datasets)))
     print(data_name)
     path_names = mf.get_directories(data_name=data_name)
 
     # tag_list = np.load(path_names[1] + 'Gap_tag_list.npy')
     if spike_detection:
-        show_detection = False
-        mf.spike_times_gap(path_names, protocol_name, show=show_detection, save_data=True, th_factor=th_factor, filter_on=True,
-                           window=None, mph_percent=mph_percent)
-    mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=False, show=True, save_data=False, old=False)
+        mf.spike_times_gap(path_names, protocol_name, show=show_detection, save_data=True, th_factor=th_factor,
+                           filter_on=True, window=None, mph_percent=mph_percent)
+
+    mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=[True, True], save_data=False,
+                         old=old, vs_order=vs_order)
+
 
 # Rect Intervals
 if INTERVAL_REC:
+    vs_order = 2
     protocol_name = 'PulseIntervalsRect'
     spike_detection = False
     for dat in range(len(datasets)):
@@ -137,7 +148,7 @@ if INTERVAL_REC:
             mf.spike_times_gap(path_names, protocol_name, show=show_detection, save_data=True, th_factor=th_factor,
                                filter_on=True,
                                window=None, mph_percent=mph_percent)
-        mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=True, save_data=False, old=False)
+        mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=True, save_data=False, old=False, vs_order=vs_order)
         exit()
 
     # mf.plot_cohen(protocol_name, datasets, save_fig=True)
@@ -230,12 +241,18 @@ if POISSON:
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
+    data_set_number = 6
+    data_name = datasets[data_set_number]
+    print(str(data_set_number) + ' of ' + str(len(datasets)))
+    print(data_name)
+    path_names = mf.get_directories(data_name=data_name)
+
     save_plot = True
     plot_fi_field = True
     single_fi = True
     data = path_names[0]
     p = path_names[1]
-    th = 6
+    th = 10
     spike_count, fi_field, fsl = mf.fifield_analysis2(path_names, th, plot_fi=False)
     # freqs = np.zeros(len(spike_count))
     freqs = [[]] * len(spike_count)
@@ -245,12 +262,8 @@ if FIFIELD:
         i += 1
     freqs = sorted(freqs)
 
-    font = {'family': 'normal',
-            'weight': 'bold',
-            'size': 14}
-
-    plt.rc('font', **font)
-
+    mf.plot_settings()
+    # Plot FI Field
     if plot_fi_field:
         plt.plot(fi_field[:, 0], fi_field[:, 1], 'ko-')
         plt.xlabel('Frequency [kHz]')
@@ -266,44 +279,44 @@ if FIFIELD:
             fig.set_size_inches(10, 10)
             fig.savefig(figname, bbox_inches='tight', dpi=300)
             plt.close(fig)
-            print('Plot saved for ' + data)
+            print('FI Field Plot saved for ' + data)
         else:
             plt.show()
 
     # Plot single FI Curve
     if single_fi:
-        ff = 55
-        fig, ax1 = plt.subplots()
-        color = 'k'
-        ax1.set_xlabel('Sound Pressure Level [dB SPl]')
-        ax1.set_ylabel('Spike Count per Stimulus', color=color)
-        ax1.errorbar(spike_count[ff][:, 0], spike_count[ff][:, 1], yerr=spike_count[ff][:, 2],
-                     marker='o', color='k', linewidth=3, markersize=8)
-        ax1.tick_params(axis='y', labelcolor=color)
-        ax1.set_yticks(np.arange(0, 20, 2))
-        ax1.set_ylim(0, 20)
-        ax1.set_xticks(np.arange(10, 90, 10))
-        ax1.set_xlim(10, 90)
-        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-        color = 'tab:red'
-        ax2.set_ylabel('First Spike Latency [ms]', color=color)  # we already handled the x-label with ax1
-        ax2.errorbar(fsl[ff][:, 0], fsl[ff][:, 1] * 1000, yerr=fsl[ff][:, 2] * 1000, marker='o',
-                     color='r', linewidth=3, markersize=8)
-        ax2.tick_params(axis='y', labelcolor=color)
-        ax2.set_yticks(np.arange(0, 20, 2))
-        ax2.set_ylim(0, 20)
-        plt.title(str(ff) + ' kHz')
-        fig.tight_layout()  # otherwise the right y-label is slightly clipped
-        if save_plot:
-            # Save Plot to HDD
-            figname = p + 'fi_curve_' + str(ff) + 'kHz.png'
-            fig = plt.gcf()
-            fig.set_size_inches(10, 10)
-            fig.savefig(figname, bbox_inches='tight', dpi=300)
-            plt.close(fig)
-            print('Plot saved for ' + data)
-        else:
-            plt.show()
+        for ff in freqs:
+            fig, ax1 = plt.subplots()
+            color = 'k'
+            ax1.set_xlabel('Sound Pressure Level [dB SPl]')
+            ax1.set_ylabel('Spike Count per Stimulus', color=color)
+            ax1.errorbar(spike_count[ff][:, 0], spike_count[ff][:, 1], yerr=spike_count[ff][:, 2],
+                         marker='o', color='k', linewidth=3, markersize=8)
+            ax1.tick_params(axis='y', labelcolor=color)
+            ax1.set_yticks(np.arange(0, 20, 2))
+            ax1.set_ylim(0, 20)
+            ax1.set_xticks(np.arange(10, 90, 10))
+            ax1.set_xlim(10, 90)
+            ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+            color = 'tab:red'
+            ax2.set_ylabel('First Spike Latency [ms]', color=color)  # we already handled the x-label with ax1
+            ax2.errorbar(fsl[ff][:, 0], fsl[ff][:, 1] * 1000, yerr=fsl[ff][:, 2] * 1000, marker='o',
+                         color='r', linewidth=3, markersize=8)
+            ax2.tick_params(axis='y', labelcolor=color)
+            ax2.set_yticks(np.arange(0, 20, 2))
+            ax2.set_ylim(0, 20)
+            plt.title(str(ff) + ' kHz')
+            fig.tight_layout()  # otherwise the right y-label is slightly clipped
+            if save_plot:
+                # Save Plot to HDD
+                figname = p + 'fi_curve_' + str(ff) + 'kHz.png'
+                fig = plt.gcf()
+                fig.set_size_inches(10, 10)
+                fig.savefig(figname, bbox_inches='tight', dpi=300)
+                plt.close(fig)
+                print('Plot saved for ' + str(ff) + ' kHz')
+            else:
+                plt.show()
         exit()
 
     # Plot FI-Curves

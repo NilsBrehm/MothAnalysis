@@ -190,10 +190,9 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
             pp = np.arange(0.5, 50, 0.5)
         if protocol_name == 'Gap':
             stim, stim_time, gap, pulse_duration, period = tagtostimulus_gap(path_names, protocol_name)
-            # pp = np.arange(175, 225, 0.5)
+            pp = np.arange(175, 225, 0.5)
             tmax = stim_time[0][-1]
             tmin = tmax * 0.2
-            pp = np.arange(0.5, 50, 0.5)
         if protocol_name is 'intervals_mas':
             stim = [[]] * len(tag_list)
             stim_time = [[]] * len(tag_list)
@@ -210,7 +209,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
 
     vector_strength = np.zeros(shape=(len(tag_list), 8))
     aa = 0
-    cohen_d = np.zeros(shape=(len(tag_list), 3))
+    # cohen_d = np.zeros(shape=(len(tag_list), 3))
     # Loop trough all tags in tag_list
     for i in tqdm(range(len(tag_list)), desc='Interval Analysis'):
 
@@ -243,13 +242,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
             tmin = tmax * 0.2
             nsamples = 100
             p_spikes, isi_p = poission_spikes(nsamples, 100, tmax)
-            if protocol_name == 'PulseIntervalsRect':
-                pp = np.arange(0.5, 50, 0.5)
-            if protocol_name == 'Gap':
-                # pp = np.arange(175, 225, 0.5)
-                pp = np.arange(0.5, 50, 0.5)
-            if protocol_name is 'intervals_mas':
-                pp = np.arange(0.5, 50, 0.5)
+            pp = np.arange(0.5, 50, 0.5)
 
             vs_boot, phase_boot, vs_mean_boot, vs_std_boot, vs_percentile_boot, vs_ci_boot = \
                 vs_range(p_spikes, pp / 1000, tmin=tmin, n_ci=0, order=vs_order)
@@ -263,8 +256,9 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
             t_period = float(period[i]) / 1000
             idx = pp == period_num
         if protocol_name == 'Gap':  # Use gap as period for VS
-            t_period = float(gap[i]) / 1000
-            idx = pp == gaps
+            # t_period = float(gap[i]) / 1000
+            t_period = float(period[i]) / 1000
+            idx = pp == period_num
         if protocol_name is 'intervals_mas':
             t_period = float(gaps) / 1000
             idx = pp == int(gaps)
@@ -319,14 +313,26 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         vs_boot[3] = vector_phase_boot
 
         if vs_order == 2:
-            vector_strength[i, :] = [period_num, pd, gaps, vs_mean[idx][0], vs_ci[idx, 0], vs_ci[idx, 1],
-                                     vs_mean_boot[idx][0], vs_percentile_boot[idx][0]]
+            try:
+                vector_strength[i, :] = [period_num, pd, gaps, vs_mean[idx][0], vs_ci[idx, 0], vs_ci[idx, 1],
+                                         vs_mean_boot[idx][0], vs_percentile_boot[idx][0]]
+            except:
+                embed()
+                exit()
         if vs_order == 1:
             vector_strength[i, :] = [period_num, pd, gaps, vs_mean[idx][0], vs_ci, vs_ci,
                                      vs_mean_boot[idx][0], vs_percentile_boot]
 
         # Now Plot it
-        if show[0] and (gaps == 20 or gaps <= 6):
+        # uu = gaps == np.array([10, 5, 4, 3, 2, 1, 0])
+        uu = gaps == np.array([20, 10, 5])
+        if show[0] and uu.any():
+            # Adapt bin size to half the gap size
+            if gaps < 0:
+                bin_size = gaps / 2000
+            else:
+                bin_size = 10 / 2000
+
             plot_gaps(spike_times, stim_time[i], stim[i], bin_size, p_spikes, isi_p, vs, vs_boot, mark_intervals=False)
             if save_fig:
                 # Save Plot to HDD
@@ -504,8 +510,8 @@ def plot_vs_gap(vs, ax, protocol_name):
         label_10 = '0.1 ms'
         label_5 = '0.4 ms'
     if protocol_name is 'Gap':
-        pd_idx_10 = [True] * len(pd)
-        pd_idx_5 = False
+        pd_idx_10 = np.array([True] * len(pd))
+        pd_idx_5 = np.array([False])
         label_10 = '10 ms'
         label_5 = '5 ms'
     gaps = vs[:, 2]
@@ -650,7 +656,7 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
 
     # Compute Convolved Firing Rate
     dt = 1 / fs
-    sigma = 0.001  # in seconds
+    sigma = bin_size  # in seconds
     rate_conv_time, rate_conv, rate_conv_std = convolution_rate(spike_times, tmax, dt, sigma)
     # Ignore the first 20 % of trial for mean firing rate
     limits = np.int((len(rate_conv)/fs)*0.2 * fs)
@@ -823,8 +829,9 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
 
     distance.plot(stim_time*1000, stim, 'k', alpha=0.5, label='Stimulus')
     distance.plot(t_sync_ra*1000, sync_ra, 'r', label='SYNC')
-    # distance.plot(t_spike_ra, spike_ra, 'k:', label='SPIKE')
-    # distance.plot(t_isi_ra, isi_ra, 'r:', label='ISI')
+    # distance.plot(t_spike_ra*1000, spike_ra, 'g', label='SPIKE')
+    # distance.plot(t_isi_ra*1000, isi_ra, 'm', label='ISI')
+
     # distance.plot(sync_x, sync_y, 'g', label='SYNC')
     # distance.plot(isi_x, isi_y, 'k', label='ISI')
     # distance.plot(spike_x, spike_y, 'r', label='SPIKE')
@@ -962,17 +969,18 @@ def spike_times_gap(path_names, protocol_name, show, save_data, th_factor=1, fil
             spike_times_valley[k] = spike_times_valley[k] / fs  # in seconds
         spikes.update({tag_list[i]: spike_times})
 
-        # Stim | Time | Gap | Tau | Freq
-        metas = [voltage[i]['stimulus'], voltage[i]['stimulus_time'], voltage[i]['gap'], voltage[i][0][1], voltage[i][0][3]]
-        meta_data.update({tag_list[i]: metas})
+        if protocol_name is 'intervals_mas':
+            # Stim | Time | Gap | Tau | Freq
+            metas = [voltage[i]['stimulus'], voltage[i]['stimulus_time'], voltage[i]['gap'], voltage[i][0][1], voltage[i][0][3]]
+            meta_data.update({tag_list[i]: metas})
 
     # Save to HDD
     if save_data:
         file_name = file_pathname + protocol_name + '_spikes.npy'
         np.save(file_name, spikes)
-
-        file_name2 = file_pathname + protocol_name + '_meta.npy'
-        np.save(file_name2, meta_data)
+        if protocol_name is 'intervals_mas':
+            file_name2 = file_pathname + protocol_name + '_meta.npy'
+            np.save(file_name2, meta_data)
         print('Spike Times saved (protocol: ' + protocol_name + ')')
 
     return spikes
@@ -1913,10 +1921,11 @@ def fifield_voltage2(path_name, tag):
         pickle.dump(volt, fp)
 
     f.close()
+    print('Voltage saved')
     return 0
 
 
-def fifield_spike_detection(path_names, th_factor=4, th_window=400, mph_percent=0.8, filter_on=True, valley=False, min_th=20, save_data=True):
+def fifield_spike_detection(path_names, th_factor=4, th_window=400, mph_percent=0.8, filter_on=True, valley=False, min_th=20, save_data=True, show=False):
     # (data_name, dynamic, valley, th_factor=4, min_dist=70, maxph=10, th_window=400, filter_on=True):
     data_name = path_names[0]
     pathname = path_names[1]
@@ -1952,36 +1961,39 @@ def fifield_spike_detection(path_names, th_factor=4, th_window=400, mph_percent=
         spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
 
         # Remove large spikes
-        # Remove large spikes
         spike_times[k], spike_times_valley[k], marked, marked_valley = remove_large_spikes(x, spike_times[k],
                                                                                            spike_times_valley[k],
-                                                                                           mph_percent)
+                                                                                           mph_percent, method='std')
         # if np.random.rand(1) > 0.98:
         # if parameters[k][2] > 70 and np.random.rand(1) > 0.8:
-        if parameters[k][1] == 50000 and (parameters[k][2] > 70 or (parameters[k][2] < 45 and parameters[k][2] > 35)):
-            plt.figure()
-            plt.plot(x)
-            plt.xlabel('Time')
-            plt.ylabel('Voltage [uV]')
-            plt.ylim(-150, 150)
-            if spike_times[k].any():
-                plt.plot(spike_times[k], x[spike_times[k]], 'ro')
-            if spike_times_valley[k].any():
-                plt.plot(spike_times_valley[k], x[spike_times_valley[k]], 'bo')
-            plt.plot(marked, x[marked], 'kx')
-            if th_window is None:
-                plt.plot([0, len(x)], [th, th], 'r--')
-                plt.plot([0, len(x)], [-th, -th], 'r--')
-                plt.title('ID: {:.0f}'.format(parameters[k][0]) + ', ' + '{:.0f} kHz'.format(
-                    parameters[k][1] / 1000) + ', ' + '{:.0f} dB'.format(parameters[k][2]) + ', '
-                          + 'th: {:.0f}'.format(th))
-            else:
-                plt.plot(th / 2, 'b--')
-                plt.plot(-th / 2, 'b--')
-                plt.title('ID: {:.0f}'.format(parameters[k][0]) + ', ' + '{:.0f} kHz'.format(
-                    parameters[k][1] / 1000) + ', ' + '{:.0f} dB'.format(parameters[k][2]))
+        if show:
+            # if parameters[k][1] == 50000 and (parameters[k][2] > 70 or (parameters[k][2] < 45 and parameters[k][2] > 35)):
+            if np.random.rand(1) > 0.99:
+            # if parameters[k][1] == 50000 and parameters[k][2] > 70 and np.random.rand(1) > 0.8:
+                plt.figure()
+                plt.plot(x)
+                plt.xlabel('Time')
+                plt.ylabel('Voltage [uV]')
+                plt.ylim(-150, 150)
+                if spike_times[k].any():
+                    plt.plot(spike_times[k], x[spike_times[k]], 'ro')
+                if spike_times_valley[k].any():
+                    plt.plot(spike_times_valley[k], x[spike_times_valley[k]], 'bo')
+                plt.plot(marked, x[marked], 'kx')
+                if th_window is None:
+                    plt.plot([0, len(x)], [th, th], 'r--')
+                    plt.plot([0, len(x)], [-th, -th], 'r--')
+                    plt.title('ID: {:.0f}'.format(parameters[k][0]) + ', ' + '{:.0f} kHz'.format(
+                        parameters[k][1] / 1000) + ', ' + '{:.0f} dB'.format(parameters[k][2]) + ', '
+                              + 'th: {:.0f}'.format(th))
+                else:
+                    plt.plot(th / 2, 'b--')
+                    plt.plot(-th / 2, 'b--')
+                    plt.title('ID: {:.0f}'.format(parameters[k][0]) + ', ' + '{:.0f} kHz'.format(
+                        parameters[k][1] / 1000) + ', ' + '{:.0f} dB'.format(parameters[k][2]))
 
-            plt.show()
+                plt.ylim(np.min(x)-20, np.max(x)+20)
+                plt.show()
         spike_times[k] = spike_times[k] / fs  # now in seconds
         spike_times_valley[k] = spike_times_valley[k] / fs  # now in seconds
 
@@ -1992,6 +2004,7 @@ def fifield_spike_detection(path_names, th_factor=4, th_window=400, mph_percent=
         dname = pathname + 'FIField_spike_times'
         with open(dname, 'wb') as fp:
             pickle.dump(spike_times, fp)
+        print('Spike Times saved')
 
     return spike_times, spike_times_valley
 
