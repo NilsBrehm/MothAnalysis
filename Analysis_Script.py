@@ -93,7 +93,7 @@ if SELECT:
                 if row[1] == 'True':  # this is GAP
                     datasets.append(row[0])
             if FIFIELD:
-                if row[4] == 'True':  # this is FI
+                if row[4] == 'True' and row[6] == 'Creatonotos':  # this is FI
                     datasets.append(row[0])
     datasets = sorted(datasets)
 
@@ -241,83 +241,94 @@ if POISSON:
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
-    data_set_number = 6
-    data_name = datasets[data_set_number]
-    print(str(data_set_number) + ' of ' + str(len(datasets)))
-    print(data_name)
-    path_names = mf.get_directories(data_name=data_name)
+    for k in range(len(datasets)):
+        try:
+            data_set_number = k
+            data_name = datasets[data_set_number]
+            print(str(data_set_number) + ' of ' + str(len(datasets)))
+            print(data_name)
+            path_names = mf.get_directories(data_name=data_name)
 
-    save_plot = True
-    plot_fi_field = True
-    single_fi = True
-    data = path_names[0]
-    p = path_names[1]
-    th = 10
-    spike_count, fi_field, fsl = mf.fifield_analysis2(path_names, th, plot_fi=False)
-    # freqs = np.zeros(len(spike_count))
-    freqs = [[]] * len(spike_count)
-    i = 0
-    for key in spike_count:
-        freqs[i] = int(key)
-        i += 1
-    freqs = sorted(freqs)
+            save_plot = True
+            plot_fi_field = True
+            single_fi = True
+            data = path_names[0]
+            p = path_names[1]
+            ths = [50, 100, 150, 200, 250, 300]
+            for th in ths:
+                # th = 200  # in Hz (or spike count)
+                spike_count, rate, fi_field, fsl = mf.fifield_analysis2(path_names, th, plot_fi=False, method='rate')
+                # freqs = np.zeros(len(spike_count))
+                freqs = [[]] * len(spike_count)
+                i = 0
+                for key in spike_count:
+                    freqs[i] = int(key)
+                    i += 1
+                freqs = sorted(freqs)
 
-    mf.plot_settings()
-    # Plot FI Field
-    if plot_fi_field:
-        plt.plot(fi_field[:, 0], fi_field[:, 1], 'ko-')
-        plt.xlabel('Frequency [kHz]')
-        plt.ylabel('dB SPL at Threshold (' + str(th) + ' spikes)')
-        plt.ylim(0, 90)
-        plt.yticks(np.arange(0, 90, 20))
-        plt.xlim(10, 110)
-        plt.xticks(np.arange(20, 110, 10))
-        if save_plot:
-            # Save Plot to HDD
-            figname = p + 'fi_field.png'
-            fig = plt.gcf()
-            fig.set_size_inches(10, 10)
-            fig.savefig(figname, bbox_inches='tight', dpi=300)
-            plt.close(fig)
-            print('FI Field Plot saved for ' + data)
-        else:
-            plt.show()
-
-    # Plot single FI Curve
-    if single_fi:
-        for ff in freqs:
-            fig, ax1 = plt.subplots()
-            color = 'k'
-            ax1.set_xlabel('Sound Pressure Level [dB SPl]')
-            ax1.set_ylabel('Spike Count per Stimulus', color=color)
-            ax1.errorbar(spike_count[ff][:, 0], spike_count[ff][:, 1], yerr=spike_count[ff][:, 2],
-                         marker='o', color='k', linewidth=3, markersize=8)
-            ax1.tick_params(axis='y', labelcolor=color)
-            ax1.set_yticks(np.arange(0, 20, 2))
-            ax1.set_ylim(0, 20)
-            ax1.set_xticks(np.arange(10, 90, 10))
-            ax1.set_xlim(10, 90)
-            ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-            color = 'tab:red'
-            ax2.set_ylabel('First Spike Latency [ms]', color=color)  # we already handled the x-label with ax1
-            ax2.errorbar(fsl[ff][:, 0], fsl[ff][:, 1] * 1000, yerr=fsl[ff][:, 2] * 1000, marker='o',
-                         color='r', linewidth=3, markersize=8)
-            ax2.tick_params(axis='y', labelcolor=color)
-            ax2.set_yticks(np.arange(0, 20, 2))
-            ax2.set_ylim(0, 20)
-            plt.title(str(ff) + ' kHz')
-            fig.tight_layout()  # otherwise the right y-label is slightly clipped
+                mf.plot_settings()
+                # Plot FI Field
+                if plot_fi_field:
+                    plt.plot(fi_field[:, 0], fi_field[:, 1], 'o-', label='th=' + str(th))
+                    plt.xlabel('Frequency [kHz]')
+                    plt.ylabel('dB SPL at Threshold (' + str(th) + ' Hz)')
+                    plt.ylim(0, 90)
+                    plt.yticks(np.arange(0, 90, 20))
+                    plt.xlim(10, 110)
+                    plt.xticks(np.arange(20, 110, 10))
+            plt.legend()
             if save_plot:
                 # Save Plot to HDD
-                figname = p + 'fi_curve_' + str(ff) + 'kHz.png'
+                figname = p + 'fi_field.png'
                 fig = plt.gcf()
-                fig.set_size_inches(10, 10)
-                fig.savefig(figname, bbox_inches='tight', dpi=300)
+                fig.set_size_inches(5, 5)
+                fig.savefig(figname, bbox_inches='tight', dpi=150)
                 plt.close(fig)
-                print('Plot saved for ' + str(ff) + ' kHz')
+                print('FI Field Plot saved for ' + data)
             else:
                 plt.show()
-        exit()
+
+            # Plot single FI Curve
+            if single_fi:
+                for ff in tqdm(freqs, desc='FI Curves'):
+                    fig, ax1 = plt.subplots()
+                    color = 'k'
+                    ax1.set_xlabel('Sound Pressure Level [dB SPl]')
+                    ax1.set_ylabel('Firing Rate [Hz]', color=color)
+                    ax1.errorbar(rate[ff][:, 0], rate[ff][:, 1], yerr=rate[ff][:, 2],
+                                 marker='o', color='k', linewidth=1, markersize=3)
+                    ax1.plot(rate[ff][:, 0], [th] * len(rate[ff][:, 0]), 'g--')
+                    ax1.tick_params(axis='y', labelcolor=color)
+                    ax1.set_yticks(np.arange(0, 500, 100))
+                    ax1.set_ylim(0, 500)
+                    ax1.set_xticks(np.arange(10, 90, 10))
+                    ax1.set_xlim(10, 90)
+
+                    # First Spike Latency
+                    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+                    color = 'tab:red'
+                    ax2.set_ylabel('First Spike Latency [ms]', color=color)  # we already handled the x-label with ax1
+                    ax2.errorbar(fsl[ff][:, 0], fsl[ff][:, 1] * 1000, yerr=fsl[ff][:, 2] * 1000, marker='o',
+                                 color='r', linewidth=0.5, markersize=2, alpha=0.5)
+                    ax2.tick_params(axis='y', labelcolor=color)
+                    ax2.set_yticks(np.arange(0, 20, 2))
+                    ax2.set_ylim(0, 20)
+
+                    plt.title(str(ff) + ' kHz')
+                    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+                    if save_plot:
+                        # Save Plot to HDD
+                        figname = p + 'fi_curve_' + str(ff) + 'kHz.png'
+                        fig = plt.gcf()
+                        fig.set_size_inches(5, 5)
+                        fig.savefig(figname, bbox_inches='tight', dpi=80)
+                        plt.close(fig)
+                        # print('Plot saved for ' + str(ff) + ' kHz')
+                    else:
+                        plt.show()
+        except:
+            print(data_name + ' not found')
+    exit()
 
     # Plot FI-Curves
     for f in range(len(freqs)):
