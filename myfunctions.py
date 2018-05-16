@@ -43,16 +43,16 @@ def get_directories(data_name):
 def plot_settings():
     matplotlib.rcParams['font.family'] = 'serif'
     matplotlib.rcParams['font.sans-serif'] = ['Times']
-    matplotlib.rcParams['font.size'] = 8
+    matplotlib.rcParams['font.size'] = 4
     matplotlib.rcParams['xtick.major.pad'] = '2'
     matplotlib.rcParams['ytick.major.pad'] = '2'
     matplotlib.rcParams['ytick.major.size'] = 4
     matplotlib.rcParams['xtick.major.size'] = 4
-    matplotlib.rcParams['axes.titlesize'] = 8
-    matplotlib.rcParams['axes.labelsize'] = 8
-    matplotlib.rcParams['axes.linewidth'] = 1.25
-    matplotlib.rcParams['xtick.labelsize'] = 6
-    matplotlib.rcParams['ytick.labelsize'] = 6
+    matplotlib.rcParams['axes.titlesize'] = 4
+    matplotlib.rcParams['axes.labelsize'] = 4
+    matplotlib.rcParams['axes.linewidth'] = 1
+    matplotlib.rcParams['xtick.labelsize'] = 4
+    matplotlib.rcParams['ytick.labelsize'] = 4
     matplotlib.rcParams['lines.linewidth'] = 1
     matplotlib.rcParams['lines.markersize'] = 2
     matplotlib.rcParams['lines.color'] = 'k'
@@ -434,6 +434,23 @@ def poisson_vs_duration(ts, vs_tmax, rates, mode):
     sns.despine()
     return 0
 
+
+def fit_function(x, data):
+    def func(xx, bottom, top, V50, Slope):
+        # return a * np.exp(-d * x1) + c
+        return bottom + ((top-bottom)/(1+np.exp((V50-xx)/Slope)))
+
+    p0 = [0, np.max(data), np.max(x)/2, 1]
+    bounds = (0, [np.max(data)/2+10, np.max(data)*2+10, np.max(x), np.inf])
+    # print('p0:')
+    # print(p0)
+    # print('bounds:')
+    # print(bounds)
+    # print('-----------------')
+    popt, pcov = curve_fit(func, x, data, p0=p0, maxfev=10000,  bounds=bounds)
+    y = func(x, *popt)
+
+    return x, y, popt
 
 def poisson_vs_duration2(ts, vs_rates, vs_samples, rates, nsamples):
     def func(x, a, c, d):
@@ -2066,6 +2083,8 @@ def fifield_analysis2(path_names, threshold, plot_fi, method='rate'):
     spike_count = {}
     firing_rate = {}
     first_spike_latency = {}
+    first_spike_isi = {}
+    d_isi = {}
     for i in range(len(used_freqs)):
         # Get all trials with frequency i
         y = spike_times[parameters[:, 1] == used_freqs[i]]
@@ -2074,40 +2093,67 @@ def fifield_analysis2(path_names, threshold, plot_fi, method='rate'):
         spc = np.zeros((len(used_amps), 3))
         rate = np.zeros((len(used_amps), 3))
         fsl = np.zeros((len(used_amps), 3))
+        fisi = np.zeros((len(used_amps), 3))
+        d = np.zeros((len(used_amps), 4))
         for k in range(len(used_amps)):
             # Get all trials with amplitude k
             x = y[amps == used_amps[k]]
             if sum(amps == used_amps[k]) == 0:
                 continue
+
+            # Spike Train Distance
+            if len(x[0]) > 0:
+                edges = [0, stimulus_duration]
+                trains = [[]] * len(x)
+                for p in range(len(x)):
+                    trains[p] = spk.SpikeTrain(x[p], edges)
+                d[k, 1] = spk.isi_distance(trains, interval=edges)
+                d[k, 2] = spk.spike_sync(trains, interval=edges)
+                d[k, 3] = spk.spike_distance(trains, interval=edges)
+            else:
+                d[k, 1] = np.nan
+
+            # Rate and First Spike Statistics
             single_count = np.zeros((len(x), 1))
             single_rate = np.zeros((len(x), 1))
             first_spike = np.zeros((len(x), 1))
+            first_isi = np.zeros((len(x), 1))
             for j in range(len(x)):  # Loop over all single trials and count spikes
                 single_count[j] = len(x[j])  # Count spikes per trial
                 single_rate[j] = len(x[j]) / stimulus_duration
                 if len(x[j]) == 0:
                     first_spike[j] = np.nan
+                    first_isi[j] = np.nan
                 #elif x[j][0] <= 0.005:
                 #   first_spike[j] = np.nan
                 else:
                     first_spike[j] = x[j][0]  # First Spike Latency
+                    first_isi[j] = (x[j][1] - x[j][0]) * 1000  # Fist Spike ISI in ms
             spc[k, 2] = np.std(single_count)
             spc[k, 1] = np.mean(single_count)
             spc[k, 0] = used_amps[k]
             rate[k, 2] = np.std(single_rate)
             rate[k, 1] = np.mean(single_rate)
             rate[k, 0] = used_amps[k]
+            d[k, 0] = used_amps[k]
 
             if np.isnan(first_spike).all():
                 fsl[k, 2] = np.nan
                 fsl[k, 1] = np.nan
+                fisi[k, 2] = np.nan
+                fisi[k, 1] = np.nan
             else:
                 fsl[k, 2] = np.nanstd(first_spike)
                 fsl[k, 1] = np.nanmean(first_spike)
+                fisi[k, 2] = np.nanstd(first_isi)
+                fisi[k, 1] = np.nanmean(first_isi)
             fsl[k, 0] = used_amps[k]
+            fisi[k, 0] = used_amps[k]
         spike_count.update({used_freqs[i]/1000: spc})
         firing_rate.update({used_freqs[i] / 1000: rate})
         first_spike_latency.update({used_freqs[i]/1000: fsl})
+        first_spike_isi.update({used_freqs[i] / 1000: fisi})
+        d_isi.update({used_freqs[i] / 1000: d})
     # plt.plot(spike_count[70][:,0], spike_count[70][:,1]); plt.show()
 
     if method is 'count':
@@ -2139,12 +2185,27 @@ def fifield_analysis2(path_names, threshold, plot_fi, method='rate'):
             cc += 1
         fi_field = fi_field[fi_field[:, 0].argsort()]
 
+    # Compute FIFIELD: Spike Train Distance
+    threshold_d = 0.5
+    fi_field_d = np.zeros((len(d_isi), 2))
+    cc = 0
+    for i in d_isi:
+        idx = d_isi[i][:, 2] >= threshold_d
+        if sum(idx) == 0:
+            a = np.nan
+        else:
+            a = np.min(d_isi[i][idx, 0])
+        fi_field_d[cc, 0] = i
+        fi_field_d[cc, 1] = a
+        cc += 1
+    fi_field_d = fi_field_d[fi_field_d[:, 0].argsort()]
+
     if plot_fi:
         plt.plot(fi_field[:, 0], fi_field[:, 1], 'ko-')
         plt.xlabel('Frequency [kHz]')
         plt.ylabel('dB SPL at threshold (' + str(threshold) + ' spikes)')
         plt.show()
-    return spike_count, firing_rate, fi_field, first_spike_latency
+    return spike_count, firing_rate, fi_field, fi_field_d, first_spike_latency, first_spike_isi, d_isi, stimulus_duration
 
 
 # ----------------------------------------------------------------------------------------------------------------------

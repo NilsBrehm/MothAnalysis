@@ -8,6 +8,7 @@ import time
 from tqdm import tqdm
 from joblib import Parallel,delayed
 import os
+import seaborn as sns
 
 start_time = time.time()
 # Data File Name
@@ -93,7 +94,7 @@ if SELECT:
                 if row[1] == 'True':  # this is GAP
                     datasets.append(row[0])
             if FIFIELD:
-                if row[4] == 'True' and row[6] == 'Creatonotos':  # this is FI
+                if row[4] == 'True' and row[6] == 'Estigmene':  # this is FI
                     datasets.append(row[0])
     datasets = sorted(datasets)
 
@@ -241,126 +242,246 @@ if POISSON:
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
+    species = 'Carales'
+
+    if species is 'Estigmene':
+        # Estigmene:
+        datasets = ['2017-11-25-aa', '2017-11-27-aa']  # 20 ms
+        # datasets = ['2017-10-26-aa', '2017-11-25-aa', '2017-11-27-aa', '2017-12-05-aa']
+    elif species is 'Carales':
+        # Carales:
+        datasets = ['2017-11-01-aa', '2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa']  # 20 ms
+        # datasets = ['2017-10-23-ah', '2017-10-30-aa', '2017-10-31-aa', '2017-10-31-ac', '2017-11-01-aa',
+        #             '2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa']
+
+    fi = [[]] * len(datasets)
+    duration = []
     for k in range(len(datasets)):
-        try:
-            data_set_number = k
-            data_name = datasets[data_set_number]
-            print(str(data_set_number) + ' of ' + str(len(datasets)))
-            print(data_name)
-            path_names = mf.get_directories(data_name=data_name)
+        data_set_number = k
+        data_name = datasets[data_set_number]
+        print(str(data_set_number) + ' of ' + str(len(datasets)))
+        print(data_name)
+        path_names = mf.get_directories(data_name=data_name)
 
-            save_plot = True
-            plot_fi_field = True
-            single_fi = True
-            data = path_names[0]
-            p = path_names[1]
-            ths = [50, 100, 150, 200, 250, 300]
-            for th in ths:
-                # th = 200  # in Hz (or spike count)
-                spike_count, rate, fi_field, fsl = mf.fifield_analysis2(path_names, th, plot_fi=False, method='rate')
-                # freqs = np.zeros(len(spike_count))
-                freqs = [[]] * len(spike_count)
-                i = 0
-                for key in spike_count:
-                    freqs[i] = int(key)
-                    i += 1
-                freqs = sorted(freqs)
+        save_plot = True
+        plot_fi_field = True
+        single_fi = True
+        plot_fi_curves = True
+        data = path_names[0]
+        p = path_names[1]
+        ths = [100, 125, 150, 175, 200]
+        th = 150
+        spike_count, rate, fi_field, fi_field_d, fsl, fisi, d_isi, dur = mf.fifield_analysis2(path_names, th, plot_fi=False, method='rate')
+        fi[k] = fi_field
+        duration.append(dur)
+        freqs = [[]] * len(rate)
+        i = 0
+        for key in rate:
+            freqs[i] = int(key)
+            i += 1
+        freqs = sorted(freqs)
 
-                mf.plot_settings()
-                # Plot FI Field
-                if plot_fi_field:
-                    plt.plot(fi_field[:, 0], fi_field[:, 1], 'o-', label='th=' + str(th))
-                    plt.xlabel('Frequency [kHz]')
-                    plt.ylabel('dB SPL at Threshold (' + str(th) + ' Hz)')
-                    plt.ylim(0, 90)
-                    plt.yticks(np.arange(0, 90, 20))
-                    plt.xlim(10, 110)
-                    plt.xticks(np.arange(20, 110, 10))
-            plt.legend()
-            if save_plot:
-                # Save Plot to HDD
-                figname = p + 'fi_field.png'
+        estimated_th_d = np.zeros(len(freqs))
+        estimated_th_r = np.zeros(len(freqs))
+        data_th_d = np.zeros(len(freqs))
+        data_th_r = np.zeros(len(freqs))
+        i = -1
+        for ff in freqs:
+            i += 1
+            # Fit Boltzman
+            x_d, y_d, params_d = mf.fit_function(d_isi[ff][:, 0], d_isi[ff][:, 2])
+            x_r, y_r, params_r = mf.fit_function(rate[ff][:, 0], rate[ff][:, 1])
+
+            threshold_d = 0.5
+            threshold_r = 150
+
+            th_d_fit = params_d[2]
+            th_r_fit = params_r[2]
+            try:
+                idx_d = y_d >= threshold_d
+                th_d = x_d[idx_d][0]
+                idx_r = y_r >= threshold_r
+                th_r = x_r[idx_r][0]
+            except:
+                th_d = np.nan
+                th_r = np.nan
+                print(str(ff) + ' kHz: Could not find threshold from data')
+
+            estimated_th_d[i] = th_d_fit
+            estimated_th_r[i] = th_r_fit
+            data_th_d[i] = th_d
+            data_th_r[i] = th_r
+
+            if plot_fi_curves:
+                # plt.plot(d_isi[ff][:, 0], d_isi[ff][:, 1], label='isi')
+                plt.subplot(1, 2, 1)
+                plt.plot(d_isi[ff][:, 0], d_isi[ff][:, 2], 'ko', label='sync')
+                plt.plot(x_d, y_d, 'k')
+                plt.plot(rate[ff][:, 0], [threshold_d] * len(rate[ff][:, 0]), 'r--')
+                plt.plot([th_d, th_d], [0, threshold_d], 'r--')
+                plt.plot([th_d_fit, th_d_fit], [0, threshold_d], 'g--')
+                plt.title('Distance')
+                plt.xlabel('Amplitude [dB SPL]')
+                plt.ylabel('SYNC Value')
+                # plt.plot(d_isi[ff][:, 0], d_isi[ff][:, 3], label='spike')
+
+                plt.subplot(1, 2, 2)
+                plt.plot(rate[ff][:, 0], rate[ff][:, 1], 'ko', label='rate')
+                plt.plot(x_r, y_r, 'k')
+                plt.plot(rate[ff][:, 0], [threshold_r] * len(rate[ff][:, 0]), 'r--')
+                plt.plot([th_r, th_r], [0, threshold_r], 'r--')
+                plt.plot([th_r_fit, th_r_fit], [0, threshold_r], 'g--')
+                plt.xlabel('Amplitude [dB SPL]')
+                plt.ylabel('Firing Rate [Hz]')
+                plt.title('Rate')
+
+                plt.suptitle(str(ff) + ' kHz')
                 fig = plt.gcf()
-                fig.set_size_inches(5, 5)
+                fig.set_size_inches(10.9, 3.9)
+                fig.subplots_adjust(left=0.1, top=0.8, bottom=0.2, right=0.9, wspace=0.5, hspace=0.1)
+                # plt.show()
+                figname = p + 'FICRUVE_' + str(ff) +'.png'
                 fig.savefig(figname, bbox_inches='tight', dpi=150)
                 plt.close(fig)
-                print('FI Field Plot saved for ' + data)
-            else:
-                plt.show()
 
-            # Plot single FI Curve
-            if single_fi:
-                for ff in tqdm(freqs, desc='FI Curves'):
-                    fig, ax1 = plt.subplots()
-                    color = 'k'
-                    ax1.set_xlabel('Sound Pressure Level [dB SPl]')
-                    ax1.set_ylabel('Firing Rate [Hz]', color=color)
-                    ax1.errorbar(rate[ff][:, 0], rate[ff][:, 1], yerr=rate[ff][:, 2],
-                                 marker='o', color='k', linewidth=1, markersize=3)
-                    ax1.plot(rate[ff][:, 0], [th] * len(rate[ff][:, 0]), 'g--')
-                    ax1.tick_params(axis='y', labelcolor=color)
-                    ax1.set_yticks(np.arange(0, 500, 100))
-                    ax1.set_ylim(0, 500)
-                    ax1.set_xticks(np.arange(10, 90, 10))
-                    ax1.set_xlim(10, 90)
+        #
+        # plt.plot(fi_field[:, 0], fi_field[:, 1], label='rate')
+        # plt.plot(fi_field_d[:, 0], fi_field_d[:, 1], label='distance')
+        # plt.legend()
+        # plt.show()
+        plt.plot(freqs, estimated_th_d, 'ro-')
+        plt.plot(freqs, estimated_th_r, 'ko-')
+        plt.plot(freqs, data_th_d, 'x--')
+        plt.plot(freqs, data_th_r, 'x--')
 
-                    # First Spike Latency
-                    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-                    color = 'tab:red'
-                    ax2.set_ylabel('First Spike Latency [ms]', color=color)  # we already handled the x-label with ax1
-                    ax2.errorbar(fsl[ff][:, 0], fsl[ff][:, 1] * 1000, yerr=fsl[ff][:, 2] * 1000, marker='o',
-                                 color='r', linewidth=0.5, markersize=2, alpha=0.5)
-                    ax2.tick_params(axis='y', labelcolor=color)
-                    ax2.set_yticks(np.arange(0, 20, 2))
-                    ax2.set_ylim(0, 20)
-
-                    plt.title(str(ff) + ' kHz')
-                    fig.tight_layout()  # otherwise the right y-label is slightly clipped
-                    if save_plot:
-                        # Save Plot to HDD
-                        figname = p + 'fi_curve_' + str(ff) + 'kHz.png'
-                        fig = plt.gcf()
-                        fig.set_size_inches(5, 5)
-                        fig.savefig(figname, bbox_inches='tight', dpi=80)
-                        plt.close(fig)
-                        # print('Plot saved for ' + str(ff) + ' kHz')
-                    else:
-                        plt.show()
-        except:
-            print(data_name + ' not found')
-    exit()
-
-    # Plot FI-Curves
-    for f in range(len(freqs)):
-        plt.figure(1)
-        plt.subplot(np.ceil(len(spike_count)/5), 5, f+1)
-        plt.errorbar(fsl[freqs[f]][:, 0], fsl[freqs[f]][:, 1]*1000, yerr=fsl[freqs[f]][:, 2]*1000, marker='o',
-                     color='r')
-        plt.errorbar(spike_count[freqs[f]][:, 0], spike_count[freqs[f]][:, 1], yerr=spike_count[freqs[f]][:, 2],
-                     marker='o', color='k')
-        plt.ylim(0, 20)
-        # plt.xlim(20, 90)
-        plt.xticks(np.arange(20, 100, 10))
-        plt.title(str(freqs[f]) + ' kHz')
-        plt.tight_layout()
-    # plt.show()
-
-    if save_plot:
-        # Save Plot to HDD
-        figname = p + 'fi_curves.png'
         fig = plt.gcf()
-        fig.set_size_inches(20, 10)
-        fig.savefig(figname, bbox_inches='tight', dpi=300)
+        fig.set_size_inches(5.9, 5.9)
+        fig.subplots_adjust(left=0.1, top=0.8, bottom=0.2, right=0.9, wspace=0.5, hspace=0.1)
+        # plt.show()
+        figname = p + 'FIFIELD.png'
+        fig.savefig(figname, bbox_inches='tight', dpi=150)
         plt.close(fig)
-        print('Plot saved for ' + data)
-    else:
-        plt.show()
 
-    # Save FI to HDD
-    np.save(p + 'fi_spike_count.npy', spike_count)
-    np.save(p + 'fi_field.npy', fi_field)
-    np.save(p + 'fi_firstspikelatency.npy', fsl)
-    np.save(p + 'fi_frequencies.npy', freqs)
+    exit()
+    idx = np.array(duration) == 0.02
+    fi = np.array(fi)
+    fi_20ms = fi[idx]
+
+    np.save('/media/brehm/Data/MasterMoth/figs/' + 'fi_20ms_' + species + '.npy', fi_20ms)
+    print('FI for ' + species + ' was saved')
+
+    #         for th in ths:
+    #             # th = 200  # in Hz (or spike count)
+    #             spike_count, rate, fi_field, fsl, dur = mf.fifield_analysis2(path_names, th, plot_fi=False, method='rate')
+    #             # freqs = np.zeros(len(spike_count))
+    #             freqs = [[]] * len(spike_count)
+    #             i = 0
+    #             for key in spike_count:
+    #                 freqs[i] = int(key)
+    #                 i += 1
+    #             freqs = sorted(freqs)
+    #
+    #             mf.plot_settings()
+    #             # Plot FI Field
+    #             if plot_fi_field:
+    #                 plt.plot(fi_field[:, 0], fi_field[:, 1], 'o-', label='th=' + str(th))
+    #                 plt.xlabel('Frequency [kHz]')
+    #                 plt.ylabel('dB SPL at Threshold (' + str(th) + ' Hz)')
+    #                 plt.ylim(0, 90)
+    #                 plt.yticks(np.arange(0, 90, 20))
+    #                 plt.xlim(10, 110)
+    #                 plt.xticks(np.arange(20, 110, 10))
+    #         plt.title('Stimulus Duration: ' + str(dur*1000) + ' ms')
+    #         plt.legend()
+    #         if save_plot:
+    #             # Save Plot to HDD
+    #             figname = p + 'fi_field.png'
+    #             fig = plt.gcf()
+    #             fig.set_size_inches(5, 5)
+    #             fig.savefig(figname, bbox_inches='tight', dpi=150)
+    #             plt.close(fig)
+    #             print('FI Field Plot saved for ' + data)
+    #         else:
+    #             plt.show()
+    #
+    #         # Plot single FI Curve
+    #         if single_fi:
+    #             for ff in tqdm(freqs, desc='FI Curves'):
+    #                 fig, ax1 = plt.subplots()
+    #                 color = 'k'
+    #                 ax1.set_xlabel('Sound Pressure Level [dB SPl]')
+    #                 ax1.set_ylabel('Firing Rate [Hz]', color=color)
+    #                 ax1.errorbar(rate[ff][:, 0], rate[ff][:, 1], yerr=rate[ff][:, 2],
+    #                              marker='o', color='k', linewidth=1, markersize=3)
+    #                 for i in ths:
+    #                     ax1.plot(rate[ff][:, 0], [i] * len(rate[ff][:, 0]), 'g--')
+    #                 ax1.tick_params(axis='y', labelcolor=color)
+    #                 ax1.set_yticks(np.arange(0, 500, 100))
+    #                 ax1.set_ylim(0, 500)
+    #                 ax1.set_xticks(np.arange(10, 90, 10))
+    #                 ax1.set_xlim(10, 90)
+    #
+    #                 # First Spike Latency
+    #                 ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+    #                 color = 'tab:red'
+    #                 ax2.set_ylabel('First Spike Latency [ms]', color=color)  # we already handled the x-label with ax1
+    #                 ax2.errorbar(fsl[ff][:, 0], fsl[ff][:, 1] * 1000, yerr=fsl[ff][:, 2] * 1000, marker='o',
+    #                              color='r', linewidth=0.5, markersize=2, alpha=0.5)
+    #                 ax2.tick_params(axis='y', labelcolor=color)
+    #                 ax2.set_yticks(np.arange(0, 20, 2))
+    #                 ax2.set_ylim(0, 20)
+    #
+    #                 plt.title(str(ff) + ' kHz')
+    #                 fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    #                 if save_plot:
+    #                     # Save Plot to HDD
+    #                     figname = p + 'fi_curve_' + str(ff) + 'kHz.png'
+    #                     fig = plt.gcf()
+    #                     fig.set_size_inches(5, 5)
+    #                     fig.savefig(figname, bbox_inches='tight', dpi=80)
+    #                     plt.close(fig)
+    #                     # print('Plot saved for ' + str(ff) + ' kHz')
+    #                 else:
+    #                     plt.show()
+    #     except:
+    #         print(data_name + ' not found')
+    # print('')
+    # print('datasets:')
+    # for t in datasets:
+    #     print(t)
+    # exit()
+    #
+    # # Plot FI-Curves
+    # for f in range(len(freqs)):
+    #     plt.figure(1)
+    #     plt.subplot(np.ceil(len(spike_count)/5), 5, f+1)
+    #     plt.errorbar(fsl[freqs[f]][:, 0], fsl[freqs[f]][:, 1]*1000, yerr=fsl[freqs[f]][:, 2]*1000, marker='o',
+    #                  color='r')
+    #     plt.errorbar(spike_count[freqs[f]][:, 0], spike_count[freqs[f]][:, 1], yerr=spike_count[freqs[f]][:, 2],
+    #                  marker='o', color='k')
+    #     plt.ylim(0, 20)
+    #     # plt.xlim(20, 90)
+    #     plt.xticks(np.arange(20, 100, 10))
+    #     plt.title(str(freqs[f]) + ' kHz')
+    #     plt.tight_layout()
+    # # plt.show()
+    #
+    # if save_plot:
+    #     # Save Plot to HDD
+    #     figname = p + 'fi_curves.png'
+    #     fig = plt.gcf()
+    #     fig.set_size_inches(20, 10)
+    #     fig.savefig(figname, bbox_inches='tight', dpi=300)
+    #     plt.close(fig)
+    #     print('Plot saved for ' + data)
+    # else:
+    #     plt.show()
+    #
+    # # Save FI to HDD
+    # np.save(p + 'fi_spike_count.npy', spike_count)
+    # np.save(p + 'fi_field.npy', fi_field)
+    # np.save(p + 'fi_firstspikelatency.npy', fsl)
+    # np.save(p + 'fi_frequencies.npy', freqs)
 
 if Bootstrapping:
     # mf.resampling(datasets)
@@ -680,41 +801,44 @@ if PULSE_TRAIN_VANROSSUM:
 
 if FI_OVERANIMALS:
     # Load data
-    '''
-    p = "/media/brehm/Data/MasterMoth/figs/" + datasets[0] + "/DataFiles/"
-    a = np.load(p + 'fi_spike_count.npy')
-    b = np.load(p + 'fi_firstspikelatency.npy')
-    c = np.load(p + 'fi_field.npy')
-    d = np.load(p + 'fi_frequencies.npy')
-    embed()
-    '''
-    save_plot = True
-    font = {'family': 'normal',
-            'weight': 'bold',
-            'size': 14}
+    save_fig = True
+    mf.plot_settings()
+    fi_carales = np.load('/media/brehm/Data/MasterMoth/figs/fi_20ms_Carales.npy')
+    fi_estigmene = np.load('/media/brehm/Data/MasterMoth/figs/fi_20ms_Estigmene.npy')
 
-    plt.rc('font', **font)
+    fig = plt.figure()
+    ax1 = plt.subplot(121)
+    ax2 = plt.subplot(122)
+    cc = ['0', '0.25', '0.5', '0.75']
+    for k in range(len(fi_carales)):
+        ax1.plot(fi_carales[k][:, 0], fi_carales[k][:, 1], label=str(k), color=cc[k])
+    for e in range(len(fi_estigmene)):
+        ax2.plot(fi_estigmene[e][:, 0], fi_estigmene[e][:, 1], label=str(e), color=cc[e])
+    # ax1.legend()
+    # ax2.legend()
 
-    fields = {}
-    for i in range(len(datasets)-1):
-        p = "/media/brehm/Data/MasterMoth/figs/" + datasets[i] + "/DataFiles/"
-        fields.update({i: np.load(p + 'fi_field.npy')})
-        plt.plot(fields[i][:, 0], fields[i][:, 1], 'o-', markersize=8, linewidth=3)
-    plt.xlabel('Frequency [kHz]')
-    plt.ylabel('dB SPL at threshold')
-    plt.ylim(0, 90)
-    plt.yticks(np.arange(0, 90, 10))
-    plt.xlim(0, 110)
-    plt.xticks(np.arange(10, 110, 10))
-    mf.adjustSpines(plt.gca())
+    ax1.set_ylabel('Sound level at threshold [dB SPL]')
+    fig.text(0.5, 0.05, 'Frequency [kHz]', ha='center', fontdict=None)
+    ax1.text(80, 90, 'n = ' + str(len(fi_carales)))
+    ax2.text(80, 90, 'n = ' + str(len(fi_estigmene)))
+    ax1.set_xlim(0, 110)
+    ax1.set_xticks(np.arange(0, 120, 20))
+    ax1.set_ylim(20, 100)
+    ax1.set_yticks(np.arange(20, 101, 10))
+    ax2.set_xlim(0, 110)
+    ax2.set_xticks(np.arange(0, 120, 20))
+    ax2.set_ylim(20, 100)
+    ax2.set_yticks(np.arange(20, 101, 10))
+    sns.despine()
 
-    if save_plot:
+    if save_fig:
         # Save Plot to HDD
         p = "/media/brehm/Data/MasterMoth/figs/"
-        figname = p + 'fi_field_Carales_n4.png'
+        figname = p + 'fi_field_two_species.pdf'
         fig = plt.gcf()
-        fig.set_size_inches(10, 8)
-        fig.savefig(figname, bbox_inches='tight', dpi=300)
+        fig.set_size_inches(5.9, 1.9)
+        fig.subplots_adjust(left=0.3, top=0.8, bottom=0.2, right=0.7, wspace=0.4, hspace=0.8)
+        fig.savefig(figname)
         plt.close(fig)
         print('Plot saved')
     else:
