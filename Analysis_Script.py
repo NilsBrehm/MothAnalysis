@@ -259,7 +259,7 @@ if FIFIELD:
     for k in range(len(datasets)):
         data_set_number = k
         data_name = datasets[data_set_number]
-        print(str(data_set_number) + ' of ' + str(len(datasets)))
+        print(str(data_set_number+1) + ' of ' + str(len(datasets)))
         print(data_name)
         path_names = mf.get_directories(data_name=data_name)
 
@@ -271,7 +271,7 @@ if FIFIELD:
         p = path_names[1]
         ths = [100, 125, 150, 175, 200]
         th = 150
-        spike_count, rate, fi_field, fi_field_d, fsl, fisi, d_isi, dur = mf.fifield_analysis2(path_names, th, plot_fi=False, method='rate')
+        spike_count, rate, fi_field, fi_field_d, fsl, fisi, d_isi, instant_rate, conv_rate, dur = mf.fifield_analysis2(path_names, th, plot_fi=False, method='rate')
         fi[k] = fi_field
         duration.append(dur)
         freqs = [[]] * len(rate)
@@ -290,10 +290,12 @@ if FIFIELD:
             i += 1
             # Fit Boltzman
             x_d, y_d, params_d = mf.fit_function(d_isi[ff][:, 0], d_isi[ff][:, 2])
-            x_r, y_r, params_r = mf.fit_function(rate[ff][:, 0], rate[ff][:, 1])
+            x_r, y_r, params_r = mf.fit_function(spike_count[ff][:, 0], spike_count[ff][:, 1])
+            x_inst, y_inst, params_inst = mf.fit_function(instant_rate[ff][:, 0], instant_rate[ff][:, 1])
+            x_conv, y_conv, params_conv = mf.fit_function(conv_rate[ff][:, 0], conv_rate[ff][:, 1])
 
             threshold_d = 0.5
-            threshold_r = 150
+            threshold_r = 4
 
             th_d_fit = params_d[2]
             th_r_fit = params_r[2]
@@ -314,31 +316,53 @@ if FIFIELD:
 
             if plot_fi_curves:
                 # plt.plot(d_isi[ff][:, 0], d_isi[ff][:, 1], label='isi')
-                plt.subplot(1, 2, 1)
+                plt.subplot(2, 2, 1)
                 plt.plot(d_isi[ff][:, 0], d_isi[ff][:, 2], 'ko', label='sync')
                 plt.plot(x_d, y_d, 'k')
-                plt.plot(rate[ff][:, 0], [threshold_d] * len(rate[ff][:, 0]), 'r--')
+                plt.plot(spike_count[ff][:, 0], [threshold_d] * len(spike_count[ff][:, 0]), 'r--')
                 plt.plot([th_d, th_d], [0, threshold_d], 'r--')
                 plt.plot([th_d_fit, th_d_fit], [0, threshold_d], 'g--')
                 plt.title('Distance')
                 plt.xlabel('Amplitude [dB SPL]')
                 plt.ylabel('SYNC Value')
+                plt.ylim(0, 1)
                 # plt.plot(d_isi[ff][:, 0], d_isi[ff][:, 3], label='spike')
 
-                plt.subplot(1, 2, 2)
-                plt.plot(rate[ff][:, 0], rate[ff][:, 1], 'ko', label='rate')
+                plt.subplot(2, 2, 2)
+                plt.plot(spike_count[ff][:, 0], spike_count[ff][:, 1], 'ko', label='spike_count')
                 plt.plot(x_r, y_r, 'k')
-                plt.plot(rate[ff][:, 0], [threshold_r] * len(rate[ff][:, 0]), 'r--')
+                plt.plot(spike_count[ff][:, 0], [threshold_r] * len(spike_count[ff][:, 0]), 'r--')
                 plt.plot([th_r, th_r], [0, threshold_r], 'r--')
                 plt.plot([th_r_fit, th_r_fit], [0, threshold_r], 'g--')
                 plt.xlabel('Amplitude [dB SPL]')
-                plt.ylabel('Firing Rate [Hz]')
-                plt.title('Rate')
+                plt.ylabel('Spike count')
+                plt.title('spike count')
+                plt.ylim(0, 20)
+
+                plt.subplot(2, 2, 3)
+                plt.plot(fsl[ff][:, 0], fsl[ff][:, 1], 'ro--', label='fsl')
+                plt.plot(fisi[ff][:, 0], fisi[ff][:, 1], 'bo--', label='fisi')
+                plt.legend()
+                plt.xlabel('Amplitude [dB SPL]')
+                plt.ylabel('Time [ms]')
+                plt.title('First Spike Latency and Interval')
+                plt.ylim(0, 50)
+
+                plt.subplot(2, 2, 4)
+                plt.plot(instant_rate[ff][:, 0], instant_rate[ff][:, 1], 'ko', label='inst')
+                plt.plot(conv_rate[ff][:, 0], conv_rate[ff][:, 1], 'ro', label='conv')
+                plt.plot(x_inst, y_inst, 'k')
+                plt.plot(x_conv, y_conv, 'r')
+                plt.xlabel('Amplitude [dB SPL]')
+                plt.ylabel('Firing rate [Hz]')
+                plt.title('Rates')
+                plt.ylim(0, 600)
+                plt.legend()
 
                 plt.suptitle(str(ff) + ' kHz')
                 fig = plt.gcf()
-                fig.set_size_inches(10.9, 3.9)
-                fig.subplots_adjust(left=0.1, top=0.8, bottom=0.2, right=0.9, wspace=0.5, hspace=0.1)
+                fig.set_size_inches(10.9, 10.9)
+                fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.5, hspace=0.5)
                 # plt.show()
                 figname = p + 'FICRUVE_' + str(ff) +'.png'
                 fig.savefig(figname, bbox_inches='tight', dpi=150)

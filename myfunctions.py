@@ -440,6 +440,14 @@ def fit_function(x, data):
         # return a * np.exp(-d * x1) + c
         return bottom + ((top-bottom)/(1+np.exp((V50-xx)/Slope)))
 
+    # Check for Nans
+    if np.isnan(data).all():
+        x, y, popt = [np.nan] * 3
+        return x, y, popt
+    # Remove NaNs
+    idx = ~np.isnan(data)
+    data = data[idx]
+    x = x[idx]
     p0 = [0, np.max(data), np.max(x)/2, 1]
     bounds = (0, [np.max(data)/2+10, np.max(data)*2+10, np.max(x), np.inf])
     # print('p0:')
@@ -1953,8 +1961,17 @@ def fifield_voltage2(path_name, tag):
 
     volt = [[]] * len(frequency)
     parameters = np.zeros(shape=(len(frequency), 3))
+
+    # Get Data Array
+    dat = b.data_arrays[ mtag.references[0].name]
+    dim = dat.dimensions[0]
+    tag_end = mtag.extents[0]
+    dur_of_collecting = 3 * tag_end
     for k in tqdm(range(len(frequency)), desc='Collecting Voltage Traces'):
-        volt[k] = mtag.retrieve_data(k, 0)[:]
+        idx = int(dim.index_of(mtag.positions[k]))
+        idx_extent = int(dim.index_of(mtag.positions[k] + dur_of_collecting))
+        volt[k] = dat[idx:idx_extent]
+        # volt[k] = mtag.retrieve_data(k, 0)[:]
         parameters[k] = [k, frequency[k], amplitude[k]]
 
     # Save Data to HDD
@@ -1983,6 +2000,7 @@ def fifield_spike_detection(path_names, th_factor=4, th_window=400, mph_percent=
 
     spike_times = [[]] * len(volt)
     spike_times_valley = [[]] * len(volt)
+    early_spikes = [[]] * len(volt)
     stimulus_duration = len(volt[0]) / fs
 
     for k in tqdm(range(len(volt)), desc='Spike Detection'):
@@ -1995,8 +2013,8 @@ def fifield_spike_detection(path_names, th_factor=4, th_window=400, mph_percent=
             low = lowcut / nyqst
             high = highcut / nyqst
             x = voltage_trace_filter(x, [low, high], ftype='band', order=2, filter_on=True)
-        # if valley:
-        #    x = -x
+        if valley:
+            x = -x
 
         # Peak Detection using indexes()
         # spike_times[k], thres = indexes(x, dynamic, th_factor, min_dist, maxph, th_window)
@@ -2011,13 +2029,20 @@ def fifield_spike_detection(path_names, th_factor=4, th_window=400, mph_percent=
         spike_times[k], spike_times_valley[k], marked, marked_valley = remove_large_spikes(x, spike_times[k],
                                                                                            spike_times_valley[k],
                                                                                            mph_percent, method='std')
+        # Remove early spikes
+        early_limit = 0.005 * fs
+        early_spikes[k] = spike_times[k][spike_times[k] < early_limit]
+        spike_times[k] = spike_times[k][spike_times[k] >= early_limit]
+
+
+        # Plot Spike Detection
         # if np.random.rand(1) > 0.98:
         # if parameters[k][2] > 70 and np.random.rand(1) > 0.8:
         if show:
             # if parameters[k][1] == 50000 and (parameters[k][2] > 70 or (parameters[k][2] < 45 and parameters[k][2] > 35)):
             # if np.random.rand(1) > 0.90:
             # if k == 20:
-            if parameters[k][1] == 50000 and parameters[k][2] > 70 and oo == 0:
+            if parameters[k][1] == 50000 and parameters[k][2] > 70: # and oo == 0:
                 oo = 1
                 plt.figure()
                 plt.plot(x)
@@ -2028,8 +2053,9 @@ def fifield_spike_detection(path_names, th_factor=4, th_window=400, mph_percent=
                     plt.plot(spike_times[k], x[spike_times[k]], 'ro')
                 if spike_times_valley[k].any():
                     plt.plot(spike_times_valley[k], x[spike_times_valley[k]], 'bo')
-                if not np.isnan(marked):
+                if not np.isnan(marked).all():
                     plt.plot(marked, x[marked], 'kx')
+                plt.plot(early_spikes[k], x[early_spikes[k]], 'go')
                 if th_window is None:
                     plt.plot([0, len(x)], [th, th], 'r--')
                     plt.plot([0, len(x)], [-th, -th], 'r--')
@@ -2049,8 +2075,8 @@ def fifield_spike_detection(path_names, th_factor=4, th_window=400, mph_percent=
 
     # Save Data to HDD
     if save_data:
-        if valley:
-            spike_times = spike_times_valley
+        # if valley:
+        #     spike_times = spike_times_valley
         dname = pathname + 'FIField_spike_times'
         with open(dname, 'wb') as fp:
             pickle.dump(spike_times, fp)
@@ -2085,6 +2111,8 @@ def fifield_analysis2(path_names, threshold, plot_fi, method='rate'):
     first_spike_latency = {}
     first_spike_isi = {}
     d_isi = {}
+    instant_firing_rate = {}
+    conv_rate = {}
     for i in range(len(used_freqs)):
         # Get all trials with frequency i
         y = spike_times[parameters[:, 1] == used_freqs[i]]
@@ -2095,6 +2123,8 @@ def fifield_analysis2(path_names, threshold, plot_fi, method='rate'):
         fsl = np.zeros((len(used_amps), 3))
         fisi = np.zeros((len(used_amps), 3))
         d = np.zeros((len(used_amps), 4))
+        instant_rate = np.zeros((len(used_amps), 3))
+        c_rate = np.zeros((len(used_amps), 3))
         for k in range(len(used_amps)):
             # Get all trials with amplitude k
             x = y[amps == used_amps[k]]
@@ -2102,6 +2132,12 @@ def fifield_analysis2(path_names, threshold, plot_fi, method='rate'):
                 continue
 
             # Spike Train Distance
+            # no_empty_trial = False
+            # for g in range(len(x)):
+            #     if len(x[g]) == 0:
+            #         no_empty_trial = True
+            #         break
+
             if len(x[0]) > 0:
                 edges = [0, stimulus_duration]
                 trains = [[]] * len(x)
@@ -2118,17 +2154,19 @@ def fifield_analysis2(path_names, threshold, plot_fi, method='rate'):
             single_rate = np.zeros((len(x), 1))
             first_spike = np.zeros((len(x), 1))
             first_isi = np.zeros((len(x), 1))
+            i_rate = np.zeros((len(x), 1))
             for j in range(len(x)):  # Loop over all single trials and count spikes
                 single_count[j] = len(x[j])  # Count spikes per trial
                 single_rate[j] = len(x[j]) / stimulus_duration
-                if len(x[j]) == 0:
+
+                if len(x[j]) <= 1:
                     first_spike[j] = np.nan
                     first_isi[j] = np.nan
-                #elif x[j][0] <= 0.005:
-                #   first_spike[j] = np.nan
+                    i_rate[j] = np.nan
                 else:
-                    first_spike[j] = x[j][0]  # First Spike Latency
+                    first_spike[j] = x[j][0] * 1000  # First Spike Latency
                     first_isi[j] = (x[j][1] - x[j][0]) * 1000  # Fist Spike ISI in ms
+                    i_rate[j] = np.mean(1/np.diff(x[j]))
             spc[k, 2] = np.std(single_count)
             spc[k, 1] = np.mean(single_count)
             spc[k, 0] = used_amps[k]
@@ -2136,6 +2174,21 @@ def fifield_analysis2(path_names, threshold, plot_fi, method='rate'):
             rate[k, 1] = np.mean(single_rate)
             rate[k, 0] = used_amps[k]
             d[k, 0] = used_amps[k]
+            instant_rate[k, 0] = used_amps[k]
+            dt = 1 / (100*1000)
+            sigma = 0.005
+            _, rr, _ = convolution_rate(x, t_max=stimulus_duration, dt=dt, sigma=sigma)
+            # _, rr, _ = convolution_rate(x, t_max=0.02, dt=dt, sigma=sigma)
+            c_rate[k, 0] = used_amps[k]
+            c_rate[k, 1] = np.mean(rr)
+            c_rate[k, 2] = np.std(rr)
+
+            if np.isnan(i_rate).all():
+                instant_rate[k, 1] = np.nan
+                instant_rate[k, 2] = np.nan
+            else:
+                instant_rate[k, 1] = np.nanmean(i_rate)
+                instant_rate[k, 2] = np.nanstd(i_rate)
 
             if np.isnan(first_spike).all():
                 fsl[k, 2] = np.nan
@@ -2154,6 +2207,8 @@ def fifield_analysis2(path_names, threshold, plot_fi, method='rate'):
         first_spike_latency.update({used_freqs[i]/1000: fsl})
         first_spike_isi.update({used_freqs[i] / 1000: fisi})
         d_isi.update({used_freqs[i] / 1000: d})
+        instant_firing_rate.update({used_freqs[i] / 1000: instant_rate})
+        conv_rate.update({used_freqs[i] / 1000: c_rate})
     # plt.plot(spike_count[70][:,0], spike_count[70][:,1]); plt.show()
 
     if method is 'count':
@@ -2205,7 +2260,7 @@ def fifield_analysis2(path_names, threshold, plot_fi, method='rate'):
         plt.xlabel('Frequency [kHz]')
         plt.ylabel('dB SPL at threshold (' + str(threshold) + ' spikes)')
         plt.show()
-    return spike_count, firing_rate, fi_field, fi_field_d, first_spike_latency, first_spike_isi, d_isi, stimulus_duration
+    return spike_count, firing_rate, fi_field, fi_field_d, first_spike_latency, first_spike_isi, d_isi, instant_firing_rate, conv_rate, stimulus_duration
 
 
 # ----------------------------------------------------------------------------------------------------------------------

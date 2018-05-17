@@ -99,8 +99,20 @@ if VIEWNIX:
 
 # FIField
 if FIFIELD:
+    species = 'Estigmene'
+
+    if species is 'Estigmene':
+        # Estigmene:
+        datasets = ['2017-11-25-aa', '2017-11-27-aa']  # 20 ms
+        # datasets = ['2017-10-26-aa', '2017-11-25-aa', '2017-11-27-aa', '2017-12-05-aa']
+    elif species is 'Carales':
+        # Carales:
+        datasets = ['2017-11-01-aa', '2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa']  # 20 ms
+        # datasets = ['2017-10-23-ah', '2017-10-30-aa', '2017-10-31-aa', '2017-10-31-ac', '2017-11-01-aa',
+        #             '2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa']
+
     spike_detection = True
-    show_detection = True
+    show_detection = False
     collect_volt = False
 
     print('Starting FIField Data Gathering')
@@ -113,18 +125,20 @@ if FIFIELD:
             path_names = mf.get_directories(data_name=data_name)
             mf.fifield_voltage2(path_names, 'FIField-sine_wave-1')
     if spike_detection:
+        valley = [False] * len(datasets)
+        # valley[0] = True
+        # valley[1] = True
         for k in tqdm(range(len(datasets)), desc='Data Sets'):
             data_set_number = k
             data_name = datasets[data_set_number]
             print(str(data_set_number) + ' of ' + str(len(datasets)))
             print(data_name)
+            if valley[k]:
+                print('Valley Mode selected')
             path_names = mf.get_directories(data_name=data_name)
-            try:
-                mf.fifield_spike_detection(path_names, th_factor=2, th_window=None, mph_percent=10, filter_on=True, valley=False,
-                                           min_th=50, save_data=True, show=show_detection)
-            except:
-                print(data_name + ' not found')
-                continue
+            mf.fifield_spike_detection(path_names, th_factor=2, th_window=None, mph_percent=2, filter_on=True,
+                                       valley=valley[k], min_th=50, save_data=True, show=show_detection)
+
 # Intervals: MothASongs
 if INTERVAL_MAS:
     print('Starting Moth Intervals Data Gathering')
