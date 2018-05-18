@@ -99,7 +99,7 @@ if VIEWNIX:
 
 # FIField
 if FIFIELD:
-    species = 'Estigmene'
+    species = 'Carales'
 
     if species is 'Estigmene':
         # Estigmene:
@@ -107,12 +107,14 @@ if FIFIELD:
         # datasets = ['2017-10-26-aa', '2017-11-25-aa', '2017-11-27-aa', '2017-12-05-aa']
     elif species is 'Carales':
         # Carales:
-        datasets = ['2017-11-01-aa', '2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa']  # 20 ms
+        # datasets = ['2017-11-01-aa', '2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa']  # 20 ms
+        datasets = ['2017-10-30-aa', '2017-10-31-aa', '2017-10-31-ac']  # 50 ms
         # datasets = ['2017-10-23-ah', '2017-10-30-aa', '2017-10-31-aa', '2017-10-31-ac', '2017-11-01-aa',
         #             '2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa']
 
     spike_detection = True
-    show_detection = False
+    show_detection = True
+    save_spikes = False
     collect_volt = False
 
     print('Starting FIField Data Gathering')
@@ -120,10 +122,10 @@ if FIFIELD:
         for k in tqdm(range(len(datasets)), desc='Data Sets'):
             data_set_number = k
             data_name = datasets[data_set_number]
-            print(str(data_set_number) + ' of ' + str(len(datasets)))
+            print(str(data_set_number+1) + ' of ' + str(len(datasets)))
             print(data_name)
             path_names = mf.get_directories(data_name=data_name)
-            mf.fifield_voltage2(path_names, 'FIField-sine_wave-1')
+            mf.fifield_voltage2(path_names, rec_dur_factor=2)
     if spike_detection:
         valley = [False] * len(datasets)
         # valley[0] = True
@@ -131,13 +133,13 @@ if FIFIELD:
         for k in tqdm(range(len(datasets)), desc='Data Sets'):
             data_set_number = k
             data_name = datasets[data_set_number]
-            print(str(data_set_number) + ' of ' + str(len(datasets)))
+            print(str(data_set_number+1) + ' of ' + str(len(datasets)))
             print(data_name)
             if valley[k]:
                 print('Valley Mode selected')
             path_names = mf.get_directories(data_name=data_name)
-            mf.fifield_spike_detection(path_names, th_factor=2, th_window=None, mph_percent=2, filter_on=True,
-                                       valley=valley[k], min_th=50, save_data=True, show=show_detection)
+            mf.fifield_spike_detection(path_names, th_factor=3, th_window=None, mph_percent=2, filter_on=True,
+                                       valley=valley[k], min_th=50, save_data=save_spikes, show=show_detection)
 
 # Intervals: MothASongs
 if INTERVAL_MAS:

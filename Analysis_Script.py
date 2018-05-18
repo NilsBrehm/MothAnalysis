@@ -9,6 +9,7 @@ from tqdm import tqdm
 from joblib import Parallel,delayed
 import os
 import seaborn as sns
+import pickle
 
 start_time = time.time()
 # Data File Name
@@ -102,7 +103,7 @@ if SELECT:
 # RECT: good recs: all Estigmene
 # datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2018-02-16-aa', '2017-12-05-ab']
 
-print('data set count: ' + str(len(datasets)))
+# print('data set count: ' + str(len(datasets)))
 
 # data_name = datasets[4]
 # print(data_name)
@@ -242,15 +243,19 @@ if POISSON:
 
 # Analyse FIField data stored on HDD
 if FIFIELD:
+    save_analysis = False
     species = 'Carales'
 
     if species is 'Estigmene':
         # Estigmene:
         datasets = ['2017-11-25-aa', '2017-11-27-aa']  # 20 ms
+        # datasets = ['2017-10-26-aa', '2017-12-05-aa']  # 50 ms
         # datasets = ['2017-10-26-aa', '2017-11-25-aa', '2017-11-27-aa', '2017-12-05-aa']
     elif species is 'Carales':
         # Carales:
         datasets = ['2017-11-01-aa', '2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa']  # 20 ms
+        # datasets = ['2017-10-30-aa', '2017-10-31-aa', '2017-10-31-ac']  # 50 ms
+        # datasets = ['2017-10-23-ah']  # 5 ms
         # datasets = ['2017-10-23-ah', '2017-10-30-aa', '2017-10-31-aa', '2017-10-31-ac', '2017-11-01-aa',
         #             '2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa']
 
@@ -265,14 +270,22 @@ if FIFIELD:
 
         save_plot = True
         plot_fi_field = True
-        single_fi = True
         plot_fi_curves = True
         data = path_names[0]
         p = path_names[1]
         ths = [100, 125, 150, 175, 200]
         th = 150
-        spike_count, rate, fi_field, fi_field_d, fsl, fisi, d_isi, instant_rate, conv_rate, dur = mf.fifield_analysis2(path_names, th, plot_fi=False, method='rate')
-        fi[k] = fi_field
+        if save_analysis:
+            spike_count, rate, fsl, fisi, d_isi, instant_rate, conv_rate, dur = mf.fifield_analysis2(path_names)
+            all_data = [spike_count, rate, fsl, fisi, d_isi, instant_rate, conv_rate, dur]
+            with open(p + 'fi_analysis.txt', 'wb') as fp:  # Pickling
+                pickle.dump(all_data, fp)
+            continue
+        else:
+            with open(p + 'fi_analysis.txt', 'rb') as fp:  # Unpickling
+                all_data = pickle.load(fp)
+                spike_count, rate, fsl, fisi, d_isi, instant_rate, conv_rate, dur = all_data
+
         duration.append(dur)
         freqs = [[]] * len(rate)
         i = 0
@@ -283,45 +296,84 @@ if FIFIELD:
 
         estimated_th_d = np.zeros(len(freqs))
         estimated_th_r = np.zeros(len(freqs))
-        data_th_d = np.zeros(len(freqs))
-        data_th_r = np.zeros(len(freqs))
+        estimated_th_inst = np.zeros(len(freqs))
+        estimated_th_conv = np.zeros(len(freqs))
+        # data_th_d = np.zeros(len(freqs))
+        # data_th_r = np.zeros(len(freqs))
         i = -1
-        for ff in freqs:
+        for ff in tqdm(freqs, desc='FI Curves'):
             i += 1
             # Fit Boltzman
-            x_d, y_d, params_d = mf.fit_function(d_isi[ff][:, 0], d_isi[ff][:, 2])
-            x_r, y_r, params_r = mf.fit_function(spike_count[ff][:, 0], spike_count[ff][:, 1])
-            x_inst, y_inst, params_inst = mf.fit_function(instant_rate[ff][:, 0], instant_rate[ff][:, 1])
-            x_conv, y_conv, params_conv = mf.fit_function(conv_rate[ff][:, 0], conv_rate[ff][:, 1])
+            x_d, y_d, params_d, perr_d = mf.fit_function(d_isi[ff][:, 0], d_isi[ff][:, 2])
+            x_r, y_r, params_r, perr_r = mf.fit_function(spike_count[ff][:, 0], spike_count[ff][:, 1])
+            x_inst, y_inst, params_inst, perr_inst = mf.fit_function(instant_rate[ff][:, 0], instant_rate[ff][:, 1])
+            x_conv, y_conv, params_conv, perr_conv = mf.fit_function(conv_rate[ff][:, 0], conv_rate[ff][:, 1])
 
-            threshold_d = 0.5
-            threshold_r = 4
+            # Compute Fitting Error
+            # print(str(ff) + ' kHz: Summed Error = ' + str(perr_conv[2]+perr_conv[1]))
+            slope_conv = params_conv[-1]
+            slope_d = params_d[-1]
+            slope_inst = params_inst[-1]
+            slope_r = params_r[-1]
 
+            summed_error_conv = perr_conv[2]+perr_conv[1]
+            summed_error_d = perr_d[2] + perr_d[1]
+            summed_error_r = perr_r[2] + perr_r[1]
+            summed_error_inst = perr_inst[2] + perr_inst[1]
+
+            if ff == 60:
+                embed()
+                exit()
+            # Estimate Threshold directly from Data
+            # threshold_d = 0.5
+            # threshold_r = 4
+            # try:
+            #     idx_d = y_d >= threshold_d
+            #     th_d = x_d[idx_d][0]
+            #     idx_r = y_r >= threshold_r
+            #     th_r = x_r[idx_r][0]
+            # except:
+            #     th_d = np.nan
+            #     th_r = np.nan
+            #     print(str(ff) + ' kHz: Could not find threshold from data')
+            # data_th_d[i] = th_d
+            # data_th_r[i] = th_r
+
+            # Estimate Thresholds from Boltzman Fit
             th_d_fit = params_d[2]
             th_r_fit = params_r[2]
-            try:
-                idx_d = y_d >= threshold_d
-                th_d = x_d[idx_d][0]
-                idx_r = y_r >= threshold_r
-                th_r = x_r[idx_r][0]
-            except:
-                th_d = np.nan
-                th_r = np.nan
-                print(str(ff) + ' kHz: Could not find threshold from data')
+            th_inst_fit = params_inst[2]
+            th_conv_fit = params_conv[2]
 
-            estimated_th_d[i] = th_d_fit
-            estimated_th_r[i] = th_r_fit
-            data_th_d[i] = th_d
-            data_th_r[i] = th_r
+            if summed_error_d > 500:
+                estimated_th_d[i] = np.max(d_isi[ff][:, 0])
+            else:
+                estimated_th_d[i] = th_d_fit
 
+            if summed_error_r > 500 or slope_r <= 1.1:
+                estimated_th_r[i] = np.max(spike_count[ff][:, 0])
+            else:
+                estimated_th_r[i] = th_r_fit
+
+            if summed_error_inst > 500 or slope_inst <= 1.1:
+                estimated_th_inst[i] = np.max(instant_rate[ff][:, 0])
+            else:
+                estimated_th_inst[i] = th_inst_fit
+
+            if summed_error_conv > 500 or slope_conv <= 1.1:
+                estimated_th_conv[i] = np.max(conv_rate[ff][:, 0])
+            else:
+                estimated_th_conv[i] = th_conv_fit
+
+            # Plot FI Curves
             if plot_fi_curves:
                 # plt.plot(d_isi[ff][:, 0], d_isi[ff][:, 1], label='isi')
                 plt.subplot(2, 2, 1)
                 plt.plot(d_isi[ff][:, 0], d_isi[ff][:, 2], 'ko', label='sync')
                 plt.plot(x_d, y_d, 'k')
-                plt.plot(spike_count[ff][:, 0], [threshold_d] * len(spike_count[ff][:, 0]), 'r--')
-                plt.plot([th_d, th_d], [0, threshold_d], 'r--')
-                plt.plot([th_d_fit, th_d_fit], [0, threshold_d], 'g--')
+                # plt.plot(spike_count[ff][:, 0], [threshold_d] * len(spike_count[ff][:, 0]), 'r--')
+                # plt.plot([th_d, th_d], [0, threshold_d], 'r--')
+                plt.plot([th_d_fit, th_d_fit], [0, 1], 'r--')
                 plt.title('Distance')
                 plt.xlabel('Amplitude [dB SPL]')
                 plt.ylabel('SYNC Value')
@@ -329,34 +381,42 @@ if FIFIELD:
                 # plt.plot(d_isi[ff][:, 0], d_isi[ff][:, 3], label='spike')
 
                 plt.subplot(2, 2, 2)
+                y_max = 30
                 plt.plot(spike_count[ff][:, 0], spike_count[ff][:, 1], 'ko', label='spike_count')
                 plt.plot(x_r, y_r, 'k')
-                plt.plot(spike_count[ff][:, 0], [threshold_r] * len(spike_count[ff][:, 0]), 'r--')
-                plt.plot([th_r, th_r], [0, threshold_r], 'r--')
-                plt.plot([th_r_fit, th_r_fit], [0, threshold_r], 'g--')
+                # plt.plot(spike_count[ff][:, 0], [threshold_r] * len(spike_count[ff][:, 0]), 'r--')
+                # plt.plot([th_r, th_r], [0, threshold_r], 'r--')
+                plt.plot([th_r_fit, th_r_fit], [0, y_max], 'g--')
                 plt.xlabel('Amplitude [dB SPL]')
                 plt.ylabel('Spike count')
                 plt.title('spike count')
-                plt.ylim(0, 20)
+                plt.ylim(0, y_max)
+                plt.yticks(np.arange(0, y_max, 2))
 
                 plt.subplot(2, 2, 3)
-                plt.plot(fsl[ff][:, 0], fsl[ff][:, 1], 'ro--', label='fsl')
-                plt.plot(fisi[ff][:, 0], fisi[ff][:, 1], 'bo--', label='fisi')
+                y_max = 20
+                plt.plot(fsl[ff][:, 0], fsl[ff][:, 1], 'ro--', label='fs latency')
+                plt.plot(fisi[ff][:, 0], fisi[ff][:, 1], 'bo--', label='fs ISI')
                 plt.legend()
                 plt.xlabel('Amplitude [dB SPL]')
                 plt.ylabel('Time [ms]')
                 plt.title('First Spike Latency and Interval')
-                plt.ylim(0, 50)
+                plt.ylim(0, y_max)
+                plt.yticks(np.arange(0, y_max, 2))
 
                 plt.subplot(2, 2, 4)
+                y_max = 600
                 plt.plot(instant_rate[ff][:, 0], instant_rate[ff][:, 1], 'ko', label='inst')
                 plt.plot(conv_rate[ff][:, 0], conv_rate[ff][:, 1], 'ro', label='conv')
                 plt.plot(x_inst, y_inst, 'k')
                 plt.plot(x_conv, y_conv, 'r')
+                plt.plot([th_inst_fit, th_inst_fit], [0, np.max(instant_rate[ff][:, 1])], 'k--')
+                plt.plot([th_conv_fit, th_conv_fit], [0, np.max(conv_rate[ff][:, 1])], 'r--')
                 plt.xlabel('Amplitude [dB SPL]')
                 plt.ylabel('Firing rate [Hz]')
-                plt.title('Rates')
-                plt.ylim(0, 600)
+                plt.title('Rates: Error=' + str(summed_error_conv) + ', slope=' + str(slope_conv))
+                plt.ylim(0, y_max)
+                plt.yticks(np.arange(0, y_max, 100))
                 plt.legend()
 
                 plt.suptitle(str(ff) + ' kHz')
@@ -368,23 +428,31 @@ if FIFIELD:
                 fig.savefig(figname, bbox_inches='tight', dpi=150)
                 plt.close(fig)
 
-        #
-        # plt.plot(fi_field[:, 0], fi_field[:, 1], label='rate')
-        # plt.plot(fi_field_d[:, 0], fi_field_d[:, 1], label='distance')
-        # plt.legend()
-        # plt.show()
-        plt.plot(freqs, estimated_th_d, 'ro-')
-        plt.plot(freqs, estimated_th_r, 'ko-')
-        plt.plot(freqs, data_th_d, 'x--')
-        plt.plot(freqs, data_th_r, 'x--')
+        if plot_fi_field:
+            mf.plot_settings()
+            fig, ax = plt.subplots()
+            ax.plot(freqs, estimated_th_d, 'bo-', label='SYNC')
+            ax.plot(freqs, estimated_th_r, 'ko-', label='Spike count')
+            ax.plot(freqs, estimated_th_inst, 'go-', label='Inst rate')
+            ax.plot(freqs, estimated_th_conv, 'ro-', label='Conv rate')
+            # plt.plot(freqs, data_th_d, 'b:', alpha=0.5, label='Data SYNC')
+            # plt.plot(freqs, data_th_r, 'k:', alpha=0.5, label='Data spike count')
+            ax.legend()
+            ax.set_xlabel('Frequency [kHz]')
+            ax.set_ylabel('Intensity [dB SPL]')
+            ax.set_xlim(0, 110)
+            ax.set_xticks(np.arange(0, 110, 10))
+            ax.set_ylim(10, 100)
+            ax.set_yticks(np.arange(10, 100, 10))
+            sns.despine()
 
-        fig = plt.gcf()
-        fig.set_size_inches(5.9, 5.9)
-        fig.subplots_adjust(left=0.1, top=0.8, bottom=0.2, right=0.9, wspace=0.5, hspace=0.1)
-        # plt.show()
-        figname = p + 'FIFIELD.png'
-        fig.savefig(figname, bbox_inches='tight', dpi=150)
-        plt.close(fig)
+            # fig = plt.gcf()
+            fig.set_size_inches(2.9, 1.9)
+            fig.subplots_adjust(left=0.1, top=0.8, bottom=0.2, right=0.9, wspace=0.5, hspace=0.1)
+            # plt.show()
+            figname = p + 'FIFIELD.pdf'
+            fig.savefig(figname)
+            plt.close(fig)
 
     exit()
     idx = np.array(duration) == 0.02
