@@ -46,7 +46,7 @@ def plot_settings():
     # matplotlib.rc('font',**{'family': 'sans-serif', 'sans-serif': ['Helvetica']})
     matplotlib.rcParams['font.sans-serif'] = 'Helvetica'
     matplotlib.rcParams['font.family'] = 'sans-serif'
-    matplotlib.rcParams['font.size'] = 6
+    matplotlib.rcParams['font.size'] = 10
 
     # Ticks:
     matplotlib.rcParams['xtick.major.pad'] = '2'
@@ -55,17 +55,17 @@ def plot_settings():
     matplotlib.rcParams['xtick.major.size'] = 4
 
     # Title Size:
-    matplotlib.rcParams['axes.titlesize'] = 6
+    matplotlib.rcParams['axes.titlesize'] = 10
 
     # Axes Label Size:
-    matplotlib.rcParams['axes.labelsize'] = 6
+    matplotlib.rcParams['axes.labelsize'] = 10
 
     # Axes Line Width:
     matplotlib.rcParams['axes.linewidth'] = 1
 
     # Tick Label Size:
-    matplotlib.rcParams['xtick.labelsize'] = 6
-    matplotlib.rcParams['ytick.labelsize'] = 6
+    matplotlib.rcParams['xtick.labelsize'] = 9
+    matplotlib.rcParams['ytick.labelsize'] = 9
 
     # Line Width:
     matplotlib.rcParams['lines.linewidth'] = 1
@@ -78,7 +78,7 @@ def plot_settings():
     matplotlib.rcParams['errorbar.capsize'] = 0
 
     # Legend Font Size:
-    matplotlib.rcParams['legend.fontsize'] = 6
+    matplotlib.rcParams['legend.fontsize'] = 9
 
     return matplotlib.rcParams
 

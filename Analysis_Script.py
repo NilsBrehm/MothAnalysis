@@ -384,10 +384,11 @@ if FIFIELD:
                 estimated_th_conv[i] = th_conv_fit
 
             # Plot FI Curves
+            subfig_caps = 12
             mf.plot_settings()
             if plot_fi_curves:
-                label_x_pos = -0.1
-                label_y_pos = 1.05
+                label_x_pos = -0.2
+                label_y_pos = 1.1
                 fig = plt.figure()
                 
                 ax1 = plt.subplot(2, 2, 1)
@@ -396,7 +397,7 @@ if FIFIELD:
                 ax1.plot([th_d_fit, th_d_fit], [0, 1], 'k--')
                 ax1.set_ylabel('SYNC Value')
                 ax1.set_ylim(0, 1)
-                ax1.text(label_x_pos, label_y_pos, 'a', transform=ax1.transAxes, size=10)
+                ax1.text(label_x_pos, label_y_pos, 'a', transform=ax1.transAxes, size=subfig_caps)
 
                 ax2 = plt.subplot(2, 2, 2)
                 y_max = 30
@@ -406,7 +407,7 @@ if FIFIELD:
                 ax2.set_ylabel('Spike count')
                 ax2.set_ylim(0, y_max)
                 ax2.set_yticks(np.arange(0, y_max+5, 5))
-                ax2.text(label_x_pos, label_y_pos, 'b', transform=ax2.transAxes, size=10)
+                ax2.text(label_x_pos, label_y_pos, 'b', transform=ax2.transAxes, size=subfig_caps)
 
                 ax3 = plt.subplot(2, 2, 3)
                 y_max = 30
@@ -418,7 +419,7 @@ if FIFIELD:
                 ax3.set_ylabel('Time [ms]')
                 ax3.set_ylim(0, y_max)
                 ax3.set_yticks(np.arange(0, y_max+5, 5))
-                ax3.text(label_x_pos, label_y_pos, 'c', transform=ax3.transAxes, size=10)
+                ax3.text(label_x_pos, label_y_pos, 'c', transform=ax3.transAxes, size=subfig_caps)
 
                 ax4 = plt.subplot(2, 2, 4)
                 y_max = 600
@@ -432,14 +433,13 @@ if FIFIELD:
                 ax4.set_ylim(0, y_max)
                 ax4.set_yticks(np.arange(0, y_max+100, 100))
                 # plt.legend(frameon=False)
-                ax4.text(label_x_pos, label_y_pos, 'd', transform=ax4.transAxes, size=10)
-
+                ax4.text(label_x_pos, label_y_pos, 'd', transform=ax4.transAxes, size=subfig_caps)
 
                 sns.despine()
-                fig.text(0.5, 0.05, 'Intensity [dB SPL]', ha='center', fontdict=None)
+                fig.text(0.5, 0.035, 'Intensity [dB SPL]', ha='center', fontdict=None)
                 fig.set_size_inches(5.9, 5.9)
                 fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.4)
-                figname = p + 'FICRUVE_' + str(ff) +'.pdf'
+                figname = p + 'FICRUVE_' + str(ff) + '.pdf'
                 fig.savefig(figname)
                 plt.close(fig)
 
@@ -829,6 +829,7 @@ if FI_OVERANIMALS:
 
     # Plot
     mf.plot_settings()
+    subfig_caps = 12
     fig = plt.figure()
     ax1 = plt.subplot(221)
     ax2 = plt.subplot(222)
@@ -858,51 +859,51 @@ if FI_OVERANIMALS:
         ax4.plot(fi_20_carales[0][0], fi_20_carales[0][j + 1], lin_styles[j], color=cc[j], label=method_labels[j])
 
     # Subplot Letters
-    label_x_pos = -0.1
-    label_y_pos = 1.05
-    ax1.text(label_x_pos, label_y_pos, 'a', transform=ax1.transAxes, size=10)
-    ax2.text(label_x_pos, label_y_pos, 'b', transform=ax2.transAxes, size=10)
-    ax3.text(label_x_pos, label_y_pos, 'c', transform=ax3.transAxes, size=10)
-    ax4.text(label_x_pos, label_y_pos, 'd', transform=ax4.transAxes, size=10)
+    label_x_pos = -0.2
+    label_y_pos = 1.1
+    ax1.text(label_x_pos, label_y_pos, 'a', transform=ax1.transAxes, size=subfig_caps)
+    ax2.text(label_x_pos, label_y_pos, 'b', transform=ax2.transAxes, size=subfig_caps)
+    ax3.text(label_x_pos, label_y_pos, 'c', transform=ax3.transAxes, size=subfig_caps)
+    ax4.text(label_x_pos, label_y_pos, 'd', transform=ax4.transAxes, size=subfig_caps)
 
     ax1.legend(frameon=False)
     ax3.legend(frameon=False)
     ax4.legend(frameon=False)
     y_min = 20
-    y_max = 110
+    y_max = 100
     y_step = 10
     x_min = 0
-    x_max = 110
+    x_max = 100
     x_step = 10
 
     ax1.set_ylim(y_min, y_max)
-    ax1.set_yticks(np.arange(y_min, y_max, y_step))
+    ax1.set_yticks(np.arange(y_min, y_max+y_step, y_step))
     ax2.set_ylim(y_min, y_max)
-    ax2.set_yticks(np.arange(y_min, y_max, y_step))
+    ax2.set_yticks(np.arange(y_min, y_max+y_step, y_step))
     ax3.set_ylim(y_min, y_max)
-    ax3.set_yticks(np.arange(y_min, y_max, y_step))
+    ax3.set_yticks(np.arange(y_min, y_max+y_step, y_step))
     ax4.set_ylim(y_min, y_max)
-    ax4.set_yticks(np.arange(y_min, y_max, y_step))
+    ax4.set_yticks(np.arange(y_min, y_max+y_step, y_step))
 
     ax1.set_xlim(x_min, x_max)
-    ax1.set_xticks(np.arange(x_min, x_max, x_step))
+    ax1.set_xticks(np.arange(x_min, x_max+x_step, x_step))
     ax2.set_xlim(x_min, x_max)
-    ax2.set_xticks(np.arange(x_min, x_max, x_step))
+    ax2.set_xticks(np.arange(x_min, x_max+x_step, x_step))
     ax3.set_xlim(x_min, x_max)
-    ax3.set_xticks(np.arange(x_min, x_max, x_step))
+    ax3.set_xticks(np.arange(x_min, x_max+x_step, x_step))
     ax4.set_xlim(x_min, x_max)
-    ax4.set_xticks(np.arange(x_min, x_max, x_step))
+    ax4.set_xticks(np.arange(x_min, x_max+x_step, x_step))
 
     ax1.set_ylabel('Intensity [dB SPL]')
     ax3.set_ylabel('Intensity [dB SPL]')
-    fig.text(0.5, 0.05, 'Frequency [kHz]', ha='center', fontdict=None)
+    fig.text(0.5, 0.035, 'Frequency [kHz]', ha='center', fontdict=None)
     sns.despine()
 
     # Save Plot to HDD
     p = "/media/brehm/Data/MasterMoth/figs/"
     figname = p + 'fi_field.pdf'
     fig.set_size_inches(5.9, 5.9)
-    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.2, hspace=0.4)
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.4)
     fig.savefig(figname)
     plt.close(fig)
     print('Plot saved')
