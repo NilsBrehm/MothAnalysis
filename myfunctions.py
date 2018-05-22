@@ -22,6 +22,7 @@ import matplotlib
 import warnings
 from scipy.optimize import curve_fit
 import matplotlib.patheffects as pe
+import matplotlib.font_manager
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -41,23 +42,43 @@ def get_directories(data_name):
 
 
 def plot_settings():
-    matplotlib.rcParams['font.family'] = 'serif'
-    matplotlib.rcParams['font.sans-serif'] = ['Times']
-    matplotlib.rcParams['font.size'] = 4
+    # Font:
+    # matplotlib.rc('font',**{'family': 'sans-serif', 'sans-serif': ['Helvetica']})
+    matplotlib.rcParams['font.sans-serif'] = 'Helvetica'
+    matplotlib.rcParams['font.family'] = 'sans-serif'
+    matplotlib.rcParams['font.size'] = 6
+
+    # Ticks:
     matplotlib.rcParams['xtick.major.pad'] = '2'
     matplotlib.rcParams['ytick.major.pad'] = '2'
     matplotlib.rcParams['ytick.major.size'] = 4
     matplotlib.rcParams['xtick.major.size'] = 4
-    matplotlib.rcParams['axes.titlesize'] = 4
-    matplotlib.rcParams['axes.labelsize'] = 4
+
+    # Title Size:
+    matplotlib.rcParams['axes.titlesize'] = 6
+
+    # Axes Label Size:
+    matplotlib.rcParams['axes.labelsize'] = 6
+
+    # Axes Line Width:
     matplotlib.rcParams['axes.linewidth'] = 1
-    matplotlib.rcParams['xtick.labelsize'] = 4
-    matplotlib.rcParams['ytick.labelsize'] = 4
+
+    # Tick Label Size:
+    matplotlib.rcParams['xtick.labelsize'] = 6
+    matplotlib.rcParams['ytick.labelsize'] = 6
+
+    # Line Width:
     matplotlib.rcParams['lines.linewidth'] = 1
-    matplotlib.rcParams['lines.markersize'] = 2
     matplotlib.rcParams['lines.color'] = 'k'
-    matplotlib.rcParams['errorbar.capsize'] = 2
-    matplotlib.rcParams['legend.fontsize'] = 4
+
+    # Marker Size:
+    matplotlib.rcParams['lines.markersize'] = 2
+
+    # Error Bars:
+    matplotlib.rcParams['errorbar.capsize'] = 0
+
+    # Legend Font Size:
+    matplotlib.rcParams['legend.fontsize'] = 6
 
     return matplotlib.rcParams
 
@@ -1752,10 +1773,13 @@ def convolution_rate(spikes, t_max, dt, sigma):
         kernel = gauss_kernel(sigma, dt)
         rate[k] = np.convolve(r, kernel, mode='same')
 
+    max_rate = np.max(rate, axis=1)
     firing_rate = np.mean(rate, axis=0)
     std = np.std(rate, axis=0)
+    mean_max_rate = np.mean(max_rate)
+    std_max_rate = np.std(max_rate)
 
-    return t, firing_rate, std
+    return t, firing_rate, std, mean_max_rate, std_max_rate
 
 
 
@@ -2180,11 +2204,10 @@ def fifield_analysis2(path_names):
             instant_rate[k, 0] = used_amps[k]
             dt = 1 / (100*1000)
             sigma = 0.005
-            _, rr, _ = convolution_rate(x, t_max=stimulus_duration, dt=dt, sigma=sigma)
-            # _, rr, _ = convolution_rate(x, t_max=0.02, dt=dt, sigma=sigma)
+            _, _, _, rr, rr_std = convolution_rate(x, t_max=stimulus_duration, dt=dt, sigma=sigma)
             c_rate[k, 0] = used_amps[k]
-            c_rate[k, 1] = np.max(rr)
-            c_rate[k, 2] = np.std(rr)
+            c_rate[k, 1] = rr
+            c_rate[k, 2] = rr_std
 
             if np.isnan(i_rate).all():
                 instant_rate[k, 1] = np.nan
@@ -2212,57 +2235,6 @@ def fifield_analysis2(path_names):
         d_isi.update({used_freqs[i] / 1000: d})
         instant_firing_rate.update({used_freqs[i] / 1000: instant_rate})
         conv_rate.update({used_freqs[i] / 1000: c_rate})
-    # plt.plot(spike_count[70][:,0], spike_count[70][:,1]); plt.show()
-
-    # if method is 'count':
-    #     # Compute FIFIELD: Spike Count
-    #     fi_field = np.zeros((len(spike_count), 2))
-    #     cc = 0
-    #     for i in spike_count:
-    #         idx = spike_count[i][:, 1] >= threshold
-    #         if sum(idx) == 0:
-    #             a = np.nan
-    #         else:
-    #             a = np.min(spike_count[i][idx, 0])
-    #         fi_field[cc, 0] = i
-    #         fi_field[cc, 1] = a
-    #         cc += 1
-    #     fi_field = fi_field[fi_field[:, 0].argsort()]
-    # else:
-    #     # Compute FIFIELD: Firing Rate
-    #     fi_field = np.zeros((len(firing_rate), 2))
-    #     cc = 0
-    #     for i in firing_rate:
-    #         idx = firing_rate[i][:, 1] >= threshold
-    #         if sum(idx) == 0:
-    #             a = np.nan
-    #         else:
-    #             a = np.min(firing_rate[i][idx, 0])
-    #         fi_field[cc, 0] = i
-    #         fi_field[cc, 1] = a
-    #         cc += 1
-    #     fi_field = fi_field[fi_field[:, 0].argsort()]
-    #
-    # # Compute FIFIELD: Spike Train Distance
-    # threshold_d = 0.5
-    # fi_field_d = np.zeros((len(d_isi), 2))
-    # cc = 0
-    # for i in d_isi:
-    #     idx = d_isi[i][:, 2] >= threshold_d
-    #     if sum(idx) == 0:
-    #         a = np.nan
-    #     else:
-    #         a = np.min(d_isi[i][idx, 0])
-    #     fi_field_d[cc, 0] = i
-    #     fi_field_d[cc, 1] = a
-    #     cc += 1
-    # fi_field_d = fi_field_d[fi_field_d[:, 0].argsort()]
-    #
-    # if plot_fi:
-    #     plt.plot(fi_field[:, 0], fi_field[:, 1], 'ko-')
-    #     plt.xlabel('Frequency [kHz]')
-    #     plt.ylabel('dB SPL at threshold (' + str(threshold) + ' spikes)')
-    #     plt.show()
 
     return spike_count, firing_rate, first_spike_latency, first_spike_isi, d_isi, instant_firing_rate, conv_rate, stimulus_duration
 
