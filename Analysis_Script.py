@@ -27,10 +27,8 @@ start_time = time.time()
 # datasets = [dat[0]]
 # print(datasets)
 
-datasets = ['2018-02-20-aa']
-
 FIFIELD = False
-INTERVAL_MAS = False
+INTERVAL_MAS = True
 Bootstrapping = False
 INTERVAL_REC = False
 GAP = False
@@ -43,7 +41,8 @@ VANROSSUM = False
 PULSE_TRAIN_ISI = False
 PULSE_TRAIN_VANROSSUM = False
 
-FI_OVERANIMALS = True
+FI_OVERANIMALS = False
+OVERALLVS = False
 PLOT_CORRECT = False
 
 SELECT = True
@@ -137,10 +136,14 @@ if GAP:
 
 # Rect Intervals
 if INTERVAL_REC:
+    # good recordings
+    datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2018-02-16-aa']
+    # datasets = ['2017-12-05-ab']
     vs_order = 2
+    old = False
     protocol_name = 'PulseIntervalsRect'
     spike_detection = False
-    for dat in range(len(datasets)):
+    for dat in tqdm(range(len(datasets)), desc='Interval Rect'):
         print(str(dat) + ' of ' + str(len(datasets)))
         data_name = datasets[dat]
         path_names = mf.get_directories(data_name=data_name)
@@ -150,30 +153,33 @@ if INTERVAL_REC:
             mf.spike_times_gap(path_names, protocol_name, show=show_detection, save_data=True, th_factor=th_factor,
                                filter_on=True,
                                window=None, mph_percent=mph_percent)
-        mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=True, save_data=False, old=False, vs_order=vs_order)
-        exit()
+        mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=[True, True], save_data=True,
+                             old=old, vs_order=vs_order)
 
     # mf.plot_cohen(protocol_name, datasets, save_fig=True)
 
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:
+    # good recordings:
+    datasets = ['2017-11-27-aa', '2017-12-01-ab', '2017-12-01-ac', '2017-12-05-ab', '2017-11-29-aa']
     old = False
     vs_order = 2
     protocol_name = 'intervals_mas'
     spike_detection = False
     show_detection = False
-    data_name = datasets[18]
-    # old 0:9
-    print(data_name)
-    if old:
-        print('OLD MAS Protocol!')
-    path_names = mf.get_directories(data_name=data_name)
+    for k in tqdm(range(len(datasets)), desc='Interval MAS'):
+        data_name = datasets[k]
+        # old 0:9
+        print(data_name)
+        if old:
+            print('OLD MAS Protocol!')
+        path_names = mf.get_directories(data_name=data_name)
 
-    if spike_detection:
-        mf.spike_times_gap(path_names, protocol_name, show=show_detection, save_data=True, th_factor=th_factor,
-                           filter_on=True, window=None, mph_percent=mph_percent)
+        if spike_detection:
+            mf.spike_times_gap(path_names, protocol_name, show=show_detection, save_data=True, th_factor=th_factor,
+                               filter_on=True, window=None, mph_percent=mph_percent)
 
-    mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=[True, True], save_data=False, old=old, vs_order=vs_order)
+        mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=[True, True], save_data=True, old=old, vs_order=vs_order)
 
     # OLD:
     # mf.moth_intervals_spike_detection(path_names, window=None, th_factor=th_factor, mph_percent=mph_percent,
@@ -384,6 +390,9 @@ if FIFIELD:
                 estimated_th_conv[i] = th_conv_fit
 
             # Plot FI Curves
+            x_min = 10
+            x_max = 90
+            x_step = 10
             subfig_caps = 12
             mf.plot_settings()
             if plot_fi_curves:
@@ -398,6 +407,8 @@ if FIFIELD:
                 ax1.set_ylabel('SYNC Value')
                 ax1.set_ylim(0, 1)
                 ax1.text(label_x_pos, label_y_pos, 'a', transform=ax1.transAxes, size=subfig_caps)
+                ax1.set_xlim(x_min, x_max)
+                ax1.set_xticks(np.arange(x_min, x_max+x_step, x_step))
 
                 ax2 = plt.subplot(2, 2, 2)
                 y_max = 30
@@ -408,18 +419,22 @@ if FIFIELD:
                 ax2.set_ylim(0, y_max)
                 ax2.set_yticks(np.arange(0, y_max+5, 5))
                 ax2.text(label_x_pos, label_y_pos, 'b', transform=ax2.transAxes, size=subfig_caps)
+                ax2.set_xlim(x_min, x_max)
+                ax2.set_xticks(np.arange(x_min, x_max + x_step, x_step))
 
                 ax3 = plt.subplot(2, 2, 3)
                 y_max = 30
                 ax3.errorbar(fsl[ff][:, 0], fsl[ff][:, 1], yerr=fsl[ff][:, 2], marker='o',
-                             linestyle='', color='k', label='first spike latency')
+                             linestyle='-', color='k', label='first spike latency')
                 ax3.errorbar(fisi[ff][:, 0], fisi[ff][:, 1], yerr=fisi[ff][:, 2], marker='s',
-                             linestyle='', color='0.3', label='first spike interval')
+                             linestyle='-', color='0.3', label='first spike interval')
                 ax3.legend(frameon=False)
                 ax3.set_ylabel('Time [ms]')
                 ax3.set_ylim(0, y_max)
                 ax3.set_yticks(np.arange(0, y_max+5, 5))
                 ax3.text(label_x_pos, label_y_pos, 'c', transform=ax3.transAxes, size=subfig_caps)
+                ax3.set_xlim(x_min, x_max)
+                ax3.set_xticks(np.arange(x_min, x_max + x_step, x_step))
 
                 ax4 = plt.subplot(2, 2, 4)
                 y_max = 600
@@ -434,6 +449,8 @@ if FIFIELD:
                 ax4.set_yticks(np.arange(0, y_max+100, 100))
                 # plt.legend(frameon=False)
                 ax4.text(label_x_pos, label_y_pos, 'd', transform=ax4.transAxes, size=subfig_caps)
+                ax4.set_xlim(x_min, x_max)
+                ax4.set_xticks(np.arange(x_min, x_max + x_step, x_step))
 
                 sns.despine()
                 fig.text(0.5, 0.035, 'Intensity [dB SPL]', ha='center', fontdict=None)
@@ -874,7 +891,7 @@ if FI_OVERANIMALS:
     y_step = 10
     x_min = 0
     x_max = 100
-    x_step = 10
+    x_step = 20
 
     ax1.set_ylim(y_min, y_max)
     ax1.set_yticks(np.arange(y_min, y_max+y_step, y_step))
@@ -910,3 +927,81 @@ if FI_OVERANIMALS:
 
 print('Analysis done!')
 print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
+
+
+if OVERALLVS:
+    # RectInvterval
+    # datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2017-12-05-ab', '2018-02-16-aa']
+    datasets = ['2017-11-27-aa', '2017-11-29-aa', '2018-02-16-aa']
+
+    protocol_name = 'PulseIntervalsRect'
+    vs = [[]] * len(datasets)
+    mf.plot_settings()
+    fig = plt.figure()
+    ax1 = plt.subplot(121)
+    ax2 = plt.subplot(122)
+    marks = ['o', 's', 'v']
+    for k in range(len(datasets)):
+        data_name = datasets[k]
+        path_names = mf.get_directories(data_name=data_name)
+        p = path_names[1]
+        vs[k] = np.load(p + 'PulseIntervalsRect_vs.npy')
+
+        vs_mean = vs[k][0:17, 3]
+        gaps = vs[k][0:17, 2]
+        ci_low = vs[k][0:17, 4]
+        ci_up = vs[k][0:17, 5]
+        percentile = vs[k][0:17, 7]
+        low = vs_mean - ci_low
+        up = ci_up - vs_mean
+        # Find Threshold
+        idx = vs_mean >= percentile
+        gap_th = np.min(gaps[idx])
+        gap_vs = vs_mean[gap_th == gaps]
+        ax1.errorbar(gaps, vs_mean, yerr=[up, low], label=datasets[k], color='0.5', marker=marks[k], linestyle='-')
+        ax1.errorbar(gaps[idx], vs_mean[idx], yerr=[up[idx], low[idx]], label=datasets[k], color='k', marker=marks[k])
+
+        vs_mean = vs[k][17:34, 3]
+        gaps = vs[k][17:34, 2]
+        ci_low = vs[k][17:34, 4]
+        ci_up = vs[k][17:34, 5]
+        percentile = vs[k][17:34, 7]
+        low = vs_mean - ci_low
+        up = ci_up - vs_mean
+        # Find Threshold
+        idx = vs_mean >= percentile
+        gap_th = np.min(gaps[idx])
+        gap_vs = vs_mean[gap_th == gaps]
+        ax2.errorbar(gaps, vs_mean, yerr=[up, low], label=datasets[k], color='0.5', marker=marks[k], linestyle='-')
+        ax2.errorbar(gaps[idx], vs_mean[idx], yerr=[up[idx], low[idx]], label=datasets[k], color='k', marker=marks[k])
+        # ax2.plot(gap_th, gap_vs, 'ro')
+
+    ax1.set_xlim(-1, 21)
+    ax1.set_xticks(np.arange(0, 20 + 2, 5))
+    ax2.set_xlim(-1, 21)
+    ax2.set_xticks(np.arange(0, 20 + 2, 5))
+    ax1.set_ylim(0, 1)
+    ax1.set_yticks(np.arange(0, 1.1, 0.2))
+    ax2.set_ylim(0, 1)
+    ax2.set_yticks(np.arange(0, 1.1, 0.2))
+    label_x_pos = -0.2
+    label_y_pos = 1.1
+    subfig_caps = 12
+    ax1.text(label_x_pos, label_y_pos, 'a', transform=ax1.transAxes, size=subfig_caps)
+    ax2.text(label_x_pos, label_y_pos, 'b', transform=ax2.transAxes, size=subfig_caps)
+    # ax1.legend()
+    # ax2.legend()
+    ax1.set_ylabel('Mean Vector Strength')
+    fig.text(0.5, 0.075, 'Gap [ms]', ha='center', fontdict=None)
+    sns.despine()
+
+    # Save Plot to HDD
+    p = "/media/brehm/Data/MasterMoth/figs/"
+    figname = p + 'Rect_VS.pdf'
+    fig.set_size_inches(5.9, 2.9)
+    fig.subplots_adjust(left=0.1, top=0.8, bottom=0.2, right=0.9, wspace=0.4, hspace=0.4)
+    fig.savefig(figname)
+    plt.close(fig)
+    print('Plot saved')
+
+

@@ -78,7 +78,7 @@ def plot_settings():
     matplotlib.rcParams['errorbar.capsize'] = 0
 
     # Legend Font Size:
-    matplotlib.rcParams['legend.fontsize'] = 9
+    matplotlib.rcParams['legend.fontsize'] = 6
 
     return matplotlib.rcParams
 
@@ -276,6 +276,10 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         if protocol_name == 'PulseIntervalsRect':
             t_period = float(period[i]) / 1000
             idx = pp == period_num
+            if gaps < 1:
+                # print('gap 0')
+                idx = pp == 40
+
         if protocol_name == 'Gap':  # Use gap as period for VS
             # t_period = float(gap[i]) / 1000
             t_period = float(period[i]) / 1000
@@ -326,6 +330,8 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         vs[4] = np.nan
         vs[5] = pp
         vs[6] = period_num
+        if gaps < 1:
+            vs[6] = 40
 
         vs_boot = [[]] * 4
         vs_boot[0] = vs_mean_boot
@@ -346,7 +352,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
 
         # Now Plot it
         # uu = gaps == np.array([10, 5, 4, 3, 2, 1, 0])
-        uu = gaps == np.array([20, 10, 5])
+        uu = gaps == np.array([20, 10, 4, 2, 0])
         if show[0] and uu.any():
             # Adapt bin size to half the gap size
             if gaps < 0:
@@ -357,10 +363,10 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
             plot_gaps(spike_times, stim_time[i], stim[i], bin_size, p_spikes, isi_p, vs, vs_boot, mark_intervals=False)
             if save_fig:
                 # Save Plot to HDD
-                figname = path_names[2] + protocol_name + '_pd_' + str(pd) + '_gap_' + str(gaps) + '_VSorder_' + str(vs_order) +'.pdf'
+                figname = path_names[2] + 'id_' + str(i) + '_' + protocol_name + '_pd_' + str(pd) + '_gap_' + str(gaps) + '_VSorder_' + str(vs_order) +'.pdf'
                 fig = plt.gcf()
                 fig.set_size_inches(5.9, 5.9)
-                fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.8)
+                fig.subplots_adjust(left=0.15, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.8)
                 # fig.savefig(figname, bbox_inches='tight', dpi=300)
                 fig.savefig(figname)
                 plt.close(fig)
@@ -394,10 +400,10 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         plt.show()
 
     # Save Data to HDD
-    # if save_data:
-    #     file_name = file_pathname + protocol_name + '_cohensD.npy'
-    #     np.save(file_name, cohen_d)
-    #     print('Cohens d saved (protocol: ' + protocol_name + ')')
+    if save_data:
+        file_name = file_pathname + protocol_name + '_vs.npy'
+        np.save(file_name, vector_strength)
+        print('VS saved (protocol: ' + protocol_name + ')')
 
     return 0
 
@@ -582,7 +588,7 @@ def plot_vs_gap(vs, ax, protocol_name):
         ax.plot(gaps, vs_boot, 'k--', label='poisson spikes', linewidth=0.5)
         # ax.plot(gaps, vs_boot_percentile, 'k:', label='95 % perc', linewidth=0.5)
         ax.fill_between(gaps, np.zeros(len(gaps)), vs_boot_percentile, label='95 % perc', facecolors='0.5', alpha=0.5)
-    ax.legend(loc='upper right', shadow=False, frameon=False)
+    ax.legend(loc='best', shadow=False, frameon=False)
     ax.set_ylabel('Vector Strength')
     ax.set_xlabel('Gaps [ms]')
     ax.set_yticks(np.arange(0, 1.2, 0.2))
@@ -706,11 +712,11 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     # Compute Convolved Firing Rate
     dt = 1 / fs
     sigma = bin_size  # in seconds
-    rate_conv_time, rate_conv, rate_conv_std = convolution_rate(spike_times, tmax, dt, sigma)
+    rate_conv_time, rate_conv, rate_conv_std, conv_overall_frate, conv_overall_frate_std = convolution_rate(spike_times, tmax, dt, sigma, method='mean')
     # Ignore the first 20 % of trial for mean firing rate
-    limits = np.int((len(rate_conv)/fs)*0.2 * fs)
-    conv_overall_frate = np.mean(rate_conv[limits:])
-    conv_overall_frate_std = np.std(rate_conv[limits:])
+    # limits = np.int((len(rate_conv)/fs)*0.2 * fs)
+    # conv_overall_frate = np.mean(rate_conv[limits:])
+    # conv_overall_frate_std = np.std(rate_conv[limits:])
 
     # Get Vector Strength Data
     vs_mean = vs[0]
@@ -719,7 +725,7 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     mu = vs[3]
     peaks = vs[4]
     pp = vs[5]
-    period = vs[6]
+    period = np.floor(vs[6])
 
     vs_mean_boot = vs_boot[0]
     vs_std_boot = vs_boot[1]
@@ -727,6 +733,7 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     vector_phase_boot = vs_boot[3]
 
     # Prepare Axes
+    subfig_caps = 12
     x_limit = stim_time[-1]
     fig = plt.figure()
     # fig.set_size_inches(3.9, 3.1)
@@ -742,9 +749,12 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     distance = plt.subplot2grid(fig_size, (3, 0), rowspan=1, colspan=3, sharex=raster)
     # stim_trace = plt.subplot2grid(fig_size, (4, 0), rowspan=1, colspan=3, sharex=raster)
 
-    label_x_pos1 = -0.44
+    label_x_pos1 = -0.46
     label_x_pos2 = label_x_pos1 / 4
-    label_y_pos = 1.4
+    label_y_pos = 1.3
+
+    yaxis_pos1 = -0.08
+    yaxis_pos2 = yaxis_pos1 * 4
 
     # ISI Histogram ====================================================================================================
     bs = 1  # in ms
@@ -752,10 +762,11 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
                        intervals=isi_p, tmin=tmin, plot_title=False, ax=isi_ax)
     # isi_ax.legend(loc='upper right', shadow=False, frameon=False)
     isi_ax.set_xlim(0, 30)
-    isi_ax.set_xticks(np.arange(0, 30, 5))
-    isi_ax.yaxis.set_label_coords(-0.24, 0.5)
+    isi_ax.set_xticks(np.arange(0, 30+5, 5))
+    isi_ax.xaxis.set_label_coords(0.5, -0.4)
+    isi_ax.yaxis.set_label_coords(yaxis_pos2, 0.5)
     sns.despine(ax=isi_ax)
-    isi_ax.text(label_x_pos1, label_y_pos, 'a', transform=isi_ax.transAxes, size=8)
+    isi_ax.text(label_x_pos1, label_y_pos, 'a', transform=isi_ax.transAxes, size=subfig_caps)
 
     # VS vs period =====================================================================================================
     # vs_ax.plot(pp, vs_std_boot + vs_mean_boot, 'g--')
@@ -763,25 +774,27 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     #     vs_ax.plot(pp[peaks], vs_mean[peaks], 'bo')
     # vs_ax.plot([float(period), float(period)], [0, 1], 'bx:', linewidth=0.3)
     vs_ax.plot(pp, vs_mean, 'k', label='Data')
-    vs_ax.plot(pp, vs_mean_boot, 'g', label='Poisson', linewidth=0.5)
+    vs_ax.plot(pp, vs_mean_boot, '--', label='Poisson', linewidth=0.5, color='0.5')
     if vs_order == 2:
-        vs_ax.plot(pp, vs_percentile_boot, 'g--', linewidth=0.5)
+        vs_ax.plot(pp, vs_percentile_boot, ':', linewidth=0.5, color='0.5')
         vs_ax.fill_between(pp, vs_ci[:, 0], vs_ci[:, 1], facecolor='k', alpha=0.5)
-    vs_ax.arrow(float(period), 1, 0, -0.95, head_width=0.5, head_length=0.025, fc='r', ec='r', head_starts_at_zero=False,
-                alpha=0.75, linewidth=0.5)
+    if period < 39:
+        vs_ax.arrow(period, 1, 0, -0.95, head_width=0.5, head_length=0.025, fc='k', ec='k', head_starts_at_zero=False,
+                    alpha=0.75, linewidth=0.5)
     vs_ax.set_xlabel('Period [ms]')
     vs_ax.set_ylabel('Mean VS')
     vs_ax.set_xlim(0, np.max(pp))
-    vs_ax.set_xticks(np.arange(0, np.max(pp), 10))
+    vs_ax.set_xticks(np.arange(0, np.max(pp)+10, 10))
     if np.min(pp) > 10:
         vs_ax.set_xlim(np.min(pp), np.max(pp))
-        vs_ax.set_xticks(np.arange(np.min(pp), np.max(pp), 10))
+        vs_ax.set_xticks(np.arange(np.min(pp), np.max(pp)+10, 10))
     vs_ax.set_ylim(0, 1)
-    vs_ax.set_yticks(np.arange(0, 1.1, 0.2))
+    vs_ax.set_yticks(np.arange(0, 1.1, 0.5))
     vs_ax.legend(loc='upper right', shadow=False, frameon=False)
-    vs_ax.yaxis.set_label_coords(-0.24, 0.5)
+    vs_ax.xaxis.set_label_coords(0.5, -0.4)
+    vs_ax.yaxis.set_label_coords(-0.25, 0.5)
     sns.despine(ax=vs_ax)
-    vs_ax.text(label_x_pos1, label_y_pos, 'c', transform=vs_ax.transAxes, size=8)
+    vs_ax.text(label_x_pos1, label_y_pos, 'c', transform=vs_ax.transAxes, size=subfig_caps)
 
     # Polar Hist =======================================================================================================
     # Convert radians to phase
@@ -792,21 +805,22 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     # vs_hist_ax.grid(True, linewidth=0.2)
     # vs_hist_ax.axhline(linewidth=0.5, color="k")  # inc. width of y-axis and color it red
     vs_hist_ax.hist(vector_phase, bins=20, density=True, facecolor='k', alpha=1, label='Data')
-    vs_hist_ax.hist(vector_phase_boot, bins=20, density=True, facecolor='g', alpha=0.75, label='Poisson Spikes')
+    vs_hist_ax.hist(vector_phase_boot, bins=20, density=True, facecolor='0.5', alpha=0.75, label='Poisson Spikes')
     # xL = ['0', '', r'$\frac{\pi}{2}$', '', r'$\pi$', '', r'$\frac{3\pi}{2}$', '']
     vs_hist_ax.set_xlim(0, 2*np.pi+0.1)
     vs_hist_ax.set_xticks(np.arange(0, 2*np.pi+0.1, np.pi/2))
 
     xL = ['0', r'$\frac{\pi}{2}$', r'$\pi$', r'$\frac{3\pi}{2}$', r'2$\pi$']
     vs_hist_ax.set_xticklabels(xL)
-    vs_hist_ax.set_xlabel('Phase of Stimulus Period')
+    vs_hist_ax.set_xlabel('Stimulus Phase')
 
     # vs_hist_ax.legend(loc='upper right', shadow=False, frameon=False)
     # vs_hist_ax.arrow(0, 0, np.angle(mu), np.abs(mu), head_starts_at_zero=False, color='r', linewidth=2)
     # vs_hist_ax.plot(92, 1, 'r-')
     vs_hist_ax.set_ylim(0, 1)
+    vs_hist_ax.xaxis.set_label_coords(0.5, -0.4)
     vs_hist_ax.set_yticks(np.arange(0, 1.1, 0.5))
-    vs_hist_ax.text(label_x_pos1+0.2, label_y_pos, 'b', transform=vs_hist_ax.transAxes, size=8)
+    vs_hist_ax.text(label_x_pos1+0.2, label_y_pos, 'b', transform=vs_hist_ax.transAxes, size=subfig_caps)
     sns.despine(ax=vs_hist_ax)
 
     # Raster Plot ======================================================================================================
@@ -825,9 +839,9 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     raster.set_ylim(0, len(spike_times)+1)
     raster.set_yticks(np.arange(0, len(spike_times)+1, 5))
     raster.set_ylabel('Trial')
-    raster.yaxis.set_label_coords(-0.06, 0.5)
+    raster.yaxis.set_label_coords(yaxis_pos1, 0.5)
     sns.despine(ax=raster)
-    raster.text(label_x_pos2, label_y_pos, 'd', transform=raster.transAxes, size=8)
+    raster.text(label_x_pos2, label_y_pos, 'd', transform=raster.transAxes, size=subfig_caps)
 
     # PSTH Plot ========================================================================================================
     # # Binned
@@ -837,23 +851,24 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     # psth_ax.fill_between([0, bin_edges[-1]*1000], overall_frate - overall_frate_std, overall_frate + overall_frate_std, facecolor='blue', alpha=0.25)
 
     # Convolved
-    psth_ax.plot(rate_conv_time * 1000, rate_conv, 'r', label='Firing Rate')
-    psth_ax.plot([rate_conv_time[0] * 1000, rate_conv_time[-1] * 1000], [conv_overall_frate, conv_overall_frate], 'g', label='Mean Firing Rate')
-    psth_ax.fill_between(rate_conv_time * 1000, rate_conv - rate_conv_std, rate_conv + rate_conv_std, facecolor='red',
+    psth_ax.plot(rate_conv_time * 1000, rate_conv, 'k', label='Firing rate')
+    psth_ax.plot([rate_conv_time[0] * 1000, rate_conv_time[-1] * 1000], [conv_overall_frate, conv_overall_frate], 'k--', label='Mean firing rate')
+    psth_ax.fill_between(rate_conv_time * 1000, rate_conv - rate_conv_std, rate_conv + rate_conv_std, facecolor='k',
                          alpha=0.25)
-    psth_ax.fill_between([rate_conv_time[0] * 1000, rate_conv_time[-1] * 1000], conv_overall_frate - conv_overall_frate_std, conv_overall_frate + conv_overall_frate_std, facecolor='green',
-                         alpha=0.25)
-
+    # psth_ax.fill_between([rate_conv_time[0] * 1000, rate_conv_time[-1] * 1000], conv_overall_frate - conv_overall_frate_std, conv_overall_frate + conv_overall_frate_std, facecolor='0.5',
+    #                      alpha=0.25, hatch='//')
+    psth_ax.plot([rate_conv_time[0] * 1000, rate_conv_time[-1] * 1000], [conv_overall_frate - conv_overall_frate_std, conv_overall_frate - conv_overall_frate_std], ':', color='k')
+    psth_ax.plot([rate_conv_time[0] * 1000, rate_conv_time[-1] * 1000], [conv_overall_frate + conv_overall_frate_std, conv_overall_frate + conv_overall_frate_std], ':', color='k')
 
     psth_ax.set_xlim(0, x_limit*1000)
     psth_ax.set_xticks(np.arange(0, x_limit * 1000+1, 50))
     psth_ax.set_ylim(0, np.max(rate_conv+rate_conv_std))
-    psth_ax.set_yticks(np.arange(0, np.max(rate_conv+rate_conv_std), 100))
-    psth_ax.set_ylabel('Firing Rate [Hz]')
+    psth_ax.set_yticks(np.arange(0, np.max(rate_conv+rate_conv_std)+100, 100))
+    psth_ax.set_ylabel('Firing rate [Hz]')
     psth_ax.legend(loc='upper right', shadow=False, frameon=False)
-    psth_ax.yaxis.set_label_coords(-0.06, 0.5)
+    psth_ax.yaxis.set_label_coords(yaxis_pos1, 0.5)
     sns.despine(ax=psth_ax)
-    psth_ax.text(label_x_pos2, label_y_pos, 'e', transform=psth_ax.transAxes, size=8)
+    psth_ax.text(label_x_pos2, label_y_pos, 'e', transform=psth_ax.transAxes, size=subfig_caps)
 
     # Distances Profiles Plot ==========================================================================================
     trains = [[]] * len(spike_times)
@@ -877,7 +892,7 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     t_isi_ra = np.linspace(0, x_limit, len(isi_ra))
 
     distance.plot(stim_time*1000, stim, 'k', alpha=0.5, label='Stimulus')
-    distance.plot(t_sync_ra*1000, sync_ra, 'r', label='SYNC')
+    distance.plot(t_sync_ra*1000, sync_ra, 'k', label='SYNC')
     # distance.plot(t_spike_ra*1000, spike_ra, 'g', label='SPIKE')
     # distance.plot(t_isi_ra*1000, isi_ra, 'm', label='ISI')
 
@@ -887,16 +902,16 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     distance.set_xlim(0, x_limit*1000)
     distance.set_xticks(np.arange(0, x_limit*1000+1, 50))
     if np.min(stim) < -0.1:
-        distance.set_ylim(-1, 1.1)
-        distance.set_yticks(np.arange(-1, 1.1, 0.5))
+        distance.set_ylim(-1, 1)
+        distance.set_yticks(np.arange(-1, 1.1, 1))
     else:
-        distance.set_ylim(0, 1.1)
-        distance.set_yticks(np.arange(0, 1.1, 0.5))
+        distance.set_ylim(0, 1)
+        distance.set_yticks(np.arange(0, 1.1, 1))
     distance.set_ylabel('Distance')
     distance.legend(loc='upper right', shadow=False, frameon=True)
-    distance.yaxis.set_label_coords(-0.06, 0.5)
+    distance.yaxis.set_label_coords(yaxis_pos1, 0.5)
     sns.despine(ax=distance)
-    distance.text(label_x_pos2, label_y_pos, 'f', transform=distance.transAxes, size=8)
+    distance.text(label_x_pos2, label_y_pos, 'f', transform=distance.transAxes, size=subfig_caps)
     distance.set_xlabel('Time [ms]')
 
 
@@ -1755,13 +1770,12 @@ def overview_recordings(look_for_mtags):
 # SPIKE STATISTICS
 
 
-def convolution_rate(spikes, t_max, dt, sigma):
+def convolution_rate(spikes, t_max, dt, sigma, method='mean'):
     def gauss_kernel(s, step):
         x = np.arange(-4 * s, 4 * s, step)
         y = np.exp(-0.5 * (x/s)**2) / (np.sqrt(2 * np.pi) * s)
         # y = np.exp(-(x**2 / 2*s**2)) / (np.sqrt(2 * np.pi) * s)
         return y
-
 
     rate = [[]] * len(spikes)
     for k in range(len(spikes)):
@@ -1773,7 +1787,11 @@ def convolution_rate(spikes, t_max, dt, sigma):
         kernel = gauss_kernel(sigma, dt)
         rate[k] = np.convolve(r, kernel, mode='same')
 
-    max_rate = np.max(rate, axis=1)
+    if method is 'max':
+        max_rate = np.max(rate, axis=1)
+    if method is 'mean':
+        max_rate = np.mean(rate, axis=1)
+
     firing_rate = np.mean(rate, axis=0)
     std = np.std(rate, axis=0)
     mean_max_rate = np.mean(max_rate)
@@ -1850,7 +1868,7 @@ def plot_isi_histogram(spike_times, p_spike_times, bin_size, x_limit, steps, inf
     bins_nr1 = int(np.max(isi) / bin_size)
     bins_nr2 = int(np.max(isi_p) / bin_size)
     n1, bins1, patches1 = ax.hist(isi, bins_nr1, density=True, facecolor='k', alpha=1, label='Data')
-    n2, bins2, patches2 = ax.hist(isi_p, bins_nr2, density=True, facecolor='green', alpha=0.75, label='Poisson Spikes')
+    n2, bins2, patches2 = ax.hist(isi_p, bins_nr2, density=True, facecolor='0.5', alpha=0.75, label='Poisson Spikes')
 
     ax.set_xlabel('ISI [ms]')
     ax.set_ylabel('Probability')
