@@ -365,8 +365,8 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
                 # Save Plot to HDD
                 figname = path_names[2] + 'id_' + str(i) + '_' + protocol_name + '_pd_' + str(pd) + '_gap_' + str(gaps) + '_VSorder_' + str(vs_order) +'.pdf'
                 fig = plt.gcf()
-                fig.set_size_inches(5.9, 5.9)
-                fig.subplots_adjust(left=0.15, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.8)
+                # fig.set_size_inches(5.9, 5.9)
+                # fig.subplots_adjust(left=0.15, top=0.9, bottom=0.1, right=0.9, wspace=0.005, hspace=0.8)
                 # fig.savefig(figname, bbox_inches='tight', dpi=300)
                 fig.savefig(figname)
                 plt.close(fig)
@@ -513,16 +513,17 @@ def poisson_vs_duration2(ts, vs_rates, vs_samples, rates, nsamples):
     samples_ax = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
     rates_ax = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
 
-    samples_ax.set_ylabel('Mean Vector Strength')
+    samples_ax.set_ylabel('Mean vector strength')
     # samples_ax.set_xlabel('Spike Train Duration [ms]')
-    samples_ax.set_ylim(0, 1.1)
-    samples_ax.set_yticks(np.arange(0, 1.1, 0.2))
-    samples_ax.set_xticks(np.arange(0, 1.1, 0.2))
+    samples_ax.set_ylim(0, 1)
+    samples_ax.set_xlim(0, 1)
+    samples_ax.set_yticks(np.arange(0, 1.1, 0.5))
+    samples_ax.set_xticks(np.arange(0, 1.1, 0.5))
     cc = ['0', '0.4', '0.85']
     for k in range(vs_samples.shape[0]):
         vs = np.delete(vs_samples[k], np.where(np.isnan(vs_samples[k])))
         ts_no_nan = np.delete(ts, np.where(np.isnan(vs_samples[k])))
-        samples_ax.plot(ts_no_nan, vs, '-', label=str(nsamples[k]) + ' train(s)', color=cc[k])
+        samples_ax.plot(ts_no_nan, vs, '-', label=str(nsamples[k]) + ' trial(s)', color=cc[k])
     samples_ax.legend(frameon=False)
 
     cc = ['0', '0.25', '0.4', '0.8']
@@ -537,11 +538,18 @@ def poisson_vs_duration2(ts, vs_rates, vs_samples, rates, nsamples):
         rates_ax.plot(ts_no_nan, vs, '-', label=str(rates[i]) + ' Hz', color=cc[i])
 
     # rates_ax.set_xlabel('Spike Train Duration [ms]')
-    rates_ax.set_ylim(0, 1.1)
-    rates_ax.set_yticks(np.arange(0, 1.1, 0.2))
-    rates_ax.set_xticks(np.arange(0, 1.1, 0.2))
+    rates_ax.set_ylim(0, 1)
+    rates_ax.set_xlim(0, 1)
+    rates_ax.set_yticks(np.arange(0, 1.1, 0.5))
+    rates_ax.set_xticks(np.arange(0, 1.1, 0.5))
     rates_ax.legend(frameon=False)
-    fig.text(0.6, 0.02, 'Spike Train Duration [s]', ha='center', fontdict=None)
+    subfig_caps = 12
+    label_x_pos = -0.4
+    label_y_pos = 1.1
+    samples_ax.text(label_x_pos, label_y_pos, 'a', transform=samples_ax.transAxes, size=subfig_caps)
+    rates_ax.text(label_x_pos, label_y_pos, 'b', transform=rates_ax.transAxes, size=subfig_caps)
+
+    fig.text(0.6, 0.02, 'Spike train duration [s]', ha='center', fontdict=None)
     sns.despine()
     return 0
 
@@ -708,6 +716,7 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     overall_frate_std = np.std(overall_frate)
     overall_frate = np.mean(overall_frate)
     mean_rate = overall_frate
+    mean_period = (1/overall_frate) * 1000
 
     # Compute Convolved Firing Rate
     dt = 1 / fs
@@ -740,6 +749,9 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     # fig.subplots_adjust(left=0.05, top=0.95, bottom=0.05, right=0.95, wspace=0.15, hspace=0.5)
 
     fig_size = (4, 3)
+    fig.set_size_inches(5.9, 5.9)
+    fig.subplots_adjust(left=0.15, top=0.9, bottom=0.1, right=0.9, wspace=0.6, hspace=0.8)
+
     isi_ax = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
     vs_ax = plt.subplot2grid(fig_size, (0, 2), rowspan=1, colspan=1)
     # vs_hist_ax = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1, projection='polar')
@@ -749,9 +761,9 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     distance = plt.subplot2grid(fig_size, (3, 0), rowspan=1, colspan=3, sharex=raster)
     # stim_trace = plt.subplot2grid(fig_size, (4, 0), rowspan=1, colspan=3, sharex=raster)
 
-    label_x_pos1 = -0.46
+    label_x_pos1 = -0.60
     label_x_pos2 = label_x_pos1 / 4
-    label_y_pos = 1.3
+    label_y_pos = 1
 
     yaxis_pos1 = -0.08
     yaxis_pos2 = yaxis_pos1 * 4
@@ -767,6 +779,8 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     isi_ax.yaxis.set_label_coords(yaxis_pos2, 0.5)
     sns.despine(ax=isi_ax)
     isi_ax.text(label_x_pos1, label_y_pos, 'a', transform=isi_ax.transAxes, size=subfig_caps)
+    isi_ax.legend(loc='best', shadow=False, frameon=False)
+
 
     # VS vs period =====================================================================================================
     # vs_ax.plot(pp, vs_std_boot + vs_mean_boot, 'g--')
@@ -774,23 +788,38 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     #     vs_ax.plot(pp[peaks], vs_mean[peaks], 'bo')
     # vs_ax.plot([float(period), float(period)], [0, 1], 'bx:', linewidth=0.3)
     vs_ax.plot(pp, vs_mean, 'k', label='Data')
-    vs_ax.plot(pp, vs_mean_boot, '--', label='Poisson', linewidth=0.5, color='0.5')
+    vs_ax.plot(pp, vs_mean_boot, '-', label='Poisson', linewidth=0.5, color='1')
     if vs_order == 2:
-        vs_ax.plot(pp, vs_percentile_boot, ':', linewidth=0.5, color='0.5')
-        vs_ax.fill_between(pp, vs_ci[:, 0], vs_ci[:, 1], facecolor='k', alpha=0.5)
+        # vs_ax.plot(pp, vs_percentile_boot, ':', linewidth=0.5, color='0.5')
+        vs_ax.fill_between(pp, [0]*len(vs_percentile_boot), vs_percentile_boot, facecolor='0.5', alpha=0.75)
+        # vs_ax.fill_between(pp, vs_ci[:, 0], vs_ci[:, 1], facecolor='k', alpha=0.5)
     if period < 39:
-        vs_ax.arrow(period, 1, 0, -0.95, head_width=0.5, head_length=0.025, fc='k', ec='k', head_starts_at_zero=False,
-                    alpha=0.75, linewidth=0.5)
+        vs_ax.text(period - 0.5, 0.95, r'$s$', size=5)
+        vs_ax.arrow(period, 0.9, 0, -0.85, head_width=0.75, head_length=0.025, fc='k', ec='k', head_starts_at_zero=False,
+                    alpha=0.75, linewidth=0.75)
+        vs_ax.arrow(period / 2, 0.9, 0, -0.85, head_width=0.75, head_length=0.025, fc='k', ec='k',
+                    head_starts_at_zero=False,
+                    alpha=0.75, linewidth=0.75)
+        vs_ax.arrow(period / 4, 0.9, 0, -0.85, head_width=0.75, head_length=0.025, fc='k', ec='k',
+                    head_starts_at_zero=False,
+                    alpha=0.75, linewidth=0.75)
+        vs_ax.text(period / 2 - 0.5, 0.95, r'$\frac{s}{2}$', size=5)
+        vs_ax.text(period / 4 - 0.5, 0.95, r'$\frac{s}{4}$', size=5)
+    vs_ax.arrow(mean_period, 0.9, 0, -0.85, head_width=0.75, head_length=0.025, fc='k', ec='k',
+                head_starts_at_zero=False,
+                alpha=0.75, linewidth=0.75)
+    vs_ax.text(mean_period-0.5, 0.95, r'$f$', size=5)
+
     vs_ax.set_xlabel('Period [ms]')
     vs_ax.set_ylabel('Mean VS')
-    vs_ax.set_xlim(0, np.max(pp))
+    vs_ax.set_xlim(-0.2, np.max(pp))
     vs_ax.set_xticks(np.arange(0, np.max(pp)+10, 10))
     if np.min(pp) > 10:
         vs_ax.set_xlim(np.min(pp), np.max(pp))
         vs_ax.set_xticks(np.arange(np.min(pp), np.max(pp)+10, 10))
     vs_ax.set_ylim(0, 1)
     vs_ax.set_yticks(np.arange(0, 1.1, 0.5))
-    vs_ax.legend(loc='upper right', shadow=False, frameon=False)
+    # vs_ax.legend(loc='best', shadow=False, frameon=False)
     vs_ax.xaxis.set_label_coords(0.5, -0.4)
     vs_ax.yaxis.set_label_coords(-0.25, 0.5)
     sns.despine(ax=vs_ax)
@@ -805,14 +834,14 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     # vs_hist_ax.grid(True, linewidth=0.2)
     # vs_hist_ax.axhline(linewidth=0.5, color="k")  # inc. width of y-axis and color it red
     vs_hist_ax.hist(vector_phase, bins=20, density=True, facecolor='k', alpha=1, label='Data')
-    vs_hist_ax.hist(vector_phase_boot, bins=20, density=True, facecolor='0.5', alpha=0.75, label='Poisson Spikes')
+    vs_hist_ax.hist(vector_phase_boot, bins=20, density=True, facecolor='0.5', alpha=0.75, label='Poisson')
     # xL = ['0', '', r'$\frac{\pi}{2}$', '', r'$\pi$', '', r'$\frac{3\pi}{2}$', '']
     vs_hist_ax.set_xlim(0, 2*np.pi+0.1)
     vs_hist_ax.set_xticks(np.arange(0, 2*np.pi+0.1, np.pi/2))
 
     xL = ['0', r'$\frac{\pi}{2}$', r'$\pi$', r'$\frac{3\pi}{2}$', r'2$\pi$']
     vs_hist_ax.set_xticklabels(xL)
-    vs_hist_ax.set_xlabel('Stimulus Phase')
+    vs_hist_ax.set_xlabel('Stimulus phase')
 
     # vs_hist_ax.legend(loc='upper right', shadow=False, frameon=False)
     # vs_hist_ax.arrow(0, 0, np.angle(mu), np.abs(mu), head_starts_at_zero=False, color='r', linewidth=2)
@@ -907,13 +936,14 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     else:
         distance.set_ylim(0, 1)
         distance.set_yticks(np.arange(0, 1.1, 1))
-    distance.set_ylabel('Distance')
+    distance.set_ylabel('SYNC value')
     distance.legend(loc='upper right', shadow=False, frameon=True)
     distance.yaxis.set_label_coords(yaxis_pos1, 0.5)
     sns.despine(ax=distance)
     distance.text(label_x_pos2, label_y_pos, 'f', transform=distance.transAxes, size=subfig_caps)
     distance.set_xlabel('Time [ms]')
 
+    # plt.tight_layout()
 
     # Stimulus Plot ====================================================================================================
     # stim_trace.plot(stim_time, stim, 'k')
@@ -1868,10 +1898,10 @@ def plot_isi_histogram(spike_times, p_spike_times, bin_size, x_limit, steps, inf
     bins_nr1 = int(np.max(isi) / bin_size)
     bins_nr2 = int(np.max(isi_p) / bin_size)
     n1, bins1, patches1 = ax.hist(isi, bins_nr1, density=True, facecolor='k', alpha=1, label='Data')
-    n2, bins2, patches2 = ax.hist(isi_p, bins_nr2, density=True, facecolor='0.5', alpha=0.75, label='Poisson Spikes')
+    n2, bins2, patches2 = ax.hist(isi_p, bins_nr2, density=True, facecolor='0.5', alpha=0.75, label='Poisson')
 
     ax.set_xlabel('ISI [ms]')
-    ax.set_ylabel('Probability')
+    ax.set_ylabel('Prob. density')
     ax.set_ylim(0, np.max(n1)+0.05)
     ax.set_yticks(np.arange(0, np.max(n1)+0.1, 0.1))
     # ax.set_xlim(0, x_limit)
