@@ -138,7 +138,7 @@ if GAP:
 if INTERVAL_REC:
     # good recordings
     datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2018-02-16-aa']
-    # datasets = ['2017-12-05-ab']
+    # datasets = ['2017-12-05-a']
     vs_order = 2
     old = False
     protocol_name = 'PulseIntervalsRect'
@@ -160,7 +160,8 @@ if INTERVAL_REC:
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:
     # good recordings:
-    datasets = ['2017-11-27-aa', '2017-12-01-ab', '2017-12-01-ac', '2017-12-05-ab', '2017-11-29-aa']
+    # datasets = ['2017-11-27-aa', '2017-12-01-ab', '2017-12-01-ac', '2017-12-05-ab', '2017-11-29-aa']
+    datasets = ['2017-11-27-aa']
     old = False
     vs_order = 2
     protocol_name = 'intervals_mas'

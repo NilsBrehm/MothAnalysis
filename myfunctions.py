@@ -352,7 +352,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
 
         # Now Plot it
         # uu = gaps == np.array([10, 5, 4, 3, 2, 1, 0])
-        uu = gaps == np.array([20, 10, 4, 2, 0])
+        uu = gaps == np.array([6, 5])
         if show[0] and uu.any():
             # Adapt bin size to half the gap size
             if gaps < 0:
