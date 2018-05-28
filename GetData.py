@@ -152,7 +152,6 @@ if INTERVAL_MAS:
     mf.get_moth_intervals_data(path_names, save_data=True)
 
 
-
 # Rect Intervals
 if INTERVAL_REC:
     protocol_name = 'PulseIntervalsRect'

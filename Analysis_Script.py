@@ -27,8 +27,9 @@ start_time = time.time()
 # datasets = [dat[0]]
 # print(datasets)
 
+CALLS = True
 FIFIELD = False
-INTERVAL_MAS = True
+INTERVAL_MAS = False
 Bootstrapping = False
 INTERVAL_REC = False
 GAP = False
@@ -36,10 +37,12 @@ SOUND = False
 POISSON = False
 
 EPULSES = False
-ISI = False
-VANROSSUM = False
-PULSE_TRAIN_ISI = False
+VANROSSUM = True
 PULSE_TRAIN_VANROSSUM = False
+
+ISI = False
+PULSE_TRAIN_ISI = False
+
 
 FI_OVERANIMALS = False
 OVERALLVS = False
@@ -57,9 +60,11 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_single'
-duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200] if stim_type == 'moth_single' else False
-duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500] if stim_type == 'moth_series' else False
+stim_type = 'moth_series'
+if stim_type is 'moth_single':
+    duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
+if stim_type is 'moth_series':
+    duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
 
 # ISI and co
 # profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR', 'VanRossum']
@@ -70,10 +75,10 @@ profs_plot_correct = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR', 'VanRossum']
 nsamples = 10
 
 # VanRossum
-whole_train = True
 method = 'exp'
 dt_factor = 100
-taus = [1, 5, 10, 20, 30, 50]
+# taus = [1, 5, 10, 20, 30, 50]
+taus = [5, 10]
 # ======================================================================================================================
 
 # Select data
@@ -95,6 +100,9 @@ if SELECT:
                     datasets.append(row[0])
             if FIFIELD:
                 if row[4] == 'True' and row[6] == 'Estigmene':  # this is FI
+                    datasets.append(row[0])
+            if CALLS:
+                if row[5] == 'True':  # this is calls
                     datasets.append(row[0])
     datasets = sorted(datasets)
 
@@ -502,13 +510,21 @@ if SOUND:  # Stimuli = Calls
                                   window=None)
 
 if EPULSES:
-    method = 'exp'
-    r = Parallel(n_jobs=-2)(delayed(mf.trains_to_e_pulses)(path_names, taus[k] / 1000, 0,dt_factor, stim_type=stim_type
-                                                           , whole_train=True, method=method) for k in range(len(taus)))
-    print('Converting done')
+    for i in range(len(datasets)):
+        data_name = datasets[i]
+        path_names = mf.get_directories(data_name=data_name)
+        print(data_name)
+        method = 'exp'
+        r = Parallel(n_jobs=-2)(delayed(mf.trains_to_e_pulses)(path_names, taus[k] / 1000, dt_factor, stim_type=stim_type
+                                                               , method=method) for k in range(len(taus)))
+        print('Converting done')
 
 if VANROSSUM:
     # Try to load e pulses from HDD
+    data_name = '2018-02-09-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    method = 'exp'
     p = path_names[1]
 
     # Compute VanRossum Distances
@@ -523,11 +539,12 @@ if VANROSSUM:
         except FileNotFoundError:
             # Compute e pulses if not available
             print('Could not find e-pulses, will try to compute it on the fly')
-            trains, stimulus_tags = mf.trains_to_e_pulses(datasets[0], taus[tt]/1000, np.max(duration)/1000, dt_factor,
-                                                          stim_type=stim_type, whole_train=whole_train, method=method)
+
         distances = [[]] * len(duration)
         # Parallel loop through all durations for a given tau
-        r = Parallel(n_jobs=-2)(delayed(mf.vanrossum_matrix)(datasets[0], trains, stimulus_tags, duration[dur]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True) for dur in range(len(duration)))
+        r = Parallel(n_jobs=-2)(delayed(mf.vanrossum_matrix)(data_name, trains, stimulus_tags, duration[dur]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True) for dur in range(len(duration)))
+
+        # mf.vanrossum_matrix(datasets[0], trains, stimulus_tags, duration[0]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True)
 
         # Put values from parallel loop into correct variables
         for q in range(len(duration)):

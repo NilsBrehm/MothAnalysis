@@ -490,6 +490,7 @@ def fit_function(x_fit, data):
     perr = np.sqrt(np.diag(pcov))
     return x, y, popt, perr
 
+
 def poisson_vs_duration2(ts, vs_rates, vs_samples, rates, nsamples):
     def func(x, a, c, d):
         # return a * np.exp(-d * x) + c
@@ -1830,7 +1831,6 @@ def convolution_rate(spikes, t_max, dt, sigma, method='mean'):
     return t, firing_rate, std, mean_max_rate, std_max_rate
 
 
-
 def inter_spike_interval(spikes):
     isi = np.diff(spikes)
     return isi
@@ -2395,6 +2395,34 @@ def get_soundfilestimuli_data(datasets, tag, plot):
 # ----------------------------------------------------------------------------------------------------------------------
 # SPIKE TRAIN DISTANCE
 
+def fast_e_pulses(spikes, tau, dt_factor):
+    # This is the new and much faster method
+    def exp_kernel(ta, step):
+        x = np.arange(0, tau*5, step)
+        y = np.exp(-x/ta)
+        return y
+    dt = tau / dt_factor
+    t_max = spikes[-1] + 5 * tau
+
+    spike_times = spikes[spikes < t_max]
+    t = np.arange(0, t_max - dt, dt)
+    r = np.zeros(len(t))
+    spike_ids = np.round(spike_times / dt) - 2
+    r[spike_ids.astype('int')] = 1
+    kernel = exp_kernel(tau, dt)
+    pulses = np.convolve(r, kernel, mode='full')
+
+    # pulses = [[]] * len(spikes)
+    # for k in range(len(spikes)):
+    #     spike_times = spikes[k][spikes[k] < t_max]
+    #     t = np.arange(0, t_max - dt, dt)
+    #     r = np.zeros(len(t))
+    #     spike_ids = np.round(spike_times / dt) - 2
+    #     r[spike_ids.astype('int')] = 1
+    #     kernel = exp_kernel(tau, dt)
+    #     pulses[k] = np.convolve(r, kernel, mode='full')
+    return pulses
+
 
 def spike_distance_matrix(datasets):
     data_name = datasets[0]
@@ -2509,7 +2537,6 @@ def spike_e_pulses(spike_times, dt_factor, tau, duration, whole_train, method):
 
 
 def vanrossum_distance(f, g, dt_factor, tau):
-
     # Make sure both trains have same length
     difference = abs(len(f) - len(g))
     if len(f) > len(g):
@@ -2570,7 +2597,7 @@ def spike_train_distance(spike_times1, spike_times2, dt_factor, tau, plot):
     return d
 
 
-def trains_to_e_pulses(path_names, tau, duration, dt_factor, stim_type, whole_train, method):
+def trains_to_e_pulses(path_names, tau, dt_factor, stim_type, method):
     dataset = path_names[0]
     pathname = path_names[1]
     spikes = np.load(pathname + 'Calls_spikes.npy').item()
@@ -2804,36 +2831,32 @@ def trains_to_e_pulses(path_names, tau, duration, dt_factor, stim_type, whole_tr
                  'callseries/bats/Vespertilio_murinus_1_s.wav']
 
     # Tags and Stimulus names
-    connection = tagtostimulus(path_names)
+    connection, _ = tagtostimulus(path_names)
     stimulus_tags = [''] * len(stims)
     for p in range(len(stims)):
         stimulus_tags[p] = connection[stims[p]]
 
     # Convert all Spike Trains to e-pulses
     trains = {}
-    if whole_train:
-        print('Computing e-pulses for: Whole Train, tau = ' + str(tau*1000) + ' ms, method: ' + method)
-    else:
-        print('Computing e-pulses for: ' + str(duration*1000) + ' ms, tau = ' + str(tau*1000) + ' ms, method: ' + method)
-
     for k in tqdm(range(len(stimulus_tags)), desc='Converting pulses'):
         trial_nr = len(spikes[stimulus_tags[k]])
         tr = [[]] * trial_nr
         for j in range(trial_nr):
             x = spikes[stimulus_tags[k]][j]
-            tr[j] = spike_e_pulses(x, dt_factor, tau, duration, whole_train, method)
+            # tr[j] = spike_e_pulses(x, dt_factor, tau, duration, whole_train, method)
+            tr[j] = fast_e_pulses(x, tau, dt_factor)
         trains.update({stimulus_tags[k]: tr})
 
-    if whole_train:
-        # Save to HDD
-        if method == 'rect':
-            file_name = pathname + 'rect_trains_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
-            file_name2 = pathname + 'rect_stimulus_tags_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
-        else:
-            file_name = pathname + 'e_trains_' + str(int(tau*1000)) + '_' + stim_type + '.npy'
-            file_name2 = pathname + 'stimulus_tags_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
-        np.save(file_name, trains)
-        np.save(file_name2, stimulus_tags)
+    # Save to HDD
+    if method == 'rect':
+        file_name = pathname + 'rect_trains_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
+        file_name2 = pathname + 'rect_stimulus_tags_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
+    else:
+        file_name = pathname + 'e_trains_' + str(int(tau*1000)) + '_' + stim_type + '.npy'
+        file_name2 = pathname + 'stimulus_tags_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
+
+    np.save(file_name, trains)
+    np.save(file_name2, stimulus_tags)
     return 0
 
 
@@ -2856,7 +2879,7 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt_factor, tau, b
     # Select Template and Probes and bootstrap this process
     mm = {}
     distances_per_boot = {}
-    for boot in tqdm(range(boot_sample), desc='Boots'):
+    for boot in range(boot_sample):
         count = 0
         match_matrix = np.zeros((call_count, call_count))
         templates = {}
@@ -2929,6 +2952,7 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt_factor, tau, b
         fig.set_size_inches(10, 10)
         fig.savefig(figname, bbox_inches='tight', dpi=300)
         plt.close(fig)
+        # print(figname)
         # print('tau = ' + str(tau*1000) + ' ms' + ' T = ' + str(duration*1000) + ' ms done')
 
     return mm_mean, correct_matches, distances_per_boot
