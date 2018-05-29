@@ -10,6 +10,7 @@ from joblib import Parallel,delayed
 import os
 import seaborn as sns
 import pickle
+import matplotlib
 
 start_time = time.time()
 # Data File Name
@@ -37,7 +38,9 @@ SOUND = False
 POISSON = False
 
 EPULSES = False
-VANROSSUM = True
+VANROSSUM = False
+PLOT_VR = True
+
 PULSE_TRAIN_VANROSSUM = False
 
 ISI = False
@@ -77,8 +80,8 @@ nsamples = 10
 # VanRossum
 method = 'exp'
 dt_factor = 100
-# taus = [1, 5, 10, 20, 30, 50]
-taus = [5, 10]
+taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
+
 # ======================================================================================================================
 
 # Select data
@@ -510,6 +513,7 @@ if SOUND:  # Stimuli = Calls
                                   window=None)
 
 if EPULSES:
+    datasets = ['2018-02-09-aa']
     for i in range(len(datasets)):
         data_name = datasets[i]
         path_names = mf.get_directories(data_name=data_name)
@@ -530,6 +534,7 @@ if VANROSSUM:
     # Compute VanRossum Distances
     correct = np.zeros((len(duration), len(taus)))
     dist_profs = {}
+    matches = {}
     for tt in tqdm(range(len(taus)), desc='taus', leave=False):
         try:
             # Load e-pulses if available:
@@ -541,22 +546,93 @@ if VANROSSUM:
             print('Could not find e-pulses, will try to compute it on the fly')
 
         distances = [[]] * len(duration)
+        mm = [[]] * len(duration)
         # Parallel loop through all durations for a given tau
-        r = Parallel(n_jobs=-2)(delayed(mf.vanrossum_matrix)(data_name, trains, stimulus_tags, duration[dur]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True) for dur in range(len(duration)))
+        r = Parallel(n_jobs=-2)(delayed(mf.vanrossum_matrix)(data_name, trains, stimulus_tags, duration[dur]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=False) for dur in range(len(duration)))
 
         # mf.vanrossum_matrix(datasets[0], trains, stimulus_tags, duration[0]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True)
 
         # Put values from parallel loop into correct variables
         for q in range(len(duration)):
+            mm[q] = r[q][0]
             correct[q, tt] = r[q][1]
             distances[q] = r[q][2]
         dist_profs.update({taus[tt]: distances})
-
+        matches.update({taus[tt]: mm})
     # Save to HDD
     np.save(p + 'VanRossum_' + stim_type + '.npy', dist_profs)
     np.save(p + 'VanRossum_correct_' + stim_type + '.npy', correct)
+    np.save(p + 'VanRossum_matches_' + stim_type + '.npy', matches)
 
     print('VanRossum Distances done')
+
+if PLOT_VR:
+    data_name = '2018-02-09-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    p = path_names[1]
+
+    matches = np.load(p + 'VanRossum_matches_' + stim_type + '.npy').item()
+
+    # Plot
+    mf.plot_settings()
+    from mpl_toolkits.axes_grid1 import ImageGrid
+    # Set up figure and image grid
+    fig = plt.figure(figsize=(5.9, 3.9))
+
+    grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
+                     nrows_ncols=(2, 3),
+                     label_mode='L',
+                     axes_pad=0.15,
+                     share_all=False,
+                     cbar_location="right",
+                     cbar_mode="single",
+                     cbar_size="3%",
+                     cbar_pad=0.15,
+                     )
+
+    # Add data to image grid
+    all_axes = []
+    # duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
+    # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
+    taus_idx = [0, 3, -2,
+                3, 3, 3]
+    dur_idx = [-4, -4, -4,
+               1, 4, -2]
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.85
+    label_y_pos = 0.85
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'i']
+    k = 0
+    for ax in grid:
+        im = ax.imshow(matches[taus[taus_idx[k]]][dur_idx[k]], vmin=0, vmax=20, cmap='Greys')
+        all_axes.append(ax)
+        grid[k].text(label_x_pos, label_y_pos, subfig_caps_labels[k], transform=grid[k].transAxes, size=subfig_caps, color='black')
+        grid[k].text(0.1, 0.1, r'$\tau$ = '+str(taus[taus_idx[k]])+' ms', transform=grid[k].transAxes, size=6,
+                     color='black')
+        grid[k].text(0.1, 0.05, 'dur = ' + str(duration[dur_idx[k]]) + ' ms', transform=grid[k].transAxes, size=6,
+                     color='black')
+
+        k += 1
+
+
+    # Colorbar
+    cbar = ax.cax.colorbar(im)
+    # cbar.ax.set_ylabel('Spike trains', rotation=270)
+    cbar.solids.set_rasterized(True)  # Removes white lines
+
+    # Axes Labels
+    fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
+    fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
+    fig.text(0.96, 0.55, 'Spike trains', ha='center', fontdict=None, rotation=270)
+    # Save Plot to HDD
+    # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.4)
+    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/VanRossum_Matrix.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
+    print('VanRossum Matrix Plot saved')
 
 if PLOT_CORRECT:
     save_plot = True

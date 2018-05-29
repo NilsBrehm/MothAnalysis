@@ -2937,6 +2937,7 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt_factor, tau, b
 
     if save_fig:
         # Plot Matrix
+        plot_settings()
         plt.imshow(mm_mean)
         plt.xlabel('Original Calls')
         plt.ylabel('Matched Calls')
