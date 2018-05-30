@@ -39,7 +39,8 @@ POISSON = False
 
 EPULSES = False
 VANROSSUM = False
-PLOT_VR = True
+PLOT_VR = False
+PLOT_MvsB = True
 
 PULSE_TRAIN_VANROSSUM = False
 
@@ -63,10 +64,11 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_series'
-if stim_type is 'moth_single':
+stim_type = 'all_series'
+stim_length = 'series'
+if stim_length is 'single':
     duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
-if stim_type is 'moth_series':
+if stim_length is 'series':
     duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
 
 # ISI and co
@@ -535,6 +537,7 @@ if VANROSSUM:
     correct = np.zeros((len(duration), len(taus)))
     dist_profs = {}
     matches = {}
+    groups = {}
     for tt in tqdm(range(len(taus)), desc='taus', leave=False):
         try:
             # Load e-pulses if available:
@@ -547,6 +550,7 @@ if VANROSSUM:
 
         distances = [[]] * len(duration)
         mm = [[]] * len(duration)
+        gg = [[]] * len(duration)
         # Parallel loop through all durations for a given tau
         r = Parallel(n_jobs=-2)(delayed(mf.vanrossum_matrix)(data_name, trains, stimulus_tags, duration[dur]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=False) for dur in range(len(duration)))
 
@@ -555,16 +559,99 @@ if VANROSSUM:
         # Put values from parallel loop into correct variables
         for q in range(len(duration)):
             mm[q] = r[q][0]
+            gg[q] = r[q][3]
             correct[q, tt] = r[q][1]
             distances[q] = r[q][2]
         dist_profs.update({taus[tt]: distances})
         matches.update({taus[tt]: mm})
+        groups.update({taus[tt]: gg})
     # Save to HDD
     np.save(p + 'VanRossum_' + stim_type + '.npy', dist_profs)
     np.save(p + 'VanRossum_correct_' + stim_type + '.npy', correct)
     np.save(p + 'VanRossum_matches_' + stim_type + '.npy', matches)
-
+    np.save(p + 'VanRossum_groups_' + stim_type + '.npy', groups)
     print('VanRossum Distances done')
+
+
+if PLOT_MvsB:
+    # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
+    data_name = '2018-02-09-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    p = path_names[1]
+
+    groups = np.load(p + 'VanRossum_groups_' + stim_type + '.npy').item()
+
+    p_moths = [[]] * len(taus)
+    for tt in range(len(taus)):
+        p_m = [[]] * len(duration)
+        p_b = [[]] * len(duration)
+        for k in range(len(duration)):
+            # ax = plt.subplot(len(duration), 1, k+1)
+            p_m[k] = groups[taus[tt]][k][0, :] / (groups[taus[tt]][k][1, :] + groups[taus[tt]][k][0, :])
+            # p_b[k] = groups[taus[tt]][k][1, :] / (groups[taus[tt]][k][1, :] + groups[taus[tt]][k][0, :])
+            # ax.imshow(ratio)
+        p_moths[tt] = p_m
+
+    # idx = [True, True, True, True, False, True, True, True, False, True, False, True, False]
+    idx = [True, False, False, True, False, False, True, False, False, False, False, False, True]
+
+    p_moths = np.array(p_moths)[idx]
+    mf.plot_settings()
+
+    # Create Grid
+    fig = plt.figure(figsize=(5.9, 3.9))
+    from mpl_toolkits.axes_grid1 import ImageGrid
+    grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
+                     nrows_ncols=(2, 2),
+                     label_mode='L',
+                     axes_pad=0.15,
+                     share_all=False,
+                     cbar_location="right",
+                     cbar_mode="single",
+                     cbar_size="3%",
+                     cbar_pad=0.15,
+                     )
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.05
+    label_y_pos = 0.85
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    i = 0
+    taus2 = np.array(taus)[idx]
+    for ax in grid:
+        im = ax.imshow(p_moths[i], vmin=0, vmax=1, cmap='gray', aspect=2)
+        ax.plot([16.5, 16.5], [-0.5, len(duration) - 0.5], 'k', linewidth=3)
+        ax.plot([16.5, 16.5], [-0.5, len(duration)-0.5], '--', linewidth=1, color='white')
+        # ax.set_xticks([])
+        # ax.set_yticks([])
+        ax.set_xticks(np.arange(0, 30, 5))
+        ax.set_yticks(np.arange(0, 10, 1))
+        ax.set_yticklabels(duration)
+        # ax.set_yticks()
+
+        grid[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=grid[i].transAxes, size=subfig_caps,
+                     color='black')
+        grid[i].text(0.7, 0.05, r'$\tau$ = ' + str(taus2[i]) + ' ms', transform=grid[i].transAxes, size=6,
+                     color='white')
+        i += 1
+
+    # Colorbar
+    cbar = ax.cax.colorbar(im)
+    # cbar.ax.set_ylabel('Spike trains', rotation=270)
+    cbar.solids.set_rasterized(True)  # Removes white lines
+
+    # Axes Labels
+    fig.text(0.5, 0.05, 'Original call', ha='center', fontdict=None)
+    fig.text(0.05, 0.65, 'Spike train duration [ms]', ha='center', fontdict=None, rotation=90)
+    fig.text(0.92, 0.65, 'Percentage moth calls', ha='center', fontdict=None, rotation=270)
+
+    # fig.set_size_inches(5.9, 1.9)
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.15, right=0.9, wspace=0.1, hspace=0.1)
+    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/VanRossum_MothsvsBats_' + stim_type + '.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
+
 
 if PLOT_VR:
     data_name = '2018-02-09-aa'
@@ -604,7 +691,7 @@ if PLOT_VR:
     subfig_caps = 12
     label_x_pos = 0.85
     label_y_pos = 0.85
-    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'i']
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
     k = 0
     for ax in grid:
         im = ax.imshow(matches[taus[taus_idx[k]]][dur_idx[k]], vmin=0, vmax=20, cmap='Greys')
@@ -629,7 +716,7 @@ if PLOT_VR:
     fig.text(0.96, 0.55, 'Spike trains', ha='center', fontdict=None, rotation=270)
     # Save Plot to HDD
     # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.4)
-    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/VanRossum_Matrix.pdf'
+    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/VanRossum_Matrix_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
     print('VanRossum Matrix Plot saved')
