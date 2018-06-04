@@ -37,10 +37,10 @@ GAP = False
 SOUND = False
 POISSON = False
 
-EPULSES = False
-VANROSSUM = False
+EPULSES = True
+VANROSSUM = True
 PLOT_VR = False
-PLOT_MvsB = True
+PLOT_MvsB = False
 
 PULSE_TRAIN_VANROSSUM = False
 
@@ -69,20 +69,23 @@ stim_length = 'series'
 if stim_length is 'single':
     duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
 if stim_length is 'series':
-    duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
-
+    # duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
+    duration = list(np.arange(0, 2550, 50))
+    duration[0] = 10
 # ISI and co
 # profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR', 'VanRossum']
 profs = ['COUNT', 'ISI', 'DUR']
 profs_plot_correct = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR', 'VanRossum']
 
 # Bootstrapping
-nsamples = 10
+nsamples = 5
 
 # VanRossum
 method = 'exp'
-dt_factor = 100
-taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
+dt = 0.001
+# taus = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500, 1000]
+taus = list(np.concatenate([np.arange(1, 21, 1), np.arange(30, 105, 5), np.arange(200, 1000, 55)]))
+taus.append(1000)
 
 # ======================================================================================================================
 
@@ -521,7 +524,7 @@ if EPULSES:
         path_names = mf.get_directories(data_name=data_name)
         print(data_name)
         method = 'exp'
-        r = Parallel(n_jobs=-2)(delayed(mf.trains_to_e_pulses)(path_names, taus[k] / 1000, dt_factor, stim_type=stim_type
+        r = Parallel(n_jobs=-2)(delayed(mf.trains_to_e_pulses)(path_names, taus[k] / 1000, dt, stim_type=stim_type
                                                                , method=method) for k in range(len(taus)))
         print('Converting done')
 
@@ -552,9 +555,9 @@ if VANROSSUM:
         mm = [[]] * len(duration)
         gg = [[]] * len(duration)
         # Parallel loop through all durations for a given tau
-        r = Parallel(n_jobs=-2)(delayed(mf.vanrossum_matrix)(data_name, trains, stimulus_tags, duration[dur]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=False) for dur in range(len(duration)))
-
-        # mf.vanrossum_matrix(datasets[0], trains, stimulus_tags, duration[0]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True)
+        r = Parallel(n_jobs=-2)(delayed(mf.vanrossum_matrix)(data_name, trains, stimulus_tags, duration[dur]/1000, dt, taus[tt]/1000, boot_sample=nsamples, save_fig=False) for dur in range(len(duration)))
+        # mf.vanrossum_matrix2(data_name, trains, stimulus_tags, duration/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True)
+        # mm_mean, correct_matches, distances_per_boot, gg_mean = mf.vanrossum_matrix(data_name, trains, stimulus_tags, duration[-1]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True)
 
         # Put values from parallel loop into correct variables
         for q in range(len(duration)):
@@ -596,6 +599,30 @@ if PLOT_MvsB:
     # idx = [True, True, True, True, False, True, True, True, False, True, False, True, False]
     idx = [True, False, False, True, False, False, True, False, False, False, False, False, True]
 
+    # d prime
+
+    # dprimes = [[]] * len(taus)
+    d_prime = np.zeros(shape=(len(taus), len(duration)))
+    crit = np.zeros(shape=(len(taus), len(duration)))
+    area_d = np.zeros(shape=(len(taus), len(duration)))
+    beta = np.zeros(shape=(len(taus), len(duration)))
+    for i in range(len(taus)):
+        out = [[]] * len(duration)
+        for k in range(len(duration)):
+            a = groups[taus[i]][k]
+            cr = np.sum(a[0, :16])    # call=moth, matching=moth
+            miss = np.sum(a[0, 16:])      # call=bat, matching=moth
+            fa = np.sum(a[1, :16])    # call=moth, matching=bat
+            hits = np.sum(a[1, 16:])      # call=bat, matching=bat
+            out[k] = mf.dPrime(hits, miss, fa, cr)
+            d_prime[i, k] = out[k]['d']
+            crit[i, k] = out[k]['c']
+            area_d[i, k] = out[k]['Ad']
+            beta[i, k] = out[k]['beta']
+        # dprimes[i] = out
+
+    embed()
+    exit()
     p_moths = np.array(p_moths)[idx]
     mf.plot_settings()
 
