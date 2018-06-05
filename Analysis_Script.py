@@ -11,6 +11,7 @@ import os
 import seaborn as sns
 import pickle
 import matplotlib
+from matplotlib.colors import LogNorm
 
 start_time = time.time()
 # Data File Name
@@ -37,8 +38,8 @@ GAP = False
 SOUND = False
 POISSON = False
 
-EPULSES = True
-VANROSSUM = True
+EPULSES = False
+VANROSSUM = False
 PLOT_VR = False
 PLOT_MvsB = False
 
@@ -47,10 +48,11 @@ PULSE_TRAIN_VANROSSUM = False
 ISI = False
 PULSE_TRAIN_ISI = False
 
+PLOT_DISTANCES = False
 
 FI_OVERANIMALS = False
 OVERALLVS = False
-PLOT_CORRECT = False
+PLOT_CORRECT = True
 
 SELECT = True
 
@@ -64,21 +66,23 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'all_series'
-stim_length = 'series'
+stim_type = 'moth_single_selected'
+stim_length = 'single'
 if stim_length is 'single':
-    duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
+    # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
+    duration = list(np.arange(0, 255, 5))
+    duration[0] = 1
 if stim_length is 'series':
     # duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
     duration = list(np.arange(0, 2550, 50))
     duration[0] = 10
 # ISI and co
 # profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR', 'VanRossum']
-profs = ['COUNT', 'ISI', 'DUR']
+profs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR']
 profs_plot_correct = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR', 'VanRossum']
 
 # Bootstrapping
-nsamples = 5
+nsamples = 10
 
 # VanRossum
 method = 'exp'
@@ -583,6 +587,8 @@ if PLOT_MvsB:
     print(data_name)
     p = path_names[1]
 
+    plot_dprime = True
+
     groups = np.load(p + 'VanRossum_groups_' + stim_type + '.npy').item()
 
     p_moths = [[]] * len(taus)
@@ -596,12 +602,14 @@ if PLOT_MvsB:
             # ax.imshow(ratio)
         p_moths[tt] = p_m
 
-    # idx = [True, True, True, True, False, True, True, True, False, True, False, True, False]
-    idx = [True, False, False, True, False, False, True, False, False, False, False, False, True]
+    # idx = [True, False, False, True, False, False, True, False, False, False, False, False, True]
+    tau_p = [1, 10, 50, 1000]  # taus used for plotting percentage
+    idx = []
+    for i in tau_p:
+        idx.append(taus.index(i))
+    p_moths = np.array(p_moths)[idx]
 
     # d prime
-
-    # dprimes = [[]] * len(taus)
     d_prime = np.zeros(shape=(len(taus), len(duration)))
     crit = np.zeros(shape=(len(taus), len(duration)))
     area_d = np.zeros(shape=(len(taus), len(duration)))
@@ -619,13 +627,73 @@ if PLOT_MvsB:
             crit[i, k] = out[k]['c']
             area_d[i, k] = out[k]['Ad']
             beta[i, k] = out[k]['beta']
-        # dprimes[i] = out
 
-    embed()
-    exit()
-    p_moths = np.array(p_moths)[idx]
     mf.plot_settings()
+    # d prime plot
+    if plot_dprime:
+        # Create Grid
+        fig = plt.figure(figsize=(5.9, 2.9))
+        from mpl_toolkits.axes_grid1 import ImageGrid
+        grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
+                         nrows_ncols=(1, 2),
+                         label_mode='L',
+                         axes_pad=0.75,
+                         share_all=False,
+                         cbar_location="right",
+                         cbar_mode="each",
+                         cbar_size="3%",
+                         cbar_pad=0.05,
+                         aspect=False
+                         )
+        # Subplot caps
+        subfig_caps = 12
+        label_x_pos = 0.05
+        label_y_pos = 0.90
+        subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
 
+        # im1 = grid[0].imshow(d_prime, vmin=np.min(d_prime), vmax=3, interpolation='gaussian', cmap='jet', origin='lower')
+        # im2 = grid[1].imshow(crit, vmin=-1, vmax=1, interpolation='gaussian', cmap='seismic', origin='lower')
+        grid[0].text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=grid[0].transAxes, size=subfig_caps,
+                     color='black')
+        grid[1].text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=grid[1].transAxes, size=subfig_caps,
+                     color='black')
+
+        # Image Plot
+        x = duration
+        y = taus
+        X, Y = np.meshgrid(x, y)
+        im1 = grid[0].pcolormesh(X, Y, d_prime, cmap='jet', vmin=np.min(d_prime)-0.5, vmax=3, shading='gouraud')
+        im2 = grid[1].pcolormesh(X, Y, crit, cmap='seismic', vmin=-1, vmax=1, shading='gouraud')
+        grid[1].axvline(50, color='black', linestyle=':', linewidth=0.5)
+        grid[0].axvline(50, color='black', linestyle=':', linewidth=0.5)
+        grid[0].axhline(30, color='black', linestyle=':', linewidth=0.5)
+        grid[1].axhline(30, color='black', linestyle=':', linewidth=0.5)
+
+        grid[0].set_xscale('log')
+        grid[0].set_yscale('log')
+        grid[1].set_xscale('log')
+        grid[1].set_yscale('log')
+
+        # Colorbar
+        cbar1 = grid[0].cax.colorbar(im1, ticks=np.arange(0, 3.1, 1))
+        cbar2 = grid[1].cax.colorbar(im2, ticks=[-1, -0.5, 0, 0.5, 1])
+        cbar1.ax.set_ylabel('d prime', rotation=270, labelpad=15)
+        cbar2.ax.set_ylabel('criterion', rotation=270, labelpad=10)
+        cbar1.solids.set_rasterized(True)  # Removes white lines
+        cbar2.solids.set_rasterized(True)  # Removes white lines
+
+        # Axes Labels
+        grid[0].set_ylabel('Tau [ms]')
+        fig.text(0.5, 0.075, 'Spike train duration [ms]', ha='center', fontdict=None)
+
+        # fig.set_size_inches(5.9, 1.9)
+        fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+        figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/dprime_MothsvsBats_' + stim_type + '.pdf'
+        fig.savefig(figname)
+        plt.close(fig)
+        print('d prime plot saved')
+
+    # Percentage Plot
     # Create Grid
     fig = plt.figure(figsize=(5.9, 3.9))
     from mpl_toolkits.axes_grid1 import ImageGrid
@@ -638,6 +706,7 @@ if PLOT_MvsB:
                      cbar_mode="single",
                      cbar_size="3%",
                      cbar_pad=0.15,
+                     aspect=False
                      )
     # Subplot caps
     subfig_caps = 12
@@ -647,20 +716,26 @@ if PLOT_MvsB:
     i = 0
     taus2 = np.array(taus)[idx]
     for ax in grid:
-        im = ax.imshow(p_moths[i], vmin=0, vmax=1, cmap='gray', aspect=2)
-        ax.plot([16.5, 16.5], [-0.5, len(duration) - 0.5], 'k', linewidth=3)
-        ax.plot([16.5, 16.5], [-0.5, len(duration)-0.5], '--', linewidth=1, color='white')
-        # ax.set_xticks([])
-        # ax.set_yticks([])
+        y = duration
+        x = np.linspace(1, p_moths[i].shape[1], p_moths[i].shape[1])
+        X, Y = np.meshgrid(x, y)
+        im = ax.pcolormesh(X, Y, p_moths[i], cmap='gray', vmin=0, vmax=1, shading='gouraud')
+        # im = ax.imshow(p_moths[i], vmin=0, vmax=1, cmap='gray', aspect=2)
+        # ax.plot([16.5, 16.5], [-0.5, len(duration) - 0.5], 'k', linewidth=3)
+        # ax.plot([16.5, 16.5], [-0.5, len(duration)-0.5], '--', linewidth=1, color='white')
+        grid[i].axvline(18, color='black', linestyle='-', linewidth=3)
+        grid[i].axvline(18, color='white', linestyle='--', linewidth=1)
+
         ax.set_xticks(np.arange(0, 30, 5))
-        ax.set_yticks(np.arange(0, 10, 1))
-        ax.set_yticklabels(duration)
-        # ax.set_yticks()
+        # ax.set_yticks(np.arange(0, 10, 1))
+        # ax.set_yticklabels(duration)
 
         grid[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=grid[i].transAxes, size=subfig_caps,
                      color='black')
         grid[i].text(0.7, 0.05, r'$\tau$ = ' + str(taus2[i]) + ' ms', transform=grid[i].transAxes, size=6,
                      color='white')
+        grid[i].set_yscale('log')
+
         i += 1
 
     # Colorbar
@@ -670,8 +745,8 @@ if PLOT_MvsB:
 
     # Axes Labels
     fig.text(0.5, 0.05, 'Original call', ha='center', fontdict=None)
-    fig.text(0.05, 0.65, 'Spike train duration [ms]', ha='center', fontdict=None, rotation=90)
-    fig.text(0.92, 0.65, 'Percentage moth calls', ha='center', fontdict=None, rotation=270)
+    fig.text(0.025, 0.65, 'Spike train duration [ms]', ha='center', fontdict=None, rotation=90)
+    fig.text(0.965, 0.65, 'Percentage moth calls', ha='center', fontdict=None, rotation=270)
 
     # fig.set_size_inches(5.9, 1.9)
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.15, right=0.9, wspace=0.1, hspace=0.1)
@@ -748,109 +823,235 @@ if PLOT_VR:
     plt.close(fig)
     print('VanRossum Matrix Plot saved')
 
-if PLOT_CORRECT:
-    save_plot = True
-    plot_vanrossum_matrix = False
+if PLOT_DISTANCES:
+    data_name = '2018-02-09-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
     p = path_names[1]
-    correct = np.load(p + 'distances_correct_' + stim_type + '.npy')
-    vr = np.load(p + 'VanRossum_correct_' + stim_type + '.npy')
-    # high_taus = np.load(p + 'VanRossum_correct_hightaus.npy')
+    matches = np.load(p + 'distances_matches_' + stim_type + '.npy').item()
+    prof = 'ISI'
+    matches = matches[prof]
 
-    profs = profs_plot_correct
+    # Plot
+    mf.plot_settings()
+    from mpl_toolkits.axes_grid1 import ImageGrid
+    # Set up figure and image grid
+    fig = plt.figure(figsize=(5.9, 3.9))
 
-    # Add missing cols to vanrossum
-    # vanrossum = np.c_[vr, high_taus]
-    vanrossum = vr
+    grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
+                     nrows_ncols=(2, 3),
+                     label_mode='L',
+                     axes_pad=0.15,
+                     share_all=False,
+                     cbar_location="right",
+                     cbar_mode="single",
+                     cbar_size="3%",
+                     cbar_pad=0.15,
+                     )
 
-    if plot_vanrossum_matrix:
-        # Plot Vanrossum Matrix
-        fig, ax = plt.subplots()
-        matrix = ax.pcolor(vanrossum.transpose(), vmin=0, vmax=1)
-        plt.xlabel('Duration [ms]')
-        plt.ylabel('Tau [ms]')
-        fig.colorbar(matrix, orientation='vertical', fraction=0.04, pad=0.02)
+    # Add data to image grid
+    all_axes = []
+    dur_p = [10, 50, 100, 500, 1000, 2000]  # taus used for plotting percentage
+    idx = []
+    for i in dur_p:
+        idx.append(duration.index(i))
 
-        # put the major ticks at the middle of each cell
-        ax.set_xticks(np.arange(len(duration)) + 0.5, minor=False)
-        ax.set_yticks(np.arange(len(taus)) + 0.5, minor=False)
-        # ax.invert_yaxis()
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.85
+    label_y_pos = 0.85
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    k = 0
+    for ax in grid:
+        im = ax.imshow(matches[idx[k]], vmin=0, vmax=20, cmap='Greys')
+        all_axes.append(ax)
+        grid[k].text(label_x_pos, label_y_pos, subfig_caps_labels[k], transform=grid[k].transAxes, size=subfig_caps, color='black')
+        # grid[k].text(0.1, 0.1, r'$\tau$ = '+str(taus[taus_idx[k]])+' ms', transform=grid[k].transAxes, size=6,
+        #              color='black')
+        # grid[k].text(0.1, 0.05, 'dur = ' + str(duration[dur_idx[k]]) + ' ms', transform=grid[k].transAxes, size=6,
+        #              color='black')
 
-        # Set correct labels
-        ax.set_xticklabels(duration, minor=False)
-        ax.set_yticklabels(taus, minor=False)
+        k += 1
 
-        if save_plot:
-            # Save Plot to HDD
-            figname = p + 'VanRossum_TausAndDistMatrix_' + stim_type + '.png'
-            fig = plt.gcf()
-            fig.set_size_inches(10, 10)
-            fig.savefig(figname, bbox_inches='tight', dpi=300)
-            plt.close(fig)
-            print('Plot saved')
-        else:
-            plt.show()
 
-    # Plot all parameter free distances
+    # Colorbar
+    cbar = ax.cax.colorbar(im)
+    # cbar.ax.set_ylabel('Spike trains', rotation=270)
+    cbar.solids.set_rasterized(True)  # Removes white lines
+
+    # Axes Labels
+    fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
+    fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
+    fig.text(0.96, 0.55, 'Spike trains', ha='center', fontdict=None, rotation=270)
+    # Save Plot to HDD
+    # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.4)
+    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distances_Matrix_' + stim_type + '.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
+    print('Distances Matrix Plot saved')
+
+
+if PLOT_CORRECT:
+    data_name = '2018-02-09-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    p = path_names[1]
+    matches = np.load(p + 'distances_correct_' + stim_type + '.npy')
+    rand_machtes = np.load(p + 'distances_rand_correct_' + stim_type + '.npy')
+
+    # Plot
+    mf.plot_settings()
+    # fig = plt.figure(figsize=(5.9, 3.9))
+    fig, ax = plt.subplots()
+
+    marks = ['', 'o', 'v', 's', '']
+    cc = ['0', 'orangered', 'navy', 'teal', '0']
+    styles = [':', '-', '-', '-', '--']
     for k in range(len(profs)):
-        if profs[k] == 'VanRossum':
-            plt.subplot(np.ceil(len(profs) / 3), 3, k + 1)
-            for i in range(vanrossum.shape[1]):
-                plt.plot(duration, vanrossum[:, i], 'o-')
-            plt.xlabel('Spike Train Length [ms]')
-            plt.ylabel('Correct')
-            plt.ylim(0, 1)
-            plt.title(profs[k])
-            # plt.legend(taus)
-        else:
-            plt.subplot(np.ceil(len(profs)/3), 3, k+1)
-            plt.plot(duration, correct[:, k], 'ko-')
-            plt.xlabel('Spike Train Length [ms]')
-            plt.ylabel('Correct')
-            plt.ylim(0, 1)
-            plt.title(profs[k])
-    # plt.tight_layout()
+        ax.plot(duration, matches[:, k], marker=marks[k], label=profs[k], color=cc[k], linestyle=styles[k], markersize=3)
 
-    if save_plot:
-        # Save Plot to HDD
-        figname = p + 'Correct_all_distances_' + stim_type + '.png'
-        fig = plt.gcf()
-        fig.set_size_inches(20, 10)
-        fig.savefig(figname, bbox_inches='tight', dpi=300)
-        plt.close(fig)
-        print('Plot saved')
-    else:
-        plt.show()
+    ax.plot(duration, rand_machtes[:, 1], 'k', linewidth=2, label='Random')
+    rand_mean = np.round(np.mean(rand_machtes[:, 1]), 2)
+    # ax.text(2000, 0.1, 'random mean = ' + str(rand_mean), size=6, color='black')
+    ax.text(200, 0.065, 'random mean = ' + str(rand_mean), size=6, color='black')
+
+    ax.set_xlabel('Spike train duration [ms]')
+    ax.set_ylabel('Correct')
+    ax.set_yticks(np.arange(0, 1.1, 0.2))
+    ax.set_ylim(0, 1)
+    # ax.set_xticks(np.arange(0, duration[-1]+100, 500))
+    # ax.set_xlim(-0.2, duration[-1]+100)
+    ax.set_xticks(np.arange(0, duration[-1] + 40, 50))
+    ax.set_xlim(-0.2, duration[-1] + 10)
+    sns.despine()
+    ax.legend(frameon=False)
+    # Save Plot to HDD
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.4, hspace=0.4)
+    fig.set_size_inches(5.9, 2.9)
+    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distances_Correct_' + stim_type + '.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
+    print('Distances Matrix Plot saved')
+
+
+# if PLOT_CORRECT:
+#     save_plot = True
+#     plot_vanrossum_matrix = False
+#     p = path_names[1]
+#     correct = np.load(p + 'distances_correct_' + stim_type + '.npy')
+#     vr = np.load(p + 'VanRossum_correct_' + stim_type + '.npy')
+#     # high_taus = np.load(p + 'VanRossum_correct_hightaus.npy')
+#
+#     profs = profs_plot_correct
+#
+#     # Add missing cols to vanrossum
+#     # vanrossum = np.c_[vr, high_taus]
+#     vanrossum = vr
+#
+#     if plot_vanrossum_matrix:
+#         # Plot Vanrossum Matrix
+#         fig, ax = plt.subplots()
+#         matrix = ax.pcolor(vanrossum.transpose(), vmin=0, vmax=1)
+#         plt.xlabel('Duration [ms]')
+#         plt.ylabel('Tau [ms]')
+#         fig.colorbar(matrix, orientation='vertical', fraction=0.04, pad=0.02)
+#
+#         # put the major ticks at the middle of each cell
+#         ax.set_xticks(np.arange(len(duration)) + 0.5, minor=False)
+#         ax.set_yticks(np.arange(len(taus)) + 0.5, minor=False)
+#         # ax.invert_yaxis()
+#
+#         # Set correct labels
+#         ax.set_xticklabels(duration, minor=False)
+#         ax.set_yticklabels(taus, minor=False)
+#
+#         if save_plot:
+#             # Save Plot to HDD
+#             figname = p + 'VanRossum_TausAndDistMatrix_' + stim_type + '.png'
+#             fig = plt.gcf()
+#             fig.set_size_inches(10, 10)
+#             fig.savefig(figname, bbox_inches='tight', dpi=300)
+#             plt.close(fig)
+#             print('Plot saved')
+#         else:
+#             plt.show()
+#
+#     # Plot all parameter free distances
+#     for k in range(len(profs)):
+#         if profs[k] == 'VanRossum':
+#             plt.subplot(np.ceil(len(profs) / 3), 3, k + 1)
+#             for i in range(vanrossum.shape[1]):
+#                 plt.plot(duration, vanrossum[:, i], 'o-')
+#             plt.xlabel('Spike Train Length [ms]')
+#             plt.ylabel('Correct')
+#             plt.ylim(0, 1)
+#             plt.title(profs[k])
+#             # plt.legend(taus)
+#         else:
+#             plt.subplot(np.ceil(len(profs)/3), 3, k+1)
+#             plt.plot(duration, correct[:, k], 'ko-')
+#             plt.xlabel('Spike Train Length [ms]')
+#             plt.ylabel('Correct')
+#             plt.ylim(0, 1)
+#             plt.title(profs[k])
+#     # plt.tight_layout()
+#
+#     if save_plot:
+#         # Save Plot to HDD
+#         figname = p + 'Correct_all_distances_' + stim_type + '.png'
+#         fig = plt.gcf()
+#         fig.set_size_inches(20, 10)
+#         fig.savefig(figname, bbox_inches='tight', dpi=300)
+#         plt.close(fig)
+#         print('Plot saved')
+#     else:
+#         plt.show()
 
 if ISI:
+    data_name = '2018-02-09-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    method = 'exp'
     path_save = path_names[1]
-    plot_correct = False
+    # plot_correct = False
     save_fig = False
     dist_profs = {}
+    matches = {}
 
     correct = np.zeros((len(duration), len(profs)))
+    rand_correct = np.zeros((len(duration), len(profs)))
     for p in tqdm(range(len(profs)), desc='Profiles'):
         distances_all = [[]] * len(duration)
-        # Parallel loop through all durations for a given tau
-        r = Parallel(n_jobs=-2)(delayed(mf.isi_matrix)(datasets[0], duration[i]/1000, boot_sample=nsamples,
+        mm = [[]] * len(duration)
+        # Parallel loop through all durations
+        r = Parallel(n_jobs=-2)(delayed(mf.isi_matrix)(path_names, duration[i]/1000, boot_sample=nsamples,
                                                        stim_type=stim_type, profile=profs[p], save_fig=save_fig) for i in range(len(duration)))
+
+        # mm_mean, correct_matches, distances_per_boot, rand_correct_matches = mf.isi_matrix(path_names, duration[5]/1000, boot_sample=nsamples,stim_type=stim_type, profile=profs[p], save_fig=save_fig)
 
         # Put values from parallel loop into correct variables
         for q in range(len(duration)):
+            mm[q] = r[q][0]
             correct[q, p] = r[q][1]
+            rand_correct[q, p] = r[q][3]
             distances_all[q] = r[q][2]
         dist_profs.update({profs[p]: distances_all})
+        matches.update({profs[p]: mm})
 
     # Save to HDD
     np.save(path_save + 'distances_' + stim_type + '.npy', dist_profs)
     np.save(path_save + 'distances_correct_' + stim_type + '.npy', correct)
+    np.save(path_save + 'distances_rand_correct_' + stim_type + '.npy', rand_correct)
+    np.save(path_save + 'distances_matches_' + stim_type + '.npy', matches)
 
-    if plot_correct:
-        for k in range(len(profs)):
-            plt.subplot(np.ceil(len(profs)/2), 2, k+1)
-            plt.plot(duration, correct[:, k], 'ko-')
-            plt.xlabel('Spike Train Length [ms]')
-            plt.ylabel('Correct [' + profs[k] + ']')
-        plt.show()
+    #
+    # if plot_correct:
+    #     for k in range(len(profs)):
+    #         plt.subplot(np.ceil(len(profs)/2), 2, k+1)
+    #         plt.plot(duration, correct[:, k], 'ko-')
+    #         plt.xlabel('Spike Train Length [ms]')
+    #         plt.ylabel('Correct [' + profs[k] + ']')
+    #     plt.show()
 
 if PULSE_TRAIN_ISI:
     save_plot = True
