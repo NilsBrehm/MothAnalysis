@@ -2428,14 +2428,13 @@ def get_soundfilestimuli_data(datasets, tag, plot):
 # ----------------------------------------------------------------------------------------------------------------------
 # SPIKE TRAIN DISTANCE
 
-def fast_e_pulses(spikes, tau, dt_factor):
+def fast_e_pulses(spikes, tau, dt):
     # This is the new and much faster method
     def exp_kernel(ta, step):
         x = np.arange(0, tau*5, step)
         y = np.exp(-x/ta)
         return y
-    # dt = tau / dt_factor
-    dt = 0.001
+    # dt = 0.001
     t_max = spikes[-1] + 5 * tau
 
     spike_times = spikes[spikes < t_max]
@@ -2446,128 +2445,7 @@ def fast_e_pulses(spikes, tau, dt_factor):
     kernel = exp_kernel(tau, dt)
     pulses = np.convolve(r, kernel, mode='full')
 
-    # pulses = [[]] * len(spikes)
-    # for k in range(len(spikes)):
-    #     spike_times = spikes[k][spikes[k] < t_max]
-    #     t = np.arange(0, t_max - dt, dt)
-    #     r = np.zeros(len(t))
-    #     spike_ids = np.round(spike_times / dt) - 2
-    #     r[spike_ids.astype('int')] = 1
-    #     kernel = exp_kernel(tau, dt)
-    #     pulses[k] = np.convolve(r, kernel, mode='full')
     return pulses
-
-
-def spike_distance_matrix(datasets):
-    data_name = datasets[0]
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/mothsongs/'
-    stim1_name = 'Creatonotos03_series'
-    stim2_name = 'Carales_series'
-
-    file_name1 = stim1_name + '_spike_times.npy'
-    file_name2 = stim2_name + '_spike_times.npy'
-
-    stim1_dur = np.load(pathname + stim1_name + '_time.npy').item()
-    stim2_dur = np.load(pathname + stim2_name + '_time.npy').item()
-
-    file1 = np.load(pathname + file_name1).item()
-    file2 = np.load(pathname + file_name2).item()
-
-    duration = file1[0][-1] + 0.01
-    dt = 100 * 1000
-    # tau = 0.005
-    tau = float(input('tau in ms: ')) / 1000
-    d1 = np.zeros((len(file1), len(file1)))
-    d2 = np.zeros((len(file2), len(file2)))
-    dd = np.zeros((len(file1), len(file2)))
-
-    # Stim 1 vs Stim 1
-    for i in range(len(file1)):
-        for j in range(len(file1)):
-            d1[i, j] = spike_train_distance(file1[i], file1[j], dt, duration, tau, plot=False)
-    d1[d1 == 0] = 'nan'
-
-    # Stim 2 vs Stim 2
-    for i in range(len(file2)):
-        for j in range(len(file2)):
-            d2[i, j] = spike_train_distance(file2[i], file2[j], dt, duration, tau, plot=False)
-    d2[d2 == 0] = 'nan'
-
-    # Stim 1 vs Stim 2
-    for i in range(len(file1)):
-        for j in range(len(file2)):
-            dd[i, j] = spike_train_distance(file1[i], file2[j], dt, duration, tau, plot=False)
-
-    # Look at trains of stim 1
-    a1 = np.zeros((len(file1), 4))
-    for k in range(len(file1)):
-        a1[k, :2] = [np.nanmean(d1[k, :]), np.mean(dd[k, :])]
-        if a1[k, 0] < a1[k, 1]:
-            a1[k, 2] = 1
-        else:
-            a1[k, 2] = 2
-        a1[k, 3] = abs(a1[k, 0] - a1[k, 1])
-
-    # Look at trains of stim 2
-    a2 = np.zeros((len(file2), 4))
-    for k in range(len(file2)):
-        a2[k, :2] = [np.nanmean(d2[:, k]), np.mean(dd[:, k])]
-        if a2[k, 0] < a2[k, 1]:
-            a2[k, 2] = 2
-        else:
-            a2[k, 2] = 1
-        a2[k, 3] = abs(a2[k, 0] - a2[k, 1])
-
-    print('spike trains %s (stim 1):' % stim1_name)
-    print('cols: Mean Distance stim 1 | Mean Distance stim 2 | Classifed to | Difference')
-    print(a1)
-    print('\n')
-    print('spike trains %s (stim 2):' % stim2_name)
-    print('cols: Mean Distance stim 1 | Mean Distance stim 2 | Classifed to | Difference')
-    print(a2)
-    print('\n')
-    print('Stim 1 duration: %s ms' % (len(stim1_dur[0])/(100*1000)))
-    print('Stim 2 duration: %s ms' % (len(stim2_dur[0])/(100*1000)))
-
-    return 0
-
-
-def spike_e_pulses(spike_times, dt_factor, tau, duration, whole_train, method):
-    # tau in seconds
-    # dt_factor: dt = tau/dt_factor
-    # spike times in seconds
-    # duration in seconds
-    old_settings = np.seterr(over='raise')
-
-    dt = tau / dt_factor
-
-    # Remove spikes that are not of interest (whole_train = False)
-    if not whole_train:
-        spike_times = spike_times[spike_times <= duration]
-    else:
-        duration = np.max(spike_times) + 5*tau
-
-    if not spike_times.any():
-        f = np.array([0])
-        return f
-    '''
-    dur = np.max(spike_times) + 5 * tau
-    '''
-
-    dur = duration
-    t = np.arange(0, dur, dt)
-    f = np.zeros(len(t))
-
-    for ti in spike_times:
-        if method == 'exp':
-            dummy = np.heaviside(t - ti, 0) * np.exp(-((t - ti)*np.heaviside(t - ti, 0)) / tau)
-        elif method == 'rect':
-            dummy = np.heaviside(t - ti, 0) * np.heaviside((ti+tau)-t, 0)
-        else:
-            print('Method not Found')
-            exit()
-        f = f + dummy
-    return f
 
 
 def vanrossum_distance(f, g, dt, tau):
@@ -2586,453 +2464,7 @@ def vanrossum_distance(f, g, dt, tau):
     return d
 
 
-def vanrossum_distance2(probes, temp_idx, dt_factor, tau, duration):
-
-    e_pulse_fs = tau / dt_factor
-    duration_in_samples = np.array(duration) / e_pulse_fs
-    duration_in_samples = duration_in_samples.astype(int)
-    difference = [[]] * len(probes)
-    for k in range(len(probes)):  # k is stimulus tag (a.k.a call)
-        # Find the template
-        template = probes[k][np.int(temp_idx[k])]
-        diff2 = [[]] * len(probes)
-        for i in range(len(probes)):  # loop through all trials of all calls
-            # Select one probe
-            diff = [[]] * len(probes[i])
-            for j in range(len(probes[i])):
-                g = probes[i][j]
-                # Make sure both trains have same length
-                difference_in_length = abs(len(template) - len(g))
-                if len(template) > len(g):
-                    g = np.append(g, np.zeros(difference_in_length))
-                elif len(template) < len(g):
-                    template = np.append(template, np.zeros(difference_in_length))
-                # Compute difference
-                diff[j] = template - g
-            diff2[i] = diff
-        difference[k] = diff2
-
-    # Compute VanRossum Distance for each duration
-    dt = tau/dt_factor
-    distance_duration = {}
-    for k in range(len(duration_in_samples)):
-        distance = [[]] * len(difference)
-        for j in range(len(difference)):
-            d2 = [[]] * len(difference[j])
-            for p in range(len(difference[j])):
-                d = [[]] * len(difference[j][p])
-                for i in range(len(difference[j][p])):
-                    d[i] = np.sum((difference[j][p][i][0:duration_in_samples[k]]) ** 2) * (dt / tau)
-                    if d[i] == 0:
-                        d[i] = np.nan
-                d2[p] = d
-            distance[j] = d2
-        distance_duration.update({duration[k]: distance})
-
-    # f_count = np.sum(f)* (dt / tau)
-    # g_count = np.sum(g) * (dt / tau)
-    return distance_duration
-
-
-def spike_train_distance(spike_times1, spike_times2, dt_factor, tau, plot):
-    # This function computes the distance between two trains. An exponential tail is added to every event in time
-    # (spike times) and then the difference between both trains is computed.
-
-    # tau in seconds
-    # dt_factor: dt = tau/dt_factor
-    # spike times in seconds
-    # duration in seconds
-    dt = tau/dt_factor
-    duration = np.max([np.max(spike_times1), np.max(spike_times2)]) + 5 * tau
-    t = np.arange(0, duration, dt)
-    f = np.zeros(len(t))
-    g = np.zeros(len(t))
-
-    for ti in spike_times1:
-        dummy = np.heaviside(t - ti, 0) * np.exp(-(t - ti) / tau)
-        f = f + dummy
-
-    for ti in spike_times2:
-        dummy = np.heaviside(t - ti, 0) * np.exp(-(t - ti) / tau)
-        g = g + dummy
-
-    # Compute Difference
-    d = np.sum((f - g) ** 2) * (dt / tau)
-    # f_count = np.sum(f)* (dt / tau)
-    # g_count = np.sum(g) * (dt / tau)
-
-    # print('Spike Train Difference: %s' % d)
-    # print('Tau = %s' % tau)
-
-    if plot:
-        plt.subplot(2, 1, 1)
-        plt.plot(t, f)
-        plt.ylabel('f(t)')
-
-        plt.subplot(2, 1, 2)
-        plt.plot(t, g)
-        plt.xlabel('Time [s]')
-        plt.ylabel('g(t)')
-
-        plt.show()
-
-    return d
-
-
-def new_vr(path_names, tau, dt_factor, stim_type):
-    pathname = path_names[1]
-    spikes = np.load(pathname + 'Calls_spikes.npy').item()
-
-    if stim_type == 'selected':
-        stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-                 'naturalmothcalls/agaraea_semivitrea_07x07.wav', 'naturalmothcalls/carales_11x11_01.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
-                 'naturalmothcalls/elysius_conspersus_05x05.wav', 'naturalmothcalls/epidesma_oceola_05x05.wav',
-                 'naturalmothcalls/eucereon_appunctata_11x11.wav', 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
-                 'naturalmothcalls/eucereon_obscurum_10x10.wav', 'naturalmothcalls/gl005_05x05.wav',
-                 'naturalmothcalls/gl116_05x05.wav', 'naturalmothcalls/hypocladia_militaris_09x09.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav', 'naturalmothcalls/idalus_daga_18x18.wav',
-                 'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav']
-
-    if stim_type == 'series':
-        stims = ['callseries/moths/A7838.wav',
-                 'callseries/moths/BCI1348.wav',
-                 'callseries/moths/Chrostosoma_thoracicum.wav',
-                 'callseries/moths/Chrostosoma_thoracicum_02.wav',
-                 'callseries/moths/Creatonotos.wav',
-                 'callseries/moths/Eucereon_appunctata.wav',
-                 'callseries/moths/Eucereon_hampsoni.wav',
-                 'callseries/moths/Eucereon_maia.wav',
-                 'callseries/moths/GL005.wav',
-                 'callseries/moths/Hyaleucera_erythrotelus.wav',
-                 'callseries/moths/Hypocladia_militaris.wav',
-                 'callseries/moths/PP241.wav',
-                 'callseries/moths/PP612.wav',
-                 'callseries/moths/PP643.wav',
-                 'callseries/moths/Saurita.wav',
-                 'callseries/moths/Uranophora_leucotelus.wav',
-                 'callseries/moths/carales_PK1275.wav',
-                 'callseries/moths/melese_PK1297_01.wav',
-                 'callseries/moths/melese_PK1298_01.wav',
-                 'callseries/moths/melese_PK1298_02.wav',
-                 'callseries/moths/melese_PK1299_01.wav',
-                 'callseries/moths/melese_PK1300_01.wav',
-                 'callseries/bats/Barbastella_barbastellus_1_n.wav',
-                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
-                 'callseries/bats/Myotis_brandtii_1_n.wav',
-                 'callseries/bats/Myotis_nattereri_1_n.wav',
-                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
-                 'callseries/bats/Nyctalus_noctula_2_s.wav',
-                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
-                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
-                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
-                 'callseries/bats/Vespertilio_murinus_1_s.wav']
-
-    if stim_type == 'single':
-        stims = ['naturalmothcalls/BCI1062_07x07.wav',
-                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-                 'naturalmothcalls/aclytia_gynamorpha_24x24_02.wav',
-                 'naturalmothcalls/agaraea_semivitrea_06x06.wav',
-                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
-                 'naturalmothcalls/carales_11x11_01.wav',
-                 'naturalmothcalls/carales_11x11_02.wav',
-                 'naturalmothcalls/carales_12x12_01.wav',
-                 'naturalmothcalls/carales_12x12_02.wav',
-                 'naturalmothcalls/carales_13x13_01.wav',
-                 'naturalmothcalls/carales_13x13_02.wav',
-                 'naturalmothcalls/carales_19x19.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_04x04.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_04x04_02.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05_02.wav',
-                 'naturalmothcalls/creatonotos_01x01.wav',
-                 'naturalmothcalls/creatonotos_01x01_02.wav',
-                 'naturalmothcalls/elysius_conspersus_05x05.wav',
-                 'naturalmothcalls/elysius_conspersus_08x08.wav',
-                 'naturalmothcalls/elysius_conspersus_11x11.wav',
-                 'naturalmothcalls/epidesma_oceola_05x05.wav',
-                 'naturalmothcalls/epidesma_oceola_05x05_02.wav',
-                 'naturalmothcalls/epidesma_oceola_06x06.wav',
-                 'naturalmothcalls/eucereon_appunctata_11x11.wav',
-                 'naturalmothcalls/eucereon_appunctata_12x12.wav',
-                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
-                 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
-                 'naturalmothcalls/eucereon_hampsoni_08x08.wav',
-                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
-                 'naturalmothcalls/eucereon_obscurum_10x10.wav',
-                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
-                 'naturalmothcalls/gl005_04x04.wav',
-                 'naturalmothcalls/gl005_05x05.wav',
-                 'naturalmothcalls/gl005_11x11.wav',
-                 'naturalmothcalls/gl116_04x04.wav',
-                 'naturalmothcalls/gl116_04x04_02.wav',
-                 'naturalmothcalls/gl116_05x05.wav',
-                 'naturalmothcalls/hypocladia_militaris_03x03.wav',
-                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
-                 'naturalmothcalls/hypocladia_militaris_09x09_02.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05_02.wav',
-                 'naturalmothcalls/idalus_daga_18x18.wav',
-                 'naturalmothcalls/melese_11x11_PK1299.wav',
-                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
-                 'naturalmothcalls/melese_12x12_PK1299.wav',
-                 'naturalmothcalls/melese_13x13_PK1299.wav',
-                 'naturalmothcalls/melese_14x14_PK1297.wav',
-                 'naturalmothcalls/neritos_cotes_07x07.wav',
-                 'naturalmothcalls/neritos_cotes_10x10.wav',
-                 'naturalmothcalls/neritos_cotes_10x10_02.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_08x08.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_30++.wav',
-                 'naturalmothcalls/syntrichura_07x07.wav',
-                 'naturalmothcalls/syntrichura_09x09.wav',
-                 'naturalmothcalls/syntrichura_12x12.wav',
-                 'batcalls/Barbastella_barbastellus_1_n.wav',
-                 'batcalls/Eptesicus_nilssonii_1_s.wav',
-                 'batcalls/Myotis_bechsteinii_1_n.wav',
-                 'batcalls/Myotis_brandtii_1_n.wav',
-                 'batcalls/Myotis_nattereri_1_n.wav',
-                 'batcalls/Nyctalus_leisleri_1_n.wav',
-                 'batcalls/Nyctalus_noctula_2_s.wav',
-                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
-                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
-                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
-                 'batcalls/Vespertilio_murinus_1_s.wav']
-
-    if stim_type == 'all_series':
-        stims = ['callseries/moths/A7838.wav',
-                 'callseries/moths/BCI1348.wav',
-                 'callseries/moths/Chrostosoma_thoracicum.wav',
-                 'callseries/moths/Creatonotos.wav',
-                 'callseries/moths/Eucereon_appunctata.wav',
-                 'callseries/moths/Eucereon_hampsoni.wav',
-                 'callseries/moths/Eucereon_maia.wav',
-                 'callseries/moths/GL005.wav',
-                 'callseries/moths/Hyaleucera_erythrotelus.wav',
-                 'callseries/moths/Hypocladia_militaris.wav',
-                 'callseries/moths/PP241.wav',
-                 'callseries/moths/PP612.wav',
-                 'callseries/moths/PP643.wav',
-                 'callseries/moths/Saurita.wav',
-                 'callseries/moths/Uranophora_leucotelus.wav',
-                 'callseries/moths/carales_PK1275.wav',
-                 'callseries/moths/melese_PK1300_01.wav',
-                 'callseries/bats/Barbastella_barbastellus_1_n.wav',
-                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
-                 'callseries/bats/Myotis_brandtii_1_n.wav',
-                 'callseries/bats/Myotis_nattereri_1_n.wav',
-                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
-                 'callseries/bats/Nyctalus_noctula_2_s.wav',
-                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
-                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
-                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
-                 'callseries/bats/Vespertilio_murinus_1_s.wav']
-
-    if stim_type == 'moth_series':
-        stims = ['callseries/moths/A7838.wav',
-                 'callseries/moths/BCI1348.wav',
-                 'callseries/moths/Chrostosoma_thoracicum.wav',
-                 'callseries/moths/Chrostosoma_thoracicum_02.wav',
-                 'callseries/moths/Creatonotos.wav',
-                 'callseries/moths/Eucereon_appunctata.wav',
-                 'callseries/moths/Eucereon_hampsoni.wav',
-                 'callseries/moths/Eucereon_maia.wav',
-                 'callseries/moths/GL005.wav',
-                 'callseries/moths/Hyaleucera_erythrotelus.wav',
-                 'callseries/moths/Hypocladia_militaris.wav',
-                 'callseries/moths/PP241.wav',
-                 'callseries/moths/PP612.wav',
-                 'callseries/moths/PP643.wav',
-                 'callseries/moths/Saurita.wav',
-                 'callseries/moths/Uranophora_leucotelus.wav',
-                 'callseries/moths/carales_PK1275.wav',
-                 'callseries/moths/melese_PK1297_01.wav',
-                 'callseries/moths/melese_PK1298_01.wav',
-                 'callseries/moths/melese_PK1298_02.wav',
-                 'callseries/moths/melese_PK1299_01.wav',
-                 'callseries/moths/melese_PK1300_01.wav']
-
-    if stim_type == 'moth_series_selected':
-        stims = ['callseries/moths/A7838.wav',
-                 'callseries/moths/BCI1348.wav',
-                 'callseries/moths/Chrostosoma_thoracicum.wav',
-                 'callseries/moths/Creatonotos.wav',
-                 'callseries/moths/Eucereon_appunctata.wav',
-                 'callseries/moths/Eucereon_hampsoni.wav',
-                 'callseries/moths/Eucereon_maia.wav',
-                 'callseries/moths/GL005.wav',
-                 'callseries/moths/Hyaleucera_erythrotelus.wav',
-                 'callseries/moths/Hypocladia_militaris.wav',
-                 'callseries/moths/PP241.wav',
-                 'callseries/moths/PP612.wav',
-                 'callseries/moths/PP643.wav',
-                 'callseries/moths/Saurita.wav',
-                 'callseries/moths/Uranophora_leucotelus.wav',
-                 'callseries/moths/carales_PK1275.wav',
-                 'callseries/moths/melese_PK1300_01.wav']
-
-    if stim_type == 'moth_single':
-        stims = ['naturalmothcalls/BCI1062_07x07.wav',
-                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-                 'naturalmothcalls/aclytia_gynamorpha_24x24_02.wav',
-                 'naturalmothcalls/agaraea_semivitrea_06x06.wav',
-                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
-                 'naturalmothcalls/carales_11x11_01.wav',
-                 'naturalmothcalls/carales_11x11_02.wav',
-                 'naturalmothcalls/carales_12x12_01.wav',
-                 'naturalmothcalls/carales_12x12_02.wav',
-                 'naturalmothcalls/carales_13x13_01.wav',
-                 'naturalmothcalls/carales_13x13_02.wav',
-                 'naturalmothcalls/carales_19x19.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_04x04.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_04x04_02.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05_02.wav',
-                 'naturalmothcalls/creatonotos_01x01.wav',
-                 'naturalmothcalls/creatonotos_01x01_02.wav',
-                 'naturalmothcalls/elysius_conspersus_05x05.wav',
-                 'naturalmothcalls/elysius_conspersus_08x08.wav',
-                 'naturalmothcalls/elysius_conspersus_11x11.wav',
-                 'naturalmothcalls/epidesma_oceola_05x05.wav',
-                 'naturalmothcalls/epidesma_oceola_05x05_02.wav',
-                 'naturalmothcalls/epidesma_oceola_06x06.wav',
-                 'naturalmothcalls/eucereon_appunctata_11x11.wav',
-                 'naturalmothcalls/eucereon_appunctata_12x12.wav',
-                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
-                 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
-                 'naturalmothcalls/eucereon_hampsoni_08x08.wav',
-                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
-                 'naturalmothcalls/eucereon_obscurum_10x10.wav',
-                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
-                 'naturalmothcalls/gl005_04x04.wav',
-                 'naturalmothcalls/gl005_05x05.wav',
-                 'naturalmothcalls/gl005_11x11.wav',
-                 'naturalmothcalls/gl116_04x04.wav',
-                 'naturalmothcalls/gl116_04x04_02.wav',
-                 'naturalmothcalls/gl116_05x05.wav',
-                 'naturalmothcalls/hypocladia_militaris_03x03.wav',
-                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
-                 'naturalmothcalls/hypocladia_militaris_09x09_02.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05_02.wav',
-                 'naturalmothcalls/idalus_daga_18x18.wav',
-                 'naturalmothcalls/melese_11x11_PK1299.wav',
-                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
-                 'naturalmothcalls/melese_12x12_PK1299.wav',
-                 'naturalmothcalls/melese_13x13_PK1299.wav',
-                 'naturalmothcalls/melese_14x14_PK1297.wav',
-                 'naturalmothcalls/neritos_cotes_07x07.wav',
-                 'naturalmothcalls/neritos_cotes_10x10.wav',
-                 'naturalmothcalls/neritos_cotes_10x10_02.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_08x08.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_30++.wav',
-                 'naturalmothcalls/syntrichura_07x07.wav',
-                 'naturalmothcalls/syntrichura_09x09.wav',
-                 'naturalmothcalls/syntrichura_12x12.wav']
-
-    if stim_type == 'moth_single_selected':
-        stims = ['naturalmothcalls/BCI1062_07x07.wav',
-                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
-                 'naturalmothcalls/carales_12x12_01.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
-                 'naturalmothcalls/creatonotos_01x01.wav',
-                 'naturalmothcalls/elysius_conspersus_11x11.wav',
-                 'naturalmothcalls/epidesma_oceola_06x06.wav',
-                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
-                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
-                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
-                 'naturalmothcalls/gl005_11x11.wav',
-                 'naturalmothcalls/gl116_05x05.wav',
-                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
-                 'naturalmothcalls/idalus_daga_18x18.wav',
-                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
-                 'naturalmothcalls/neritos_cotes_10x10.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
-                 'naturalmothcalls/syntrichura_12x12.wav']
-
-    if stim_type == 'all_single':
-        stims = ['naturalmothcalls/BCI1062_07x07.wav',
-                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
-                 'naturalmothcalls/carales_12x12_01.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
-                 'naturalmothcalls/creatonotos_01x01.wav',
-                 'naturalmothcalls/elysius_conspersus_11x11.wav',
-                 'naturalmothcalls/epidesma_oceola_06x06.wav',
-                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
-                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
-                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
-                 'naturalmothcalls/gl005_11x11.wav',
-                 'naturalmothcalls/gl116_05x05.wav',
-                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
-                 'naturalmothcalls/idalus_daga_18x18.wav',
-                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
-                 'naturalmothcalls/neritos_cotes_10x10.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
-                 'naturalmothcalls/syntrichura_12x12.wav',
-                 'batcalls/Barbastella_barbastellus_1_n.wav',
-                 'batcalls/Eptesicus_nilssonii_1_s.wav',
-                 'batcalls/Myotis_bechsteinii_1_n.wav',
-                 'batcalls/Myotis_brandtii_1_n.wav',
-                 'batcalls/Myotis_nattereri_1_n.wav',
-                 'batcalls/Nyctalus_leisleri_1_n.wav',
-                 'batcalls/Nyctalus_noctula_2_s.wav',
-                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
-                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
-                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
-                 'batcalls/Vespertilio_murinus_1_s.wav']
-
-    if stim_type == 'bats_single':
-        stims = ['batcalls/Barbastella_barbastellus_1_n.wav',
-                 'batcalls/Eptesicus_nilssonii_1_s.wav',
-                 'batcalls/Myotis_bechsteinii_1_n.wav',
-                 'batcalls/Myotis_brandtii_1_n.wav',
-                 'batcalls/Myotis_nattereri_1_n.wav',
-                 'batcalls/Nyctalus_leisleri_1_n.wav',
-                 'batcalls/Nyctalus_noctula_2_s.wav',
-                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
-                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
-                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
-                 'batcalls/Vespertilio_murinus_1_s.wav']
-
-    if stim_type == 'bats_series':
-        stims = ['callseries/bats/Barbastella_barbastellus_1_n.wav',
-                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
-                 'callseries/bats/Myotis_brandtii_1_n.wav',
-                 'callseries/bats/Myotis_nattereri_1_n.wav',
-                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
-                 'callseries/bats/Nyctalus_noctula_2_s.wav',
-                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
-                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
-                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
-                 'callseries/bats/Vespertilio_murinus_1_s.wav']
-
-    # Tags and Stimulus names
-    connection, _ = tagtostimulus(path_names)
-    stimulus_tags = [''] * len(stims)
-    for p in range(len(stims)):
-        stimulus_tags[p] = connection[stims[p]]
-
-    cos = 1
-    tau = 0.01
-    probes = [[]] * len(stimulus_tags)
-    for i in range(len(stimulus_tags)):
-        for k in range(len(spikes[stimulus_tags[i]])):
-            probes[i].append(list(spikes[stimulus_tags[i]][k]))
-    # d = pymuvr.square_dissimilarity_matrix(spike_times, cos, tau, 'distance')
-    d = pymuvr.distance_matrix(probes, probes, cos, tau)
-    embed()
-    exit()
-
-
-def trains_to_e_pulses(path_names, tau, dt_factor, stim_type, method):
+def trains_to_e_pulses(path_names, tau, dt, stim_type, method):
     dataset = path_names[0]
     pathname = path_names[1]
     spikes = np.load(pathname + 'Calls_spikes.npy').item()
@@ -3382,7 +2814,7 @@ def trains_to_e_pulses(path_names, tau, dt_factor, stim_type, method):
         for j in range(trial_nr):
             x = spikes[stimulus_tags[k]][j]
             # tr[j] = spike_e_pulses(x, dt_factor, tau, duration, whole_train, method)
-            tr[j] = fast_e_pulses(x, tau, dt_factor)
+            tr[j] = fast_e_pulses(x, tau, dt)
         trains.update({stimulus_tags[k]: tr})
 
     # Save to HDD
@@ -3398,12 +2830,11 @@ def trains_to_e_pulses(path_names, tau, dt_factor, stim_type, method):
     return 0
 
 
-def pulse_trains_to_e_pulses(samples, tau, dt_factor, method):
-    whole_train = True
-    duration = 0
+def pulse_trains_to_e_pulses(samples, tau, dt):
     e_pulses = [[]] * len(samples)
     for k in range(len(samples)):
-        e_pulses[k] = spike_e_pulses(np.array(samples[k]), dt_factor, tau, duration, whole_train, method)
+        # e_pulses[k] = spike_e_pulses(np.array(samples[k]), dt_factor, tau, duration, whole_train, method)
+        e_pulses[k] = fast_e_pulses(np.array(samples[k]), tau, dt)
 
     return e_pulses
 
@@ -3504,29 +2935,6 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt, tau, boot_sam
         # print('tau = ' + str(tau*1000) + ' ms' + ' T = ' + str(duration*1000) + ' ms done')
 
     return mm_mean, correct_matches, distances_per_boot, gg_mean
-
-
-def vanrossum_matrix2(dataset, trains, stimulus_tags, duration, dt_factor, tau, boot_sample, save_fig):
-
-    # Randomly choose one template spike train for each call
-    temp_idx = np.zeros(shape=(len(stimulus_tags), 1))
-    templates = [[]] * len(stimulus_tags)
-    own_probes = [[]] * len(stimulus_tags)
-    probes = [[]] * len(stimulus_tags)
-    for i in range(len(stimulus_tags)):
-        temp_idx[i] = np.random.randint(0, len(trains[stimulus_tags[i]]), 1)
-        rest_idx = [True] * len(trains[stimulus_tags[i]])
-        rest_idx[np.int(temp_idx[i][0])] = False
-        templates[i] = trains[stimulus_tags[i]][np.int(temp_idx[i][0])]
-        own_probes[i] = np.array(trains[stimulus_tags[i]])[rest_idx]
-        probes[i] = trains[stimulus_tags[i]]
-    # Now compare each template with all other trains via Van Rossum Distance
-    d = vanrossum_distance2(probes, temp_idx, dt_factor, tau, duration)
-
-    embed()
-    exit()
-
-    return 0
 
 
 def isi_matrix(path_names, duration, boot_sample, stim_type, profile, save_fig):
@@ -4760,17 +4168,231 @@ def pytomat(path_names, protocol_name):
 
 
 def mattopy(stim_type, fs):
-    file_pathname = '/media/brehm/Data/MasterMoth/stimuli/' + stim_type + '/'
-    listing = os.listdir(file_pathname)
-    stim_names = sorted([i for i in listing if ".wav" in i])
-    samples = [[]] * len(stim_names)
-    samples_names = [[]] * len(stim_names)
-    for i in range(len(stim_names)):
-        file_name = file_pathname + stim_names[i][0:-4] + '/samples.mat'
+
+    if stim_type == 'all_series':
+        stims = ['callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1300_01.wav',
+                 'callseries/bats/Barbastella_barbastellus_1_n.wav',
+                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
+                 'callseries/bats/Myotis_brandtii_1_n.wav',
+                 'callseries/bats/Myotis_nattereri_1_n.wav',
+                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
+                 'callseries/bats/Nyctalus_noctula_2_s.wav',
+                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
+                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
+                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
+                 'callseries/bats/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'moth_series':
+        stims = ['callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Chrostosoma_thoracicum_02.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1297_01.wav',
+                 'callseries/moths/melese_PK1298_01.wav',
+                 'callseries/moths/melese_PK1298_02.wav',
+                 'callseries/moths/melese_PK1299_01.wav',
+                 'callseries/moths/melese_PK1300_01.wav']
+
+    if stim_type == 'moth_series_selected':
+        stims = ['callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1300_01.wav']
+
+    if stim_type == 'moth_single':
+        stims = ['naturalmothcalls/BCI1062_07x07.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24_02.wav',
+                 'naturalmothcalls/agaraea_semivitrea_06x06.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+                 'naturalmothcalls/carales_11x11_01.wav',
+                 'naturalmothcalls/carales_11x11_02.wav',
+                 'naturalmothcalls/carales_12x12_01.wav',
+                 'naturalmothcalls/carales_12x12_02.wav',
+                 'naturalmothcalls/carales_13x13_01.wav',
+                 'naturalmothcalls/carales_13x13_02.wav',
+                 'naturalmothcalls/carales_19x19.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_04x04.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_04x04_02.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05_02.wav',
+                 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/creatonotos_01x01_02.wav',
+                 'naturalmothcalls/elysius_conspersus_05x05.wav',
+                 'naturalmothcalls/elysius_conspersus_08x08.wav',
+                 'naturalmothcalls/elysius_conspersus_11x11.wav',
+                 'naturalmothcalls/epidesma_oceola_05x05.wav',
+                 'naturalmothcalls/epidesma_oceola_05x05_02.wav',
+                 'naturalmothcalls/epidesma_oceola_06x06.wav',
+                 'naturalmothcalls/eucereon_appunctata_11x11.wav',
+                 'naturalmothcalls/eucereon_appunctata_12x12.wav',
+                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
+                 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+                 'naturalmothcalls/eucereon_hampsoni_08x08.wav',
+                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+                 'naturalmothcalls/eucereon_obscurum_10x10.wav',
+                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
+                 'naturalmothcalls/gl005_04x04.wav',
+                 'naturalmothcalls/gl005_05x05.wav',
+                 'naturalmothcalls/gl005_11x11.wav',
+                 'naturalmothcalls/gl116_04x04.wav',
+                 'naturalmothcalls/gl116_04x04_02.wav',
+                 'naturalmothcalls/gl116_05x05.wav',
+                 'naturalmothcalls/hypocladia_militaris_03x03.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09_02.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05_02.wav',
+                 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_11x11_PK1299.wav',
+                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
+                 'naturalmothcalls/melese_12x12_PK1299.wav',
+                 'naturalmothcalls/melese_13x13_PK1299.wav',
+                 'naturalmothcalls/melese_14x14_PK1297.wav',
+                 'naturalmothcalls/neritos_cotes_07x07.wav',
+                 'naturalmothcalls/neritos_cotes_10x10.wav',
+                 'naturalmothcalls/neritos_cotes_10x10_02.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_08x08.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_30++.wav',
+                 'naturalmothcalls/syntrichura_07x07.wav',
+                 'naturalmothcalls/syntrichura_09x09.wav',
+                 'naturalmothcalls/syntrichura_12x12.wav']
+
+    if stim_type == 'moth_single_selected':
+        stims = ['naturalmothcalls/BCI1062_07x07.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+                 'naturalmothcalls/carales_12x12_01.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+                 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/elysius_conspersus_11x11.wav',
+                 'naturalmothcalls/epidesma_oceola_06x06.wav',
+                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
+                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
+                 'naturalmothcalls/gl005_11x11.wav',
+                 'naturalmothcalls/gl116_05x05.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+                 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
+                 'naturalmothcalls/neritos_cotes_10x10.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+                 'naturalmothcalls/syntrichura_12x12.wav']
+
+    if stim_type == 'all_single':
+        stims = ['naturalmothcalls/BCI1062_07x07.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+                 'naturalmothcalls/carales_12x12_01.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+                 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/elysius_conspersus_11x11.wav',
+                 'naturalmothcalls/epidesma_oceola_06x06.wav',
+                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
+                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
+                 'naturalmothcalls/gl005_11x11.wav',
+                 'naturalmothcalls/gl116_05x05.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+                 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
+                 'naturalmothcalls/neritos_cotes_10x10.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+                 'naturalmothcalls/syntrichura_12x12.wav',
+                 'batcalls/Barbastella_barbastellus_1_n.wav',
+                 'batcalls/Eptesicus_nilssonii_1_s.wav',
+                 'batcalls/Myotis_bechsteinii_1_n.wav',
+                 'batcalls/Myotis_brandtii_1_n.wav',
+                 'batcalls/Myotis_nattereri_1_n.wav',
+                 'batcalls/Nyctalus_leisleri_1_n.wav',
+                 'batcalls/Nyctalus_noctula_2_s.wav',
+                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+                 'batcalls/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'bats_single':
+        stims = ['batcalls/Barbastella_barbastellus_1_n.wav',
+                 'batcalls/Eptesicus_nilssonii_1_s.wav',
+                 'batcalls/Myotis_bechsteinii_1_n.wav',
+                 'batcalls/Myotis_brandtii_1_n.wav',
+                 'batcalls/Myotis_nattereri_1_n.wav',
+                 'batcalls/Nyctalus_leisleri_1_n.wav',
+                 'batcalls/Nyctalus_noctula_2_s.wav',
+                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+                 'batcalls/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'bats_series':
+        stims = ['callseries/bats/Barbastella_barbastellus_1_n.wav',
+                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
+                 'callseries/bats/Myotis_brandtii_1_n.wav',
+                 'callseries/bats/Myotis_nattereri_1_n.wav',
+                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
+                 'callseries/bats/Nyctalus_noctula_2_s.wav',
+                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
+                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
+                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
+                 'callseries/bats/Vespertilio_murinus_1_s.wav']
+
+    file_pathname = '/media/brehm/Data/MasterMoth/stimuli/'
+    # listing = os.listdir(file_pathname)
+    samples = [[]] * len(stims)
+    stim_names = [[]] * len(stims)
+    for i in range(len(stims)):
+        # file_name = file_pathname + stim_names[i][0:-4] + '/samples.mat'
+        file_name = file_pathname + stims[i][0:-4] + '/samples.mat'
         mat_file = scipy.io.loadmat(file_name)
         samples[i] = sorted(np.append(mat_file['samples']['active'][0][0][0][:], mat_file['samples']['passive'][0][0][0][:]) / fs)
-        samples_names[i] = stim_names[i][0:-4]
-    return samples, samples_names
+        stim_names[i] = stims[i][0:-4]
+    return samples, stim_names
 
 
 def get_session_metadata(datasets):
@@ -6071,3 +5693,583 @@ def moth_intervals_spike_detection_backup(path_names, window=None, th_factor=1, 
     print('Spike Detection done')
     return 0
 
+
+def vanrossum_distance2(probes, temp_idx, dt_factor, tau, duration):
+
+    e_pulse_fs = tau / dt_factor
+    duration_in_samples = np.array(duration) / e_pulse_fs
+    duration_in_samples = duration_in_samples.astype(int)
+    difference = [[]] * len(probes)
+    for k in range(len(probes)):  # k is stimulus tag (a.k.a call)
+        # Find the template
+        template = probes[k][np.int(temp_idx[k])]
+        diff2 = [[]] * len(probes)
+        for i in range(len(probes)):  # loop through all trials of all calls
+            # Select one probe
+            diff = [[]] * len(probes[i])
+            for j in range(len(probes[i])):
+                g = probes[i][j]
+                # Make sure both trains have same length
+                difference_in_length = abs(len(template) - len(g))
+                if len(template) > len(g):
+                    g = np.append(g, np.zeros(difference_in_length))
+                elif len(template) < len(g):
+                    template = np.append(template, np.zeros(difference_in_length))
+                # Compute difference
+                diff[j] = template - g
+            diff2[i] = diff
+        difference[k] = diff2
+
+    # Compute VanRossum Distance for each duration
+    dt = tau/dt_factor
+    distance_duration = {}
+    for k in range(len(duration_in_samples)):
+        distance = [[]] * len(difference)
+        for j in range(len(difference)):
+            d2 = [[]] * len(difference[j])
+            for p in range(len(difference[j])):
+                d = [[]] * len(difference[j][p])
+                for i in range(len(difference[j][p])):
+                    d[i] = np.sum((difference[j][p][i][0:duration_in_samples[k]]) ** 2) * (dt / tau)
+                    if d[i] == 0:
+                        d[i] = np.nan
+                d2[p] = d
+            distance[j] = d2
+        distance_duration.update({duration[k]: distance})
+
+    # f_count = np.sum(f)* (dt / tau)
+    # g_count = np.sum(g) * (dt / tau)
+    return distance_duration
+
+
+def spike_distance_matrix(datasets):
+    data_name = datasets[0]
+    pathname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/mothsongs/'
+    stim1_name = 'Creatonotos03_series'
+    stim2_name = 'Carales_series'
+
+    file_name1 = stim1_name + '_spike_times.npy'
+    file_name2 = stim2_name + '_spike_times.npy'
+
+    stim1_dur = np.load(pathname + stim1_name + '_time.npy').item()
+    stim2_dur = np.load(pathname + stim2_name + '_time.npy').item()
+
+    file1 = np.load(pathname + file_name1).item()
+    file2 = np.load(pathname + file_name2).item()
+
+    duration = file1[0][-1] + 0.01
+    dt = 100 * 1000
+    # tau = 0.005
+    tau = float(input('tau in ms: ')) / 1000
+    d1 = np.zeros((len(file1), len(file1)))
+    d2 = np.zeros((len(file2), len(file2)))
+    dd = np.zeros((len(file1), len(file2)))
+
+    # Stim 1 vs Stim 1
+    for i in range(len(file1)):
+        for j in range(len(file1)):
+            d1[i, j] = spike_train_distance(file1[i], file1[j], dt, duration, tau, plot=False)
+    d1[d1 == 0] = 'nan'
+
+    # Stim 2 vs Stim 2
+    for i in range(len(file2)):
+        for j in range(len(file2)):
+            d2[i, j] = spike_train_distance(file2[i], file2[j], dt, duration, tau, plot=False)
+    d2[d2 == 0] = 'nan'
+
+    # Stim 1 vs Stim 2
+    for i in range(len(file1)):
+        for j in range(len(file2)):
+            dd[i, j] = spike_train_distance(file1[i], file2[j], dt, duration, tau, plot=False)
+
+    # Look at trains of stim 1
+    a1 = np.zeros((len(file1), 4))
+    for k in range(len(file1)):
+        a1[k, :2] = [np.nanmean(d1[k, :]), np.mean(dd[k, :])]
+        if a1[k, 0] < a1[k, 1]:
+            a1[k, 2] = 1
+        else:
+            a1[k, 2] = 2
+        a1[k, 3] = abs(a1[k, 0] - a1[k, 1])
+
+    # Look at trains of stim 2
+    a2 = np.zeros((len(file2), 4))
+    for k in range(len(file2)):
+        a2[k, :2] = [np.nanmean(d2[:, k]), np.mean(dd[:, k])]
+        if a2[k, 0] < a2[k, 1]:
+            a2[k, 2] = 2
+        else:
+            a2[k, 2] = 1
+        a2[k, 3] = abs(a2[k, 0] - a2[k, 1])
+
+    print('spike trains %s (stim 1):' % stim1_name)
+    print('cols: Mean Distance stim 1 | Mean Distance stim 2 | Classifed to | Difference')
+    print(a1)
+    print('\n')
+    print('spike trains %s (stim 2):' % stim2_name)
+    print('cols: Mean Distance stim 1 | Mean Distance stim 2 | Classifed to | Difference')
+    print(a2)
+    print('\n')
+    print('Stim 1 duration: %s ms' % (len(stim1_dur[0])/(100*1000)))
+    print('Stim 2 duration: %s ms' % (len(stim2_dur[0])/(100*1000)))
+
+    return 0
+
+
+def spike_e_pulses(spike_times, dt_factor, tau, duration, whole_train, method):
+    # tau in seconds
+    # dt_factor: dt = tau/dt_factor
+    # spike times in seconds
+    # duration in seconds
+    old_settings = np.seterr(over='raise')
+
+    dt = tau / dt_factor
+
+    # Remove spikes that are not of interest (whole_train = False)
+    if not whole_train:
+        spike_times = spike_times[spike_times <= duration]
+    else:
+        duration = np.max(spike_times) + 5*tau
+
+    if not spike_times.any():
+        f = np.array([0])
+        return f
+    '''
+    dur = np.max(spike_times) + 5 * tau
+    '''
+
+    dur = duration
+    t = np.arange(0, dur, dt)
+    f = np.zeros(len(t))
+
+    for ti in spike_times:
+        if method == 'exp':
+            dummy = np.heaviside(t - ti, 0) * np.exp(-((t - ti)*np.heaviside(t - ti, 0)) / tau)
+        elif method == 'rect':
+            dummy = np.heaviside(t - ti, 0) * np.heaviside((ti+tau)-t, 0)
+        else:
+            print('Method not Found')
+            exit()
+        f = f + dummy
+    return f
+
+
+def new_vr(path_names, tau, dt_factor, stim_type):
+    pathname = path_names[1]
+    spikes = np.load(pathname + 'Calls_spikes.npy').item()
+
+    if stim_type == 'selected':
+        stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav', 'naturalmothcalls/carales_11x11_01.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav', 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/elysius_conspersus_05x05.wav', 'naturalmothcalls/epidesma_oceola_05x05.wav',
+                 'naturalmothcalls/eucereon_appunctata_11x11.wav', 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+                 'naturalmothcalls/eucereon_obscurum_10x10.wav', 'naturalmothcalls/gl005_05x05.wav',
+                 'naturalmothcalls/gl116_05x05.wav', 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav', 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_11x11_PK1299.wav', 'naturalmothcalls/neritos_cotes_07x07.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav', 'naturalmothcalls/syntrichura_09x09.wav']
+
+    if stim_type == 'series':
+        stims = ['callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Chrostosoma_thoracicum_02.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1297_01.wav',
+                 'callseries/moths/melese_PK1298_01.wav',
+                 'callseries/moths/melese_PK1298_02.wav',
+                 'callseries/moths/melese_PK1299_01.wav',
+                 'callseries/moths/melese_PK1300_01.wav',
+                 'callseries/bats/Barbastella_barbastellus_1_n.wav',
+                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
+                 'callseries/bats/Myotis_brandtii_1_n.wav',
+                 'callseries/bats/Myotis_nattereri_1_n.wav',
+                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
+                 'callseries/bats/Nyctalus_noctula_2_s.wav',
+                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
+                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
+                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
+                 'callseries/bats/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'single':
+        stims = ['naturalmothcalls/BCI1062_07x07.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24_02.wav',
+                 'naturalmothcalls/agaraea_semivitrea_06x06.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+                 'naturalmothcalls/carales_11x11_01.wav',
+                 'naturalmothcalls/carales_11x11_02.wav',
+                 'naturalmothcalls/carales_12x12_01.wav',
+                 'naturalmothcalls/carales_12x12_02.wav',
+                 'naturalmothcalls/carales_13x13_01.wav',
+                 'naturalmothcalls/carales_13x13_02.wav',
+                 'naturalmothcalls/carales_19x19.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_04x04.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_04x04_02.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05_02.wav',
+                 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/creatonotos_01x01_02.wav',
+                 'naturalmothcalls/elysius_conspersus_05x05.wav',
+                 'naturalmothcalls/elysius_conspersus_08x08.wav',
+                 'naturalmothcalls/elysius_conspersus_11x11.wav',
+                 'naturalmothcalls/epidesma_oceola_05x05.wav',
+                 'naturalmothcalls/epidesma_oceola_05x05_02.wav',
+                 'naturalmothcalls/epidesma_oceola_06x06.wav',
+                 'naturalmothcalls/eucereon_appunctata_11x11.wav',
+                 'naturalmothcalls/eucereon_appunctata_12x12.wav',
+                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
+                 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+                 'naturalmothcalls/eucereon_hampsoni_08x08.wav',
+                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+                 'naturalmothcalls/eucereon_obscurum_10x10.wav',
+                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
+                 'naturalmothcalls/gl005_04x04.wav',
+                 'naturalmothcalls/gl005_05x05.wav',
+                 'naturalmothcalls/gl005_11x11.wav',
+                 'naturalmothcalls/gl116_04x04.wav',
+                 'naturalmothcalls/gl116_04x04_02.wav',
+                 'naturalmothcalls/gl116_05x05.wav',
+                 'naturalmothcalls/hypocladia_militaris_03x03.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09_02.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05_02.wav',
+                 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_11x11_PK1299.wav',
+                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
+                 'naturalmothcalls/melese_12x12_PK1299.wav',
+                 'naturalmothcalls/melese_13x13_PK1299.wav',
+                 'naturalmothcalls/melese_14x14_PK1297.wav',
+                 'naturalmothcalls/neritos_cotes_07x07.wav',
+                 'naturalmothcalls/neritos_cotes_10x10.wav',
+                 'naturalmothcalls/neritos_cotes_10x10_02.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_08x08.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_30++.wav',
+                 'naturalmothcalls/syntrichura_07x07.wav',
+                 'naturalmothcalls/syntrichura_09x09.wav',
+                 'naturalmothcalls/syntrichura_12x12.wav',
+                 'batcalls/Barbastella_barbastellus_1_n.wav',
+                 'batcalls/Eptesicus_nilssonii_1_s.wav',
+                 'batcalls/Myotis_bechsteinii_1_n.wav',
+                 'batcalls/Myotis_brandtii_1_n.wav',
+                 'batcalls/Myotis_nattereri_1_n.wav',
+                 'batcalls/Nyctalus_leisleri_1_n.wav',
+                 'batcalls/Nyctalus_noctula_2_s.wav',
+                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+                 'batcalls/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'all_series':
+        stims = ['callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1300_01.wav',
+                 'callseries/bats/Barbastella_barbastellus_1_n.wav',
+                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
+                 'callseries/bats/Myotis_brandtii_1_n.wav',
+                 'callseries/bats/Myotis_nattereri_1_n.wav',
+                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
+                 'callseries/bats/Nyctalus_noctula_2_s.wav',
+                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
+                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
+                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
+                 'callseries/bats/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'moth_series':
+        stims = ['callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Chrostosoma_thoracicum_02.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1297_01.wav',
+                 'callseries/moths/melese_PK1298_01.wav',
+                 'callseries/moths/melese_PK1298_02.wav',
+                 'callseries/moths/melese_PK1299_01.wav',
+                 'callseries/moths/melese_PK1300_01.wav']
+
+    if stim_type == 'moth_series_selected':
+        stims = ['callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1300_01.wav']
+
+    if stim_type == 'moth_single':
+        stims = ['naturalmothcalls/BCI1062_07x07.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24_02.wav',
+                 'naturalmothcalls/agaraea_semivitrea_06x06.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+                 'naturalmothcalls/carales_11x11_01.wav',
+                 'naturalmothcalls/carales_11x11_02.wav',
+                 'naturalmothcalls/carales_12x12_01.wav',
+                 'naturalmothcalls/carales_12x12_02.wav',
+                 'naturalmothcalls/carales_13x13_01.wav',
+                 'naturalmothcalls/carales_13x13_02.wav',
+                 'naturalmothcalls/carales_19x19.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_04x04.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_04x04_02.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05_02.wav',
+                 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/creatonotos_01x01_02.wav',
+                 'naturalmothcalls/elysius_conspersus_05x05.wav',
+                 'naturalmothcalls/elysius_conspersus_08x08.wav',
+                 'naturalmothcalls/elysius_conspersus_11x11.wav',
+                 'naturalmothcalls/epidesma_oceola_05x05.wav',
+                 'naturalmothcalls/epidesma_oceola_05x05_02.wav',
+                 'naturalmothcalls/epidesma_oceola_06x06.wav',
+                 'naturalmothcalls/eucereon_appunctata_11x11.wav',
+                 'naturalmothcalls/eucereon_appunctata_12x12.wav',
+                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
+                 'naturalmothcalls/eucereon_hampsoni_07x07.wav',
+                 'naturalmothcalls/eucereon_hampsoni_08x08.wav',
+                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+                 'naturalmothcalls/eucereon_obscurum_10x10.wav',
+                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
+                 'naturalmothcalls/gl005_04x04.wav',
+                 'naturalmothcalls/gl005_05x05.wav',
+                 'naturalmothcalls/gl005_11x11.wav',
+                 'naturalmothcalls/gl116_04x04.wav',
+                 'naturalmothcalls/gl116_04x04_02.wav',
+                 'naturalmothcalls/gl116_05x05.wav',
+                 'naturalmothcalls/hypocladia_militaris_03x03.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09_02.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05_02.wav',
+                 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_11x11_PK1299.wav',
+                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
+                 'naturalmothcalls/melese_12x12_PK1299.wav',
+                 'naturalmothcalls/melese_13x13_PK1299.wav',
+                 'naturalmothcalls/melese_14x14_PK1297.wav',
+                 'naturalmothcalls/neritos_cotes_07x07.wav',
+                 'naturalmothcalls/neritos_cotes_10x10.wav',
+                 'naturalmothcalls/neritos_cotes_10x10_02.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_06x06.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_08x08.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_30++.wav',
+                 'naturalmothcalls/syntrichura_07x07.wav',
+                 'naturalmothcalls/syntrichura_09x09.wav',
+                 'naturalmothcalls/syntrichura_12x12.wav']
+
+    if stim_type == 'moth_single_selected':
+        stims = ['naturalmothcalls/BCI1062_07x07.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+                 'naturalmothcalls/carales_12x12_01.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+                 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/elysius_conspersus_11x11.wav',
+                 'naturalmothcalls/epidesma_oceola_06x06.wav',
+                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
+                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
+                 'naturalmothcalls/gl005_11x11.wav',
+                 'naturalmothcalls/gl116_05x05.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+                 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
+                 'naturalmothcalls/neritos_cotes_10x10.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+                 'naturalmothcalls/syntrichura_12x12.wav']
+
+    if stim_type == 'all_single':
+        stims = ['naturalmothcalls/BCI1062_07x07.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+                 'naturalmothcalls/carales_12x12_01.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+                 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/elysius_conspersus_11x11.wav',
+                 'naturalmothcalls/epidesma_oceola_06x06.wav',
+                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
+                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
+                 'naturalmothcalls/gl005_11x11.wav',
+                 'naturalmothcalls/gl116_05x05.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+                 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
+                 'naturalmothcalls/neritos_cotes_10x10.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+                 'naturalmothcalls/syntrichura_12x12.wav',
+                 'batcalls/Barbastella_barbastellus_1_n.wav',
+                 'batcalls/Eptesicus_nilssonii_1_s.wav',
+                 'batcalls/Myotis_bechsteinii_1_n.wav',
+                 'batcalls/Myotis_brandtii_1_n.wav',
+                 'batcalls/Myotis_nattereri_1_n.wav',
+                 'batcalls/Nyctalus_leisleri_1_n.wav',
+                 'batcalls/Nyctalus_noctula_2_s.wav',
+                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+                 'batcalls/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'bats_single':
+        stims = ['batcalls/Barbastella_barbastellus_1_n.wav',
+                 'batcalls/Eptesicus_nilssonii_1_s.wav',
+                 'batcalls/Myotis_bechsteinii_1_n.wav',
+                 'batcalls/Myotis_brandtii_1_n.wav',
+                 'batcalls/Myotis_nattereri_1_n.wav',
+                 'batcalls/Nyctalus_leisleri_1_n.wav',
+                 'batcalls/Nyctalus_noctula_2_s.wav',
+                 'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+                 'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+                 'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+                 'batcalls/Vespertilio_murinus_1_s.wav']
+
+    if stim_type == 'bats_series':
+        stims = ['callseries/bats/Barbastella_barbastellus_1_n.wav',
+                 'callseries/bats/Myotis_bechsteinii_1_n.wav',
+                 'callseries/bats/Myotis_brandtii_1_n.wav',
+                 'callseries/bats/Myotis_nattereri_1_n.wav',
+                 'callseries/bats/Nyctalus_leisleri_1_n.wav',
+                 'callseries/bats/Nyctalus_noctula_2_s.wav',
+                 'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
+                 'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
+                 'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
+                 'callseries/bats/Vespertilio_murinus_1_s.wav']
+
+    # Tags and Stimulus names
+    connection, _ = tagtostimulus(path_names)
+    stimulus_tags = [''] * len(stims)
+    for p in range(len(stims)):
+        stimulus_tags[p] = connection[stims[p]]
+
+    cos = 1
+    tau = 0.01
+    probes = [[]] * len(stimulus_tags)
+    for i in range(len(stimulus_tags)):
+        for k in range(len(spikes[stimulus_tags[i]])):
+            probes[i].append(list(spikes[stimulus_tags[i]][k]))
+    # d = pymuvr.square_dissimilarity_matrix(spike_times, cos, tau, 'distance')
+    d = pymuvr.distance_matrix(probes, probes, cos, tau)
+    embed()
+    exit()
+
+
+def vanrossum_matrix2(dataset, trains, stimulus_tags, duration, dt_factor, tau, boot_sample, save_fig):
+
+    # Randomly choose one template spike train for each call
+    temp_idx = np.zeros(shape=(len(stimulus_tags), 1))
+    templates = [[]] * len(stimulus_tags)
+    own_probes = [[]] * len(stimulus_tags)
+    probes = [[]] * len(stimulus_tags)
+    for i in range(len(stimulus_tags)):
+        temp_idx[i] = np.random.randint(0, len(trains[stimulus_tags[i]]), 1)
+        rest_idx = [True] * len(trains[stimulus_tags[i]])
+        rest_idx[np.int(temp_idx[i][0])] = False
+        templates[i] = trains[stimulus_tags[i]][np.int(temp_idx[i][0])]
+        own_probes[i] = np.array(trains[stimulus_tags[i]])[rest_idx]
+        probes[i] = trains[stimulus_tags[i]]
+    # Now compare each template with all other trains via Van Rossum Distance
+    d = vanrossum_distance2(probes, temp_idx, dt_factor, tau, duration)
+
+    embed()
+    exit()
+
+    return 0
+
+
+def spike_train_distance(spike_times1, spike_times2, dt_factor, tau, plot):
+    # This function computes the distance between two trains. An exponential tail is added to every event in time
+    # (spike times) and then the difference between both trains is computed.
+
+    # tau in seconds
+    # dt_factor: dt = tau/dt_factor
+    # spike times in seconds
+    # duration in seconds
+    dt = tau/dt_factor
+    duration = np.max([np.max(spike_times1), np.max(spike_times2)]) + 5 * tau
+    t = np.arange(0, duration, dt)
+    f = np.zeros(len(t))
+    g = np.zeros(len(t))
+
+    for ti in spike_times1:
+        dummy = np.heaviside(t - ti, 0) * np.exp(-(t - ti) / tau)
+        f = f + dummy
+
+    for ti in spike_times2:
+        dummy = np.heaviside(t - ti, 0) * np.exp(-(t - ti) / tau)
+        g = g + dummy
+
+    # Compute Difference
+    d = np.sum((f - g) ** 2) * (dt / tau)
+    # f_count = np.sum(f)* (dt / tau)
+    # g_count = np.sum(g) * (dt / tau)
+
+    # print('Spike Train Difference: %s' % d)
+    # print('Tau = %s' % tau)
+
+    if plot:
+        plt.subplot(2, 1, 1)
+        plt.plot(t, f)
+        plt.ylabel('f(t)')
+
+        plt.subplot(2, 1, 2)
+        plt.plot(t, g)
+        plt.xlabel('Time [s]')
+        plt.ylabel('g(t)')
+
+        plt.show()
+
+    return d

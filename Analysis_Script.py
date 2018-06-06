@@ -40,10 +40,11 @@ POISSON = False
 
 EPULSES = False
 VANROSSUM = False
+PLOT_VR_TAUVSDUR = False
 PLOT_VR = False
 PLOT_MvsB = False
 
-PULSE_TRAIN_VANROSSUM = False
+PULSE_TRAIN_VANROSSUM = True
 
 ISI = False
 PULSE_TRAIN_ISI = False
@@ -52,7 +53,7 @@ PLOT_DISTANCES = False
 
 FI_OVERANIMALS = False
 OVERALLVS = False
-PLOT_CORRECT = True
+PLOT_CORRECT = False
 
 SELECT = True
 
@@ -66,8 +67,8 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_single_selected'
-stim_length = 'single'
+stim_type = 'moth_series_selected'
+stim_length = 'series'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -913,7 +914,7 @@ if PLOT_CORRECT:
     ax.plot(duration, rand_machtes[:, 1], 'k', linewidth=2, label='Random')
     rand_mean = np.round(np.mean(rand_machtes[:, 1]), 2)
     # ax.text(2000, 0.1, 'random mean = ' + str(rand_mean), size=6, color='black')
-    ax.text(200, 0.065, 'random mean = ' + str(rand_mean), size=6, color='black')
+    ax.text(200, 0.07, 'random mean = ' + str(rand_mean), size=6, color='black')
 
     ax.set_xlabel('Spike train duration [ms]')
     ax.set_ylabel('Correct')
@@ -921,7 +922,7 @@ if PLOT_CORRECT:
     ax.set_ylim(0, 1)
     # ax.set_xticks(np.arange(0, duration[-1]+100, 500))
     # ax.set_xlim(-0.2, duration[-1]+100)
-    ax.set_xticks(np.arange(0, duration[-1] + 40, 50))
+    ax.set_xticks(np.arange(0, duration[-1] + 10, 50))
     ax.set_xlim(-0.2, duration[-1] + 10)
     sns.despine()
     ax.legend(frameon=False)
@@ -1006,6 +1007,76 @@ if PLOT_CORRECT:
 #         print('Plot saved')
 #     else:
 #         plt.show()
+
+if PLOT_VR_TAUVSDUR:
+    # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
+    data_name = '2018-02-09-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    p = path_names[1]
+
+    vr_series = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '.npy')
+    vr_single = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '.npy')
+
+    mf.plot_settings()
+    # Create Grid
+    grid = matplotlib.gridspec.GridSpec(nrows=1, ncols=43)
+    fig = plt.figure(figsize=(5.9, 2.9))
+    ax1 = plt.subplot(grid[0:19])
+    ax2 = plt.subplot(grid[21:40])
+    ax3 = plt.subplot(grid[41])
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.05
+    label_y_pos = 0.90
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+
+    # Image Plot
+    x_single = list(np.arange(0, 255, 5))
+    x_single[0] = 1
+    x_series = list(np.arange(0, 2550, 50))
+    x_series[0] = 10
+    y = taus
+    X_single, Y_single = np.meshgrid(x_single, y)
+    X_series, Y_series = np.meshgrid(x_series, y)
+
+    im1 = ax1.pcolormesh(X_series, Y_series, vr_series, cmap='jet', vmin=0, vmax=1, shading='gouraud')
+    im2 = ax2.pcolormesh(X_single, Y_single, vr_single, cmap='jet', vmin=0, vmax=1, shading='gouraud')
+
+    # grid[0].axhline(200, color='black', linestyle=':', linewidth=0.5)
+
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax2.set_xscale('log')
+    ax2.set_yscale('log')
+
+    # Axes Limits
+    ax2.set_yticks([])
+
+    # Colorbar
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+    cb1 = matplotlib.colorbar.ColorbarBase(ax3, cmap='jet', norm=norm)
+    cb1.set_label('Correct')
+    # cbar2 = plt.colorbar(im2, ticks=np.arange(0, 1.1, 0.2))
+    # cbar2.ax.set_ylabel('Correct', rotation=270, labelpad=10)
+    # cbar2.solids.set_rasterized(True)  # Removes white lines
+
+    # Axes Labels
+    ax1.set_ylabel('Tau [ms]')
+    fig.text(0.5, 0.075, 'Spike train duration [ms]', ha='center', fontdict=None)
+
+    # Subfig Caps
+    ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+                 color='black')
+    ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+                 color='black')
+
+    # fig.set_size_inches(5.9, 1.9)
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/VanRossum_TauVSDur.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
 
 if ISI:
     data_name = '2018-02-09-aa'
@@ -1139,82 +1210,59 @@ if PULSE_TRAIN_ISI:
             '''
 
 if PULSE_TRAIN_VANROSSUM:
-    save_plot = True
+    # Try to load e pulses from HDD
+    data_name = '2018-02-09-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    method = 'exp'
     p = path_names[1]
-    vanrossum = np.load(p + 'VanRossum.npy').item()
-    # vanrossum[tau][duratiom][boot]
 
-    tau = taus[2]
+    profile = 'ISI'  # Select Profile
 
-    if stim_type == 'moth_single':
-        stim_type2 = 'naturalmothcalls'
-    elif stim_type == 'moth_series':
-        stim_type2 = 'callseries/moths'
-    else:
-        print('No Pulse Trains available for: ' + stim_type)
-        exit()
+    vanrossum = np.load(p + 'VanRossum_'+ stim_type + '.npy').item()
+    spike_distances = np.load(p + 'distances_' + stim_type + '.npy').item()
 
-    fs = 480 * 1000
-    print('Computing Comparison between Pulse Trains and Spike Trains (VanRossum)')
-    for q in tqdm(range(len(duration)), desc='Durations'):
-        idx = np.where(np.array(duration) == duration[q])[0][0]
-        duration[q] = duration[q] / 1000
-        distances = vanrossum[tau][idx]
-        e_pulses_dur = int(duration[q] / ((tau / 1000) / dt_factor))
+    tau = taus[9]  # select tau value
 
-        # Convert matlab files to pyhton
-        calls, calls_names = mf.mattopy(stim_type2, fs)
+    # Convert matlab files to pyhton
+    fs = 480 * 1000  # sampling of audio recordings
+    calls, calls_names = mf.mattopy(stim_type, fs)
 
-        # Convert pulse times to e-pulses
-        e_pulses = mf.pulse_trains_to_e_pulses(calls, tau/1000, dt_factor, method)
+    # Convert Pulse Trains to E Pulses
+    e_pulses = mf.pulse_trains_to_e_pulses(calls, tau / 1000, dt)
 
-        # Compute VanRossum Matrix for Pulse Trains
-        d_pulses_vr = np.zeros((len(e_pulses), len(e_pulses)))
-        for k in range(len(e_pulses)):
-            for i in range(len(e_pulses)):
-                d_pulses_vr[k, i] = mf.vanrossum_distance(e_pulses[k][0:e_pulses_dur], e_pulses[i][0:e_pulses_dur], dt_factor, tau)
-        # Compute Mean (over boots) of VanRossum for Spike Trains
-        d_st_vr = distances[len(distances) - 1][0]
-        for k in range(len(distances) - 1):
-            d_st_vr = d_st_vr + distances[k][0]
-        d_st_vr = d_st_vr / len(distances)
+    # Compute Van Rossum Matrix for Pulse Trains
+    pulses_vr = np.zeros((len(e_pulses), len(e_pulses)))
+    for k in range(len(e_pulses)):
+        for i in range(len(e_pulses)):
+            pulses_vr[k, i] = mf.vanrossum_distance(e_pulses[k], e_pulses[i], dt, tau / 1000)
 
-        # Normalize
-        d_st_vr = d_st_vr / np.max(d_st_vr)
-        d_pulses_vr = d_pulses_vr / np.max(d_pulses_vr)
+    # Compute Other Distance Metrics for Pulse Trains
+    pulses_distances = [[]] * len(duration)
+    for j in range(len(duration)):
+        pulses_distances[j] = mf.pulse_train_matrix(calls, duration[j], profile)
 
-        # Plot
-        plt.figure()
-        plt.subplot(1, 2, 1)
-        plt.imshow(d_pulses_vr)
-        plt.clim(0, 1)
-        plt.xticks(np.arange(0, len(d_pulses_vr), 1))
-        plt.yticks(np.arange(0, len(d_pulses_vr), 1))
-        plt.xlabel('Original Call')
-        plt.ylabel('Matched Call')
-        plt.colorbar(fraction=0.04, pad=0.02)
-        plt.title('VanRossum Pulse Trains [' + str(duration[q] * 1000) + ' ms, tau=' + str(tau) + ' ms]')
+    # Compute Mean (over boots) of VanRossum for Spike Trains
+    distances = vanrossum[tau][50]
+    spikes_vr = distances[len(distances) - 1][0]
+    for k in range(len(distances) - 1):
+        spikes_vr = spikes_vr + distances[k][0]
+        spikes_vr = spikes_vr / len(distances)
 
-        plt.subplot(1, 2, 2)
-        plt.imshow(d_st_vr)
-        plt.clim(0, 1)
-        plt.xticks(np.arange(0, len(d_st_vr), 1))
-        plt.yticks(np.arange(0, len(d_st_vr), 1))
-        plt.xlabel('Original Call')
-        plt.ylabel('Matched Call')
-        plt.colorbar(fraction=0.04, pad=0.02)
-        plt.title('VanRossum Spike Trains [' + str(duration[q] * 1000) + ' ms, tau=' + str(tau) + ' ms ] (boot = ' + str(nsamples) + ')')
-        # plt.tight_layout()
-        if save_plot:
-            # Save Plot to HDD
-            figname = p + 'pulseVSspike_train_VanRossum_' + str(duration[q] * 1000) + 'ms_' + str(tau) + 'ms.png'
-            fig = plt.gcf()
-            fig.set_size_inches(20, 10)
-            fig.savefig(figname, bbox_inches='tight', dpi=300)
-            plt.close(fig)
-            # print('Plot saved')
-        else:
-            plt.show()
+    # Norm
+    pulses_vr = pulses_vr[0:-2, 0:-2] / np.max(pulses_vr[0:-2, 0:-2])
+    spikes_vr = spikes_vr[0:-2, 0:-2] / np.max(spikes_vr[0:-2, 0:-2])
+
+    fig = plt.figure()
+    ax1 = plt.subplot(1, 2, 1)
+    ax2 = plt.subplot(1, 2, 2)
+    im1 = ax1.imshow(pulses_vr)
+    im2 = ax2.imshow(spikes_vr)
+    fig.colorbar(im1, ax=ax1)
+    fig.colorbar(im2, ax=ax2)
+    plt.show()
+    embed()
+    exit()
 
 if FI_OVERANIMALS:
     # Load data
