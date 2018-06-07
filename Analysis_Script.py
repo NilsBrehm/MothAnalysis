@@ -67,8 +67,8 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_series_selected'
-stim_length = 'series'
+stim_type = 'moth_single_selected'
+stim_length = 'single'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -1217,42 +1217,147 @@ if PULSE_TRAIN_VANROSSUM:
     method = 'exp'
     p = path_names[1]
 
-    profile = 'ISI'  # Select Profile
-
-    vanrossum = np.load(p + 'VanRossum_'+ stim_type + '.npy').item()
+    vanrossum = np.load(p + 'VanRossum_' + stim_type + '.npy').item()
     spike_distances = np.load(p + 'distances_' + stim_type + '.npy').item()
 
-    tau = taus[9]  # select tau value
+    # tau = taus[9]  # select tau value
 
     # Convert matlab files to pyhton
     fs = 480 * 1000  # sampling of audio recordings
     calls, calls_names = mf.mattopy(stim_type, fs)
 
     # Convert Pulse Trains to E Pulses
-    e_pulses = mf.pulse_trains_to_e_pulses(calls, tau / 1000, dt)
+    taus_pulses = [1, 10, 530, 10, 10, 10]
+    taus_pulses = [1, 10, 200, 10, 10, 10]
+    duration_pulses = [1000, 1000, 1000, 50, 500, 2000]
+    duration_pulses = [100, 100, 100, 5, 50, 200]
+    duration_in_samples = (np.array(duration_pulses) / 1000) / dt
+    e_pulses = [[]] * len(taus_pulses)
+    for t in range(len(taus_pulses)):
+        e_pulses[t] = mf.pulse_trains_to_e_pulses(calls, taus_pulses[t] / 1000, dt)
 
     # Compute Van Rossum Matrix for Pulse Trains
-    pulses_vr = np.zeros((len(e_pulses), len(e_pulses)))
-    for k in range(len(e_pulses)):
-        for i in range(len(e_pulses)):
-            pulses_vr[k, i] = mf.vanrossum_distance(e_pulses[k], e_pulses[i], dt, tau / 1000)
+    pulses_vr = [[]] * len(taus_pulses)
+    for t in range(len(taus_pulses)):
+        p_vr = np.zeros((len(e_pulses[t]), len(e_pulses[t])))
+        for k in range(len(e_pulses[t])):
+            for i in range(len(e_pulses[t])):
+                p_vr[k, i] = mf.vanrossum_distance(e_pulses[t][k][0:int(duration_in_samples[t])],
+                                                   e_pulses[t][i][0:int(duration_in_samples[t])], dt,
+                                                   taus_pulses[t] / 1000)
+        pulses_vr[t] = p_vr / np.max(p_vr)  # normalized
 
     # Compute Other Distance Metrics for Pulse Trains
-    pulses_distances = [[]] * len(duration)
-    for j in range(len(duration)):
-        pulses_distances[j] = mf.pulse_train_matrix(calls, duration[j], profile)
+    profiles = ['ISI', 'SYNC', 'DUR', 'COUNT']
+    pulses_distances = [[]] * len(profiles)
+    for prof in range(len(profiles)):
+        p_distances = [[]] * len(duration)
+        for j in range(len(duration)):
+            p_distances[j] = mf.pulse_train_matrix(calls, duration[j] / 1000, profiles[prof])
+        pulses_distances[prof] = p_distances
 
     # Compute Mean (over boots) of VanRossum for Spike Trains
-    distances = vanrossum[tau][50]
-    spikes_vr = distances[len(distances) - 1][0]
-    for k in range(len(distances) - 1):
-        spikes_vr = spikes_vr + distances[k][0]
-        spikes_vr = spikes_vr / len(distances)
+    idx = []
+    for i in duration_pulses:
+        idx.append(duration.index(i))
+    spikes_vr = [[]] * len(taus_pulses)
+    for t in range(len(taus_pulses)):
+        distances = vanrossum[taus_pulses[t]][idx[t]]
+        sp_vr = distances[len(distances) - 1][0]
+        for k in range(len(distances) - 1):
+            sp_vr = sp_vr + distances[k][0]
+        sp_vr = sp_vr / len(distances)
+        # Norm
+        sp_vr = sp_vr / np.max(sp_vr)
+        spikes_vr[t] = sp_vr
 
-    # Norm
-    pulses_vr = pulses_vr[0:-2, 0:-2] / np.max(pulses_vr[0:-2, 0:-2])
-    spikes_vr = spikes_vr[0:-2, 0:-2] / np.max(spikes_vr[0:-2, 0:-2])
+    # Compute Mean (over boots) of  other Distances for Spike Trains
+    selected_duration = 150
+    a = np.where(np.array(duration) == selected_duration)
+    dur_d = a[0][0]
+    print(duration[dur_d])
+    spikes_d = [[]] * len(profiles)
+    for prof in range(len(profiles)):
+        distances = spike_distances[profiles[prof]][dur_d]
+        sp_d = distances[len(distances) - 1][0]
+        for k in range(len(distances) - 1):
+            sp_d = sp_d + distances[k][0]
+        sp_d = sp_d / len(distances)
+        spikes_d[prof] = sp_d
 
+    # Plot
+    mf.plot_settings()
+    from mpl_toolkits.axes_grid1 import ImageGrid
+    plot_name = ['/VanRossum_SpikeTrains_', '/VanRossum_PulseTrains_', '/Distances_SpikeTrains_', '/Distances_PulseTrains_']
+    plot_data = [spikes_vr, pulses_vr, spikes_d, pulses_distances]
+    plot_size = [(2, 3), (2, 3), (2, 2), (2, 2)]
+    method = ['vr', 'vr', 'sd', 'pd']
+    cbar_mode = ['single', 'single', 'each', 'each']
+    cbar_labels = ['ISI distance', 'SYNC value', 'Difference [s]', 'Difference [count]']
+    for p in range(4):
+        # Set up figure and image grid
+        fig = plt.figure(figsize=(5.9, 3.9))
+
+        grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
+                         nrows_ncols=plot_size[p],
+                         label_mode='L',
+                         axes_pad=0.5,
+                         share_all=True,
+                         cbar_location="right",
+                         cbar_mode=cbar_mode[p],
+                         cbar_size="3%",
+                         cbar_pad=0.15,
+                         )
+
+        # Add data to image grid
+        all_axes = []
+
+        # Subplot caps
+        subfig_caps = 12
+        label_x_pos = 0.85
+        label_y_pos = 0.85
+        subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+        k = 0
+        for ax in grid:
+            if method[p] is 'vr':
+                im = ax.imshow(plot_data[p][k], vmin=0, vmax=np.max(plot_data[p][k]), cmap='viridis')
+            elif method[p] is 'pd':
+                pd_limit = [1, 1, np.max(plot_data[p][k][dur_d]), np.max(plot_data[p][k][dur_d])]
+                im = ax.imshow(plot_data[p][k][dur_d], vmin=0, vmax=pd_limit[k],  cmap='viridis')
+                cbar = ax.cax.colorbar(im)
+                cbar.ax.set_ylabel(cbar_labels[k], rotation=270)
+                cbar.solids.set_rasterized(True)  # Removes white lines
+            else:
+                pd_limit = [1, 1, np.max(plot_data[p][k]), np.max(plot_data[p][k])]
+                im = ax.imshow(plot_data[p][k], vmin=0, vmax=pd_limit[k], cmap='viridis')
+                cbar = ax.cax.colorbar(im)
+                cbar.ax.set_ylabel(cbar_labels[k], rotation=270)
+                cbar.solids.set_rasterized(True)  # Removes white lines
+            all_axes.append(ax)
+            grid[k].text(label_x_pos, label_y_pos, subfig_caps_labels[k], transform=grid[k].transAxes, size=subfig_caps,
+                         color='black')
+            grid[k].text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[k]) + ' ms', transform=grid[k].transAxes, size=6,
+                         color='black')
+            grid[k].text(0.1, 0.05, 'dur = ' + str(duration_pulses[k]) + ' ms', transform=grid[k].transAxes, size=6,
+                         color='black')
+            k += 1
+
+        # Colorbar
+        if method is 'vr':
+            cbar = ax.cax.colorbar(im)
+            # cbar.ax.set_ylabel('Spike trains', rotation=270)
+            cbar.solids.set_rasterized(True)  # Removes white lines
+
+        # Axes Labels
+        fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
+        fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
+        # Save Plot to HDD
+        # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.4)
+        figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[p] + stim_type + '.pdf'
+        fig.savefig(figname)
+        plt.close(fig)
+
+    exit()
     fig = plt.figure()
     ax1 = plt.subplot(1, 2, 1)
     ax2 = plt.subplot(1, 2, 2)

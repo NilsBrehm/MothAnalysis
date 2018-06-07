@@ -3409,7 +3409,7 @@ def isi_matrix(path_names, duration, boot_sample, stim_type, profile, save_fig):
                     profile_name = '/DUR_Matrix'
                     # d[tmp] = abs(temp[-1] - prb[-1])
                     if prb.spikes[prb.spikes <= duration].any():
-                        prb_dur = prb.spikes[prb.spikes <= duration][-1]
+                        prb_dur = prb.spikes[prb.spikes <= duration][-1]  # time point of last spike
                     else:
                         prb_dur = 0
 
@@ -3509,6 +3509,8 @@ def pulse_train_matrix(samples, duration, profile):
                 d[i, k] = spk.isi_distance(probe, template, interval=[0, duration])
             if profile == 'SPIKE':
                 d[i, k] = spk.spike_distance(probe, template, interval=[0, duration])
+            if profile == 'SYNC':
+                d[i, k] = spk.spike_sync(probe, template, interval=[0, duration])
             if profile == 'DUR':
                 if probe.spikes[probe.spikes <= duration].any():
                     prb_dur = probe.spikes[probe.spikes <= duration][-1]
