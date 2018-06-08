@@ -29,6 +29,8 @@ start_time = time.time()
 # datasets = [dat[0]]
 # print(datasets)
 
+CALL_STRUC = True
+
 CALLS = True
 FIFIELD = False
 INTERVAL_MAS = False
@@ -44,7 +46,7 @@ PLOT_VR_TAUVSDUR = False
 PLOT_VR = False
 PLOT_MvsB = False
 
-PULSE_TRAIN_VANROSSUM = True
+PULSE_TRAIN_VANROSSUM = False
 
 ISI = False
 PULSE_TRAIN_ISI = False
@@ -68,7 +70,7 @@ show = False
 # Settings for Call Analysis ===========================================================================================
 # General Settings
 stim_type = 'moth_single_selected'
-stim_length = 'single'
+stim_length = 'sinlge'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -131,6 +133,78 @@ if SELECT:
 # #  path_names = [data_name, data_files_path, figs_path, nix_path]
 # path_names = mf.get_directories(data_name=data_name)
 
+if CALL_STRUC:
+    # Try to load e pulses from HDD
+    data_name = '2018-02-09-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    method = 'exp'
+    p = path_names[1]
+    spikes = np.load(p + 'Calls_spikes.npy').item()
+    tag_list = np.load(p + 'Calls_tag_list.npy')
+
+    # Convert matlab files to pyhton
+    fs = 480 * 1000  # sampling of audio recordings
+    calls, calls_names = mf.mattopy(stim_type, fs)
+
+    # Tags and Stimulus names
+    connection, c2 = mf.tagtostimulus(path_names)
+    stimulus_tags = [''] * len(calls_names)
+    for p in range(len(calls_names)):
+        s = calls_names[p] + '.wav'
+        stimulus_tags[p] = connection[s]
+
+    import pyspike as spk
+    # dur = [0.01, 0.05, 0.1, 0.5, 1, 2]
+    dur = np.arange(0.01, 0.2, 0.01)
+    # dur = np.arange(0.1, 1, 0.1)
+    results = np.zeros(shape=(len(dur), 3))
+    for j in range(len(dur)):
+        edges = [0, dur[j]]
+        d = np.zeros(len(calls))
+        sp = [[]] * len(calls)
+        for k in range(len(calls)):
+            spike_times = [[]] * len(spikes[stimulus_tags[k]])
+            for i in range(len(spikes[stimulus_tags[k]])):
+                spike_times[i] = spk.SpikeTrain(list(spikes[stimulus_tags[k]][i]), edges)
+            sp[k] = spike_times
+            # d[k] = abs(spk.isi_distance(spike_times, interval=[0, dur[j]]))
+            d[k] = spk.spike_sync(spike_times, interval=[0, dur[j]])
+            # d[k] = abs(spk.spike_distance(spike_times, interval=[0, dur[j]]))
+        sp = np.concatenate(sp)
+        # over_all = abs(spk.isi_distance(sp, interval=[0, dur[j]]))
+        over_all = spk.spike_sync(sp, interval=[0, dur[j]])
+        # over_all = abs(spk.spike_distance(sp, interval=[0, dur[j]]))
+        ratio = over_all / np.mean(d)
+        results[j, :] = [np.mean(d), over_all, ratio]
+    embed()
+    exit()
+    # Raster Plot
+    # call_nr = 1
+    for call_nr in range(4):  #range(len(calls)):
+        plt.subplot(4, 1, call_nr+1)
+        spike_times = spikes[stimulus_tags[call_nr]]
+        y = np.arange(0, len(spike_times), 1)
+        for k in range(5):  #range(len(spike_times)):
+            plt.plot(spike_times[k], np.zeros(len(spike_times[k])) + k/4, 'k|')
+        plt.plot(calls[call_nr], np.zeros(len(calls[call_nr])) + k/4 + 0.5, 'r|')
+    plt.show()
+
+    y = np.arange(0, len(calls), 1)
+    labels = [[]] * len(calls)
+    for k in range(len(calls)):
+        plt.plot(calls[k], np.zeros(len(calls[k])) + y[k], 'k|')
+        labels[k] = calls_names[k][17:]
+
+    plt.yticks(y, labels, rotation='horizontal')
+    plt.axvline(0.1, color='k')
+    plt.axvline(0.5, color='k')
+    plt.axvline(1, color='k')
+    plt.axvline(2, color='k')
+    plt.show()
+
+    embed()
+    exit()
 
 if GAP:
     # dat = datasets[5]
