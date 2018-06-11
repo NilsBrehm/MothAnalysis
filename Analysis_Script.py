@@ -12,6 +12,8 @@ import seaborn as sns
 import pickle
 import matplotlib
 from matplotlib.colors import LogNorm
+import scipy.io.wavfile as wav
+
 
 start_time = time.time()
 # Data File Name
@@ -29,7 +31,8 @@ start_time = time.time()
 # datasets = [dat[0]]
 # print(datasets)
 
-CALL_STRUC = True
+CALL_STRUC = False
+PLOT_CALLS = True
 
 CALLS = True
 FIFIELD = False
@@ -69,8 +72,8 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_single_selected'
-stim_length = 'sinlge'
+stim_type = 'moth_series_selected'
+stim_length = 'series'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -132,6 +135,49 @@ if SELECT:
 #
 # #  path_names = [data_name, data_files_path, figs_path, nix_path]
 # path_names = mf.get_directories(data_name=data_name)
+if PLOT_CALLS:
+    # Plot calls
+    mf.plot_settings()
+    # p = '/media/brehm/Data/MasterMoth/stimuli_plotting/callseries/moths/'
+    # p = '/media/brehm/Data/MasterMoth/stimuli_plotting/callseries/bats/'
+    # p = '/media/brehm/Data/MasterMoth/stimuli_plotting/naturalmothcalls/'
+    p = '/media/brehm/Data/MasterMoth/stimuli_plotting/batcalls/'
+
+    listings = os.listdir(p)
+    calls = [[]] * len(listings)
+    for k in range(len(listings)):
+            calls[k] = wav.read(p + listings[k])
+
+    # Create Grid
+    mf.plot_settings()
+    fig = plt.figure()
+    # fs = calls[0][0]
+    # ids = [1, 3, 5, 6, 8]  # moth series
+    # ids = [0, 1, 4, 5, 9]  # bat series
+    # ids = [0, 1, 2, 3, 18]  # moth single
+    ids = [0, 2, 3, 5, 10]  # bat single
+    # ids = np.arange(0, len(calls), 1)
+
+    grid = matplotlib.gridspec.GridSpec(nrows=len(ids), ncols=1)
+    # fig = plt.figure(figsize=(5.9, 2.9))
+    for i in range(len(ids)):
+        fs = calls[ids[i]][0]
+        t = np.arange(0, len(calls[ids[i]][1]) / fs, 1 / fs)
+        ax = plt.subplot(grid[i])
+        ax.plot(t[0:len(calls[ids[i]][1])], calls[ids[i]][1], 'k')
+        ax.set_yticks([])
+        ax.set_xlim(-0.01, 0.21)
+        ax.set_xticks(np.arange(0, 0.21, 0.05))
+        ax.set_xticklabels([])
+    ax.set_xticklabels(np.arange(0, 0.21, 0.05))
+    ax.set_xlabel('Time [s]')
+    # fig.set_size_inches(5.9, 1.9)
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+    figname = "/media/brehm/Data/MasterMoth/figs/SingleCalls_Bats.pdf"
+    fig.savefig(figname)
+    plt.close(fig)
+
+    exit()
 
 if CALL_STRUC:
     # Try to load e pulses from HDD
@@ -739,10 +785,10 @@ if PLOT_MvsB:
         X, Y = np.meshgrid(x, y)
         im1 = grid[0].pcolormesh(X, Y, d_prime, cmap='jet', vmin=np.min(d_prime)-0.5, vmax=3, shading='gouraud')
         im2 = grid[1].pcolormesh(X, Y, crit, cmap='seismic', vmin=-1, vmax=1, shading='gouraud')
-        grid[1].axvline(50, color='black', linestyle=':', linewidth=0.5)
-        grid[0].axvline(50, color='black', linestyle=':', linewidth=0.5)
-        grid[0].axhline(30, color='black', linestyle=':', linewidth=0.5)
-        grid[1].axhline(30, color='black', linestyle=':', linewidth=0.5)
+        # grid[1].axvline(15, color='black', linestyle=':', linewidth=0.5)
+        grid[0].axvline(15, color='black', linestyle=':', linewidth=0.5)
+        # grid[0].axhline(30, color='black', linestyle=':', linewidth=0.5)
+        # grid[1].axhline(30, color='black', linestyle=':', linewidth=0.5)
 
         grid[0].set_xscale('log')
         grid[0].set_yscale('log')
@@ -798,8 +844,9 @@ if PLOT_MvsB:
         # im = ax.imshow(p_moths[i], vmin=0, vmax=1, cmap='gray', aspect=2)
         # ax.plot([16.5, 16.5], [-0.5, len(duration) - 0.5], 'k', linewidth=3)
         # ax.plot([16.5, 16.5], [-0.5, len(duration)-0.5], '--', linewidth=1, color='white')
-        grid[i].axvline(18, color='black', linestyle='-', linewidth=3)
-        grid[i].axvline(18, color='white', linestyle='--', linewidth=1)
+        bats_region = 20
+        grid[i].axvline(bats_region, color='black', linestyle='-', linewidth=3)
+        grid[i].axvline(bats_region, color='white', linestyle='--', linewidth=1)
 
         ax.set_xticks(np.arange(0, 30, 5))
         # ax.set_yticks(np.arange(0, 10, 1))
@@ -808,7 +855,7 @@ if PLOT_MvsB:
         grid[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=grid[i].transAxes, size=subfig_caps,
                      color='black')
         grid[i].text(0.7, 0.05, r'$\tau$ = ' + str(taus2[i]) + ' ms', transform=grid[i].transAxes, size=6,
-                     color='white')
+                     color='black')
         grid[i].set_yscale('log')
 
         i += 1
