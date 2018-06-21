@@ -13,7 +13,7 @@ import pickle
 import matplotlib
 from matplotlib.colors import LogNorm
 import scipy.io.wavfile as wav
-
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 start_time = time.time()
 # Data File Name
@@ -31,35 +31,63 @@ start_time = time.time()
 # datasets = [dat[0]]
 # print(datasets)
 
-CALL_STRUC = False
-PLOT_CALLS = True
-
 CALLS = True
-FIFIELD = False
-INTERVAL_MAS = False
+CALL_STRUC = False
+
 Bootstrapping = False
+
+# Compute Intervall stuff
+INTERVAL_MAS = False
 INTERVAL_REC = False
+OVERALLVS = False
+
 GAP = False
 SOUND = False
 POISSON = False
 
+# Compute Van Rossum Distance
 EPULSES = False
 VANROSSUM = False
+
+# Compute other Distances
+ISI = False
+DISTANCE_RATIOS = False
+
+# -------------
+# PLOTs
+# Plot Stimulus Calls
+PLOT_CALLS = False
+
+# VanRossum Tau vs Duration
 PLOT_VR_TAUVSDUR = False
+
+# VanRossum Matched Spike Trains with different taus and durations
 PLOT_VR = False
+
+# Moth vs Bat: d prime and percentage
 PLOT_MvsB = False
 
-PULSE_TRAIN_VANROSSUM = False
-
-ISI = False
-PULSE_TRAIN_ISI = False
-
-PLOT_DISTANCES = False
-
-FI_OVERANIMALS = False
-OVERALLVS = False
+# Other Distances Correct Matches
 PLOT_CORRECT = False
 
+# Other Distances Matched Spike Trains with different durations
+PLOT_DISTANCES = False
+
+# Ratio: within vs. between distances
+PLOT_D_RATIOS = False
+
+# Rate and SYNC Correlation with Stimnulus (Rect and Pulses)
+PLOT_CORRS = False
+
+# Pulse Train Stuff
+PULSE_TRAIN_VANROSSUM = True
+PULSE_TRAIN_ISI = False
+
+# FI Stuff
+FIFIELD = False
+FI_OVERANIMALS = False
+
+# Select recordings from csv file
 SELECT = True
 
 # **********************************************************************************************************************
@@ -72,8 +100,9 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_series_selected'
-stim_length = 'series'
+stim_type = 'moth_single_selected'
+# stim_type = 'all_single'
+stim_length = 'single'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -179,9 +208,10 @@ if PLOT_CALLS:
 
     exit()
 
-if CALL_STRUC:
+if DISTANCE_RATIOS:
     # Try to load e pulses from HDD
-    data_name = '2018-02-09-aa'
+    # data_name = '2018-02-09-aa'
+    data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     method = 'exp'
@@ -196,35 +226,143 @@ if CALL_STRUC:
     # Tags and Stimulus names
     connection, c2 = mf.tagtostimulus(path_names)
     stimulus_tags = [''] * len(calls_names)
-    for p in range(len(calls_names)):
-        s = calls_names[p] + '.wav'
-        stimulus_tags[p] = connection[s]
+    for pp in range(len(calls_names)):
+        s = calls_names[pp] + '.wav'
+        stimulus_tags[pp] = connection[s]
 
     import pyspike as spk
-    # dur = [0.01, 0.05, 0.1, 0.5, 1, 2]
-    dur = np.arange(0.01, 0.2, 0.01)
-    # dur = np.arange(0.1, 1, 0.1)
-    results = np.zeros(shape=(len(dur), 3))
-    for j in range(len(dur)):
+
+    dur = np.array(duration) / 1000
+    # if stim_length == 'single':
+    #     dur = np.arange(0.01, 0.2, 0.01)
+    # if stim_length == 'series':
+    #     dur = np.arange(0.1, 1, 0.1)
+
+    results = np.zeros(shape=(len(dur), 5))
+    results_sync = np.zeros(shape=(len(dur), 5))
+    for j in tqdm(range(len(dur)), desc='Distances'):
         edges = [0, dur[j]]
         d = np.zeros(len(calls))
+        d_sync = np.zeros(len(calls))
         sp = [[]] * len(calls)
         for k in range(len(calls)):
             spike_times = [[]] * len(spikes[stimulus_tags[k]])
             for i in range(len(spikes[stimulus_tags[k]])):
                 spike_times[i] = spk.SpikeTrain(list(spikes[stimulus_tags[k]][i]), edges)
             sp[k] = spike_times
-            # d[k] = abs(spk.isi_distance(spike_times, interval=[0, dur[j]]))
-            d[k] = spk.spike_sync(spike_times, interval=[0, dur[j]])
+            d[k] = abs(spk.isi_distance(spike_times, interval=[0, dur[j]]))
+            d_sync[k] = spk.spike_sync(spike_times, interval=[0, dur[j]])
             # d[k] = abs(spk.spike_distance(spike_times, interval=[0, dur[j]]))
         sp = np.concatenate(sp)
-        # over_all = abs(spk.isi_distance(sp, interval=[0, dur[j]]))
-        over_all = spk.spike_sync(sp, interval=[0, dur[j]])
+        over_all = abs(spk.isi_distance(sp, interval=[0, dur[j]]))
+        over_all_sync = spk.spike_sync(sp, interval=[0, dur[j]])
         # over_all = abs(spk.spike_distance(sp, interval=[0, dur[j]]))
         ratio = over_all / np.mean(d)
-        results[j, :] = [np.mean(d), over_all, ratio]
-    embed()
-    exit()
+        diff = over_all - np.mean(d)
+        ratio_sync = over_all_sync / np.mean(d_sync)
+        diff_sync = over_all_sync - np.mean(d_sync)
+
+        results[j, :] = [np.mean(d), np.std(d), over_all, ratio, diff]
+        results_sync[j, :] = [np.mean(d_sync), np.std(d_sync), over_all_sync, ratio_sync, diff_sync]
+
+    # Save to HDD
+    np.save(p + 'ISI_Ratios_' + stim_type + '.npy', results)
+    np.save(p + 'SYNC_Ratios_' + stim_type + '.npy', results_sync)
+    print('Ratios saved')
+
+if PLOT_D_RATIOS:
+    # data_name = '2018-02-09-aa'
+    data_name = datasets[-1]
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    method = 'exp'
+    p = path_names[1]
+    ratios_isi = np.load(p + 'ISI_Ratios_' + stim_type + '.npy')
+    ratios_sync = np.load(p + 'SYNC_Ratios_' + stim_type + '.npy')
+
+    # Plot
+    mf.plot_settings()
+    if stim_length == 'series':
+        x_end = 2500 + 100
+        x_step = 500
+    if stim_length == 'single':
+        x_end = 250 + 10
+        x_step = 50
+
+    # Create Grid
+    grid = matplotlib.gridspec.GridSpec(nrows=2, ncols=2)
+    fig = plt.figure(figsize=(5.9, 2.9))
+    ax1 = plt.subplot(grid[0])
+    ax2 = plt.subplot(grid[1])
+    ax3 = plt.subplot(grid[2])
+    ax4 = plt.subplot(grid[3])
+
+    ax1.errorbar(duration, ratios_isi[:, 0], yerr=ratios_isi[:, 1], color='k', marker='o', label='within')
+    ax1.plot(duration, ratios_isi[:, 2], '-', label='between', color='blue')
+    ax1.set_ylim(0, 1)
+    ax1.set_yticks(np.arange(0, 1.1, 0.2))
+    ax1.set_xticklabels([])
+    ax1.set_ylabel('ISI Distance')
+    ax1.set_xlim(0, x_end)
+    ax1.set_xticks(np.arange(0, x_end, x_step))
+
+    ax3.plot(duration, ratios_isi[:, 3], 'r-', label='ratio')
+    ax3.set_ylim(1, 3)
+    ax3.set_yticks(np.arange(1, 3.1, 0.5))
+    ax3.set_ylabel('Ratio')
+    ax3.set_xlim(0, x_end)
+    ax3.set_xticks(np.arange(0, x_end, x_step))
+
+    ax2.errorbar(duration, ratios_sync[:, 0], yerr=ratios_sync[:, 1], color='k', marker='o', label='within')
+    ax2.plot(duration, ratios_sync[:, 2], '-', label='between', color='blue')
+    ax2.set_ylim(0, 1)
+    ax2.set_yticks(np.arange(0, 1.1, 0.2))
+    ax2.set_xticklabels([])
+    ax2.set_yticklabels([])
+    ax2.set_ylabel('SYNC Value')
+    ax2.set_xlim(0, x_end)
+    ax2.set_xticks(np.arange(0, x_end, x_step))
+
+    ax4.plot(duration, 1/ratios_sync[:, 3], 'r-', label='ratio')
+    ax4.set_ylim(1, 3)
+    ax4.set_yticks(np.arange(1, 3.1, 0.5))
+    ax4.set_yticklabels([])
+    ax4.set_xlim(0, x_end)
+    ax4.set_xticks(np.arange(0, x_end, x_step))
+
+    # Axes Labels
+    fig.text(0.5, 0.055, 'Spike train duration [ms]', ha='center', fontdict=None)
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.05
+    label_y_pos = 0.90
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+                 color='black')
+    ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+                 color='black')
+    ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
+             color='black')
+    ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
+             color='black')
+    sns.despine()
+
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
+    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
+
+if CALL_STRUC:
+    # Try to load e pulses from HDD
+    data_name = '2018-02-09-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    method = 'exp'
+    p = path_names[1]
+    spikes = np.load(p + 'Calls_spikes.npy').item()
+    tag_list = np.load(p + 'Calls_tag_list.npy')
+
     # Raster Plot
     # call_nr = 1
     for call_nr in range(4):  #range(len(calls)):
@@ -301,8 +439,8 @@ if INTERVAL_REC:
 # Analyse Intervals MothASongs data stored on HDD
 if INTERVAL_MAS:
     # good recordings:
-    # datasets = ['2017-11-27-aa', '2017-12-01-ab', '2017-12-01-ac', '2017-12-05-ab', '2017-11-29-aa']
-    datasets = ['2017-11-27-aa']
+    datasets = ['2017-11-27-aa', '2017-12-01-ab', '2017-12-01-ac', '2017-12-05-ab', '2017-11-29-aa']
+    # datasets = ['2017-11-27-aa']
     old = False
     vs_order = 2
     protocol_name = 'intervals_mas'
@@ -643,7 +781,8 @@ if SOUND:  # Stimuli = Calls
                                   window=None)
 
 if EPULSES:
-    datasets = ['2018-02-09-aa']
+    # datasets = ['2018-02-09-aa']
+    datasets = [datasets[-1]]
     for i in range(len(datasets)):
         data_name = datasets[i]
         path_names = mf.get_directories(data_name=data_name)
@@ -655,7 +794,8 @@ if EPULSES:
 
 if VANROSSUM:
     # Try to load e pulses from HDD
-    data_name = '2018-02-09-aa'
+    # data_name = '2018-02-09-aa'
+    data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     method = 'exp'
@@ -700,10 +840,10 @@ if VANROSSUM:
     np.save(p + 'VanRossum_groups_' + stim_type + '.npy', groups)
     print('VanRossum Distances done')
 
-
 if PLOT_MvsB:
     # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
-    data_name = '2018-02-09-aa'
+    # data_name = '2018-02-09-aa'
+    data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
@@ -730,19 +870,25 @@ if PLOT_MvsB:
         idx.append(taus.index(i))
     p_moths = np.array(p_moths)[idx]
 
-    # d prime
+    # d prime: bat = signal, moth = noise
     d_prime = np.zeros(shape=(len(taus), len(duration)))
     crit = np.zeros(shape=(len(taus), len(duration)))
     area_d = np.zeros(shape=(len(taus), len(duration)))
     beta = np.zeros(shape=(len(taus), len(duration)))
+
+    if stim_length == 'series':
+        idx_groups = 16
+    if stim_length == 'single':
+        idx_groups = 19
+
     for i in range(len(taus)):
         out = [[]] * len(duration)
         for k in range(len(duration)):
             a = groups[taus[i]][k]
-            cr = np.sum(a[0, :16])    # call=moth, matching=moth
-            miss = np.sum(a[0, 16:])      # call=bat, matching=moth
-            fa = np.sum(a[1, :16])    # call=moth, matching=bat
-            hits = np.sum(a[1, 16:])      # call=bat, matching=bat
+            cr = np.sum(a[0, :idx_groups])    # call=moth, matching=response=moth
+            miss = np.sum(a[0, idx_groups:])      # call=bat, matching=moth
+            fa = np.sum(a[1, :idx_groups])    # call=moth, matching=bat
+            hits = np.sum(a[1, idx_groups:])      # call=bat, matching=bat
             out[k] = mf.dPrime(hits, miss, fa, cr)
             d_prime[i, k] = out[k]['d']
             crit[i, k] = out[k]['c']
@@ -786,7 +932,7 @@ if PLOT_MvsB:
         im1 = grid[0].pcolormesh(X, Y, d_prime, cmap='jet', vmin=np.min(d_prime)-0.5, vmax=3, shading='gouraud')
         im2 = grid[1].pcolormesh(X, Y, crit, cmap='seismic', vmin=-1, vmax=1, shading='gouraud')
         # grid[1].axvline(15, color='black', linestyle=':', linewidth=0.5)
-        grid[0].axvline(15, color='black', linestyle=':', linewidth=0.5)
+        # grid[0].axvline(15, color='black', linestyle=':', linewidth=0.5)
         # grid[0].axhline(30, color='black', linestyle=':', linewidth=0.5)
         # grid[1].axhline(30, color='black', linestyle=':', linewidth=0.5)
 
@@ -836,6 +982,11 @@ if PLOT_MvsB:
     subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
     i = 0
     taus2 = np.array(taus)[idx]
+    if stim_length == 'series':
+        bats_region = 17
+    if stim_length == 'single':
+        bats_region = 20
+
     for ax in grid:
         y = duration
         x = np.linspace(1, p_moths[i].shape[1], p_moths[i].shape[1])
@@ -844,7 +995,6 @@ if PLOT_MvsB:
         # im = ax.imshow(p_moths[i], vmin=0, vmax=1, cmap='gray', aspect=2)
         # ax.plot([16.5, 16.5], [-0.5, len(duration) - 0.5], 'k', linewidth=3)
         # ax.plot([16.5, 16.5], [-0.5, len(duration)-0.5], '--', linewidth=1, color='white')
-        bats_region = 20
         grid[i].axvline(bats_region, color='black', linestyle='-', linewidth=3)
         grid[i].axvline(bats_region, color='white', linestyle='--', linewidth=1)
 
@@ -860,6 +1010,9 @@ if PLOT_MvsB:
 
         i += 1
 
+    if stim_length == 'series':
+        grid[0].text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=grid[0].transAxes, size=subfig_caps,
+                     color='white')
     # Colorbar
     cbar = ax.cax.colorbar(im)
     # cbar.ax.set_ylabel('Spike trains', rotation=270)
@@ -876,9 +1029,9 @@ if PLOT_MvsB:
     fig.savefig(figname)
     plt.close(fig)
 
-
 if PLOT_VR:
-    data_name = '2018-02-09-aa'
+    # data_name = '2018-02-09-aa'
+    data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
@@ -903,13 +1056,15 @@ if PLOT_VR:
                      )
 
     # Add data to image grid
-    all_axes = []
-    # duration = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
-    # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
-    taus_idx = [0, 3, -2,
-                3, 3, 3]
-    dur_idx = [-4, -4, -4,
-               1, 4, -2]
+    # Find taus and duration
+    if stim_length == 'series':
+        taus_selected = [1, 10, 1000, 10, 10, 10]
+        dur_selected = [1000, 1000, 1000, 50, 500, 2000]
+    if stim_length == 'single':
+        taus_selected = [1, 10, 100, 10, 10, 10]
+        dur_selected = [200, 200, 200, 5, 50, 250]
+    idx_dur = np.where(np.isin(duration, dur_selected))[0]
+    idx_dur = [idx_dur[2], idx_dur[2], idx_dur[2], idx_dur[0], idx_dur[1], idx_dur[3]]
 
     # Subplot caps
     subfig_caps = 12
@@ -918,16 +1073,15 @@ if PLOT_VR:
     subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
     k = 0
     for ax in grid:
-        im = ax.imshow(matches[taus[taus_idx[k]]][dur_idx[k]], vmin=0, vmax=20, cmap='Greys')
-        all_axes.append(ax)
+        im = ax.imshow(matches[taus_selected[k]][idx_dur[k]], vmin=0, vmax=20, cmap='Greys')
         grid[k].text(label_x_pos, label_y_pos, subfig_caps_labels[k], transform=grid[k].transAxes, size=subfig_caps, color='black')
-        grid[k].text(0.1, 0.1, r'$\tau$ = '+str(taus[taus_idx[k]])+' ms', transform=grid[k].transAxes, size=6,
+        grid[k].text(0.1, 0.1, r'$\tau$ = '+str(taus_selected[k])+' ms', transform=grid[k].transAxes, size=6,
                      color='black')
-        grid[k].text(0.1, 0.05, 'dur = ' + str(duration[dur_idx[k]]) + ' ms', transform=grid[k].transAxes, size=6,
+        grid[k].text(0.1, 0.05, 'dur = ' + str(dur_selected[k]) + ' ms', transform=grid[k].transAxes, size=6,
                      color='black')
-
+        ax.set_xticks(np.arange(0, 20, 5))
+        ax.set_yticks(np.arange(0, 20, 5))
         k += 1
-
 
     # Colorbar
     cbar = ax.cax.colorbar(im)
@@ -946,7 +1100,8 @@ if PLOT_VR:
     print('VanRossum Matrix Plot saved')
 
 if PLOT_DISTANCES:
-    data_name = '2018-02-09-aa'
+    # data_name = '2018-02-09-aa'
+    data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
@@ -1012,9 +1167,9 @@ if PLOT_DISTANCES:
     plt.close(fig)
     print('Distances Matrix Plot saved')
 
-
 if PLOT_CORRECT:
-    data_name = '2018-02-09-aa'
+    # data_name = '2018-02-09-aa'
+    data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
@@ -1035,16 +1190,19 @@ if PLOT_CORRECT:
     ax.plot(duration, rand_machtes[:, 1], 'k', linewidth=2, label='Random')
     rand_mean = np.round(np.mean(rand_machtes[:, 1]), 2)
     # ax.text(2000, 0.1, 'random mean = ' + str(rand_mean), size=6, color='black')
-    ax.text(200, 0.07, 'random mean = ' + str(rand_mean), size=6, color='black')
 
     ax.set_xlabel('Spike train duration [ms]')
     ax.set_ylabel('Correct')
     ax.set_yticks(np.arange(0, 1.1, 0.2))
     ax.set_ylim(0, 1)
-    # ax.set_xticks(np.arange(0, duration[-1]+100, 500))
-    # ax.set_xlim(-0.2, duration[-1]+100)
-    ax.set_xticks(np.arange(0, duration[-1] + 10, 50))
-    ax.set_xlim(-0.2, duration[-1] + 10)
+    if stim_length == 'series':
+        ax.text(2000, 0.1, 'random mean = ' + str(rand_mean), size=6, color='black')
+        ax.set_xticks(np.arange(0, duration[-1]+100, 500))
+        ax.set_xlim(-0.2, duration[-1]+100)
+    if stim_length == 'single':
+        ax.text(200, 0.07, 'random mean = ' + str(rand_mean), size=6, color='black')
+        ax.set_xticks(np.arange(0, duration[-1] + 10, 50))
+        ax.set_xlim(-0.2, duration[-1] + 10)
     sns.despine()
     ax.legend(frameon=False)
     # Save Plot to HDD
@@ -1055,83 +1213,10 @@ if PLOT_CORRECT:
     plt.close(fig)
     print('Distances Matrix Plot saved')
 
-
-# if PLOT_CORRECT:
-#     save_plot = True
-#     plot_vanrossum_matrix = False
-#     p = path_names[1]
-#     correct = np.load(p + 'distances_correct_' + stim_type + '.npy')
-#     vr = np.load(p + 'VanRossum_correct_' + stim_type + '.npy')
-#     # high_taus = np.load(p + 'VanRossum_correct_hightaus.npy')
-#
-#     profs = profs_plot_correct
-#
-#     # Add missing cols to vanrossum
-#     # vanrossum = np.c_[vr, high_taus]
-#     vanrossum = vr
-#
-#     if plot_vanrossum_matrix:
-#         # Plot Vanrossum Matrix
-#         fig, ax = plt.subplots()
-#         matrix = ax.pcolor(vanrossum.transpose(), vmin=0, vmax=1)
-#         plt.xlabel('Duration [ms]')
-#         plt.ylabel('Tau [ms]')
-#         fig.colorbar(matrix, orientation='vertical', fraction=0.04, pad=0.02)
-#
-#         # put the major ticks at the middle of each cell
-#         ax.set_xticks(np.arange(len(duration)) + 0.5, minor=False)
-#         ax.set_yticks(np.arange(len(taus)) + 0.5, minor=False)
-#         # ax.invert_yaxis()
-#
-#         # Set correct labels
-#         ax.set_xticklabels(duration, minor=False)
-#         ax.set_yticklabels(taus, minor=False)
-#
-#         if save_plot:
-#             # Save Plot to HDD
-#             figname = p + 'VanRossum_TausAndDistMatrix_' + stim_type + '.png'
-#             fig = plt.gcf()
-#             fig.set_size_inches(10, 10)
-#             fig.savefig(figname, bbox_inches='tight', dpi=300)
-#             plt.close(fig)
-#             print('Plot saved')
-#         else:
-#             plt.show()
-#
-#     # Plot all parameter free distances
-#     for k in range(len(profs)):
-#         if profs[k] == 'VanRossum':
-#             plt.subplot(np.ceil(len(profs) / 3), 3, k + 1)
-#             for i in range(vanrossum.shape[1]):
-#                 plt.plot(duration, vanrossum[:, i], 'o-')
-#             plt.xlabel('Spike Train Length [ms]')
-#             plt.ylabel('Correct')
-#             plt.ylim(0, 1)
-#             plt.title(profs[k])
-#             # plt.legend(taus)
-#         else:
-#             plt.subplot(np.ceil(len(profs)/3), 3, k+1)
-#             plt.plot(duration, correct[:, k], 'ko-')
-#             plt.xlabel('Spike Train Length [ms]')
-#             plt.ylabel('Correct')
-#             plt.ylim(0, 1)
-#             plt.title(profs[k])
-#     # plt.tight_layout()
-#
-#     if save_plot:
-#         # Save Plot to HDD
-#         figname = p + 'Correct_all_distances_' + stim_type + '.png'
-#         fig = plt.gcf()
-#         fig.set_size_inches(20, 10)
-#         fig.savefig(figname, bbox_inches='tight', dpi=300)
-#         plt.close(fig)
-#         print('Plot saved')
-#     else:
-#         plt.show()
-
 if PLOT_VR_TAUVSDUR:
     # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
-    data_name = '2018-02-09-aa'
+    # data_name = '2018-02-09-aa'
+    data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
@@ -1162,8 +1247,8 @@ if PLOT_VR_TAUVSDUR:
     X_single, Y_single = np.meshgrid(x_single, y)
     X_series, Y_series = np.meshgrid(x_series, y)
 
-    im1 = ax1.pcolormesh(X_series, Y_series, vr_series, cmap='jet', vmin=0, vmax=1, shading='gouraud')
-    im2 = ax2.pcolormesh(X_single, Y_single, vr_single, cmap='jet', vmin=0, vmax=1, shading='gouraud')
+    im1 = ax1.pcolormesh(X_series, Y_series, vr_series.T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
+    im2 = ax2.pcolormesh(X_single, Y_single, vr_single.T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
 
     # grid[0].axhline(200, color='black', linestyle=':', linewidth=0.5)
 
@@ -1200,7 +1285,8 @@ if PLOT_VR_TAUVSDUR:
     plt.close(fig)
 
 if ISI:
-    data_name = '2018-02-09-aa'
+    # data_name = '2018-02-09-aa'
+    data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     method = 'exp'
@@ -1330,6 +1416,184 @@ if PULSE_TRAIN_ISI:
                 print(str(i) + ': ' + str(diff_min_rest) + ' | ' + str(count))
             '''
 
+# if PULSE_TRAIN_VANROSSUM:
+#     # Try to load e pulses from HDD
+#     data_name = '2018-02-09-aa'
+#     path_names = mf.get_directories(data_name=data_name)
+#     print(data_name)
+#     method = 'exp'
+#     p = path_names[1]
+#
+#     vanrossum = np.load(p + 'VanRossum_' + stim_type + '.npy').item()
+#     spike_distances = np.load(p + 'distances_' + stim_type + '.npy').item()
+#
+#     # tau = taus[9]  # select tau value
+#
+#     # Convert matlab files to pyhton
+#     fs = 480 * 1000  # sampling of audio recordings
+#     calls, calls_names = mf.mattopy(stim_type, fs)
+#
+#     # Convert Pulse Trains to E Pulses
+#     taus_pulses = [1, 10, 530, 10, 10, 10]
+#     taus_pulses = [1, 10, 200, 10, 10, 10]
+#     duration_pulses = [1000, 1000, 1000, 50, 500, 2000]
+#     duration_pulses = [100, 100, 100, 5, 50, 200]
+#     duration_in_samples = (np.array(duration_pulses) / 1000) / dt
+#     e_pulses = [[]] * len(taus_pulses)
+#     for t in range(len(taus_pulses)):
+#         e_pulses[t] = mf.pulse_trains_to_e_pulses(calls, taus_pulses[t] / 1000, dt)
+#
+#     # Compute Van Rossum Matrix for Pulse Trains
+#     pulses_vr = [[]] * len(taus_pulses)
+#     for t in range(len(taus_pulses)):
+#         p_vr = np.zeros((len(e_pulses[t]), len(e_pulses[t])))
+#         for k in range(len(e_pulses[t])):
+#             for i in range(len(e_pulses[t])):
+#                 p_vr[k, i] = mf.vanrossum_distance(e_pulses[t][k][0:int(duration_in_samples[t])],
+#                                                    e_pulses[t][i][0:int(duration_in_samples[t])], dt,
+#                                                    taus_pulses[t] / 1000)
+#         pulses_vr[t] = p_vr / np.max(p_vr)  # normalized
+#
+#     # Compute Other Distance Metrics for Pulse Trains
+#     profiles = ['ISI', 'SYNC', 'DUR', 'COUNT']
+#     pulses_distances = [[]] * len(profiles)
+#     for prof in range(len(profiles)):
+#         p_distances = [[]] * len(duration)
+#         for j in range(len(duration)):
+#             p_distances[j] = mf.pulse_train_matrix(calls, duration[j] / 1000, profiles[prof])
+#         pulses_distances[prof] = p_distances
+#
+#     # Compute Mean (over boots) of VanRossum for Spike Trains
+#     idx = []
+#     for i in duration_pulses:
+#         idx.append(duration.index(i))
+#     spikes_vr = [[]] * len(taus_pulses)
+#     for t in range(len(taus_pulses)):
+#         distances = vanrossum[taus_pulses[t]][idx[t]]
+#         sp_vr = distances[len(distances) - 1][0]
+#         for k in range(len(distances) - 1):
+#             sp_vr = sp_vr + distances[k][0]
+#         sp_vr = sp_vr / len(distances)
+#         # Norm
+#         sp_vr = sp_vr / np.max(sp_vr)
+#         spikes_vr[t] = sp_vr
+#
+#     # Compute Mean (over boots) of  other Distances for Spike Trains
+#     if stim_length == 'single':
+#         selected_duration = 150
+#     if stim_length == 'series':
+#         selected_duration = 1500
+#
+#     a = np.where(np.array(duration) == selected_duration)
+#     dur_d = a[0][0]
+#     print(duration[dur_d])
+#     spikes_d = [[]] * len(profiles)
+#     for prof in range(len(profiles)):
+#         distances = spike_distances[profiles[prof]][dur_d]
+#         sp_d = distances[len(distances) - 1][0]
+#         for k in range(len(distances) - 1):
+#             sp_d = sp_d + distances[k][0]
+#         sp_d = sp_d / len(distances)
+#         spikes_d[prof] = sp_d
+#
+#     # Plot
+#     mf.plot_settings()
+#     from mpl_toolkits.axes_grid1 import ImageGrid
+#     plot_name = ['/VanRossum_SpikeTrains_', '/VanRossum_PulseTrains_', '/Distances_SpikeTrains_', '/Distances_PulseTrains_']
+#     plot_data = [spikes_vr, pulses_vr, spikes_d, pulses_distances]
+#     plot_size = [(2, 3), (2, 3), (2, 2), (2, 2)]
+#     method = ['vr', 'vr', 'sd', 'pd']
+#     cbar_mode = ['single', 'single', 'each', 'each']
+#     cbar_labels = ['ISI distance', 'SYNC value', 'Difference [s]', 'Difference [count]']
+#     figure_sizes = [5.9, 5.9, 3.9, 3.9]
+#     # axes_labels = []
+#     for p in range(4):
+#         # Set up figure and image grid
+#         fig = plt.figure(figsize=(figure_sizes[p], 3.9))
+#
+#         grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
+#                          nrows_ncols=plot_size[p],
+#                          label_mode='L',
+#                          axes_pad=0.75,
+#                          share_all=True,
+#                          cbar_location="right",
+#                          cbar_mode=cbar_mode[p],
+#                          cbar_size="3%",
+#                          cbar_pad=0.15,
+#                          )
+#         # Create Grid
+#         if method is 'vr':
+#             grid = matplotlib.gridspec.GridSpec(nrows=2, ncols=2)
+#
+#         # Add data to image grid
+#         all_axes = []
+#
+#         # Subplot caps
+#         subfig_caps = 12
+#         label_x_pos = 0.85
+#         label_y_pos = 0.85
+#         subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+#         k = 0
+#         for ax in grid:
+#             if method[p] is 'vr':
+#                 im = ax.imshow(plot_data[p][k], vmin=0, vmax=np.max(plot_data[p][k]), cmap='viridis')
+#                 grid[k].text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[k]) + ' ms', transform=grid[k].transAxes, size=6,
+#                              color='white')
+#                 grid[k].text(0.1, 0.05, 'dur = ' + str(duration_pulses[k]) + ' ms', transform=grid[k].transAxes, size=6,
+#                              color='white')
+#
+#             elif method[p] is 'pd':
+#                 pd_limit = [1, 1, np.max(plot_data[p][k][dur_d]), np.max(plot_data[p][k][dur_d])]
+#                 im = ax.imshow(plot_data[p][k][dur_d], vmin=0, vmax=pd_limit[k],  cmap='viridis')
+#                 cbar = ax.cax.colorbar(im)
+#                 cbar.ax.set_ylabel(cbar_labels[k], rotation=270, labelpad=15)
+#                 cbar.solids.set_rasterized(True)  # Removes white lines
+#                 grid[k].text(0.1, 0.05, 'dur = ' + str(selected_duration) + ' ms', transform=grid[k].transAxes, size=6,
+#                              color='white')
+#             else:
+#                 pd_limit = [1, 1, np.max(plot_data[p][k]), np.max(plot_data[p][k])]
+#                 im = ax.imshow(plot_data[p][k], vmin=0, vmax=pd_limit[k], cmap='viridis')
+#                 cbar = ax.cax.colorbar(im)
+#                 cbar.ax.set_ylabel(cbar_labels[k], rotation=270, labelpad=15)
+#                 cbar.solids.set_rasterized(True)  # Removes white lines
+#                 grid[k].text(0.1, 0.05, 'dur = ' + str(selected_duration) + ' ms', transform=grid[k].transAxes, size=6,
+#                              color='white')
+#
+#             all_axes.append(ax)
+#             grid[k].set_xticks(np.arange(0, 20, 5))
+#             grid[k].set_yticks(np.arange(0, 20, 5))
+#
+#             grid[k].text(label_x_pos, label_y_pos, subfig_caps_labels[k], transform=grid[k].transAxes, size=subfig_caps,
+#                          color='white')
+#             k += 1
+#
+#         # Colorbar
+#         if method[p] is 'vr':
+#             cbar = ax.cax.colorbar(im)
+#             cbar.ax.set_ylabel('Normalized Van Rossum Distance', rotation=270)
+#             cbar.solids.set_rasterized(True)  # Removes white lines
+#
+#         # Axes Labels
+#         fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
+#         fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
+#         # Save Plot to HDD
+#         # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.7, wspace=0.4, hspace=0.4)
+#         figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[p] + stim_type + '.pdf'
+#         fig.savefig(figname)
+#         plt.close(fig)
+#
+#     exit()
+#     fig = plt.figure()
+#     ax1 = plt.subplot(1, 2, 1)
+#     ax2 = plt.subplot(1, 2, 2)
+#     im1 = ax1.imshow(pulses_vr)
+#     im2 = ax2.imshow(spikes_vr)
+#     fig.colorbar(im1, ax=ax1)
+#     fig.colorbar(im2, ax=ax2)
+#     plt.show()
+#     embed()
+#     exit()
+
 if PULSE_TRAIN_VANROSSUM:
     # Try to load e pulses from HDD
     data_name = '2018-02-09-aa'
@@ -1393,7 +1657,11 @@ if PULSE_TRAIN_VANROSSUM:
         spikes_vr[t] = sp_vr
 
     # Compute Mean (over boots) of  other Distances for Spike Trains
-    selected_duration = 150
+    if stim_length == 'single':
+        selected_duration = 150
+    if stim_length == 'series':
+        selected_duration = 1500
+
     a = np.where(np.array(duration) == selected_duration)
     dur_d = a[0][0]
     print(duration[dur_d])
@@ -1408,87 +1676,71 @@ if PULSE_TRAIN_VANROSSUM:
 
     # Plot
     mf.plot_settings()
-    from mpl_toolkits.axes_grid1 import ImageGrid
     plot_name = ['/VanRossum_SpikeTrains_', '/VanRossum_PulseTrains_', '/Distances_SpikeTrains_', '/Distances_PulseTrains_']
     plot_data = [spikes_vr, pulses_vr, spikes_d, pulses_distances]
     plot_size = [(2, 3), (2, 3), (2, 2), (2, 2)]
     method = ['vr', 'vr', 'sd', 'pd']
     cbar_mode = ['single', 'single', 'each', 'each']
     cbar_labels = ['ISI distance', 'SYNC value', 'Difference [s]', 'Difference [count]']
+    figure_sizes = [5.9, 5.9, 3.9, 3.9]
+    # axes_labels = []
     for p in range(4):
         # Set up figure and image grid
-        fig = plt.figure(figsize=(5.9, 3.9))
+        fig = plt.figure(figsize=(figure_sizes[p], 3.9))
 
-        grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
-                         nrows_ncols=plot_size[p],
-                         label_mode='L',
-                         axes_pad=0.5,
-                         share_all=True,
-                         cbar_location="right",
-                         cbar_mode=cbar_mode[p],
-                         cbar_size="3%",
-                         cbar_pad=0.15,
-                         )
-
-        # Add data to image grid
-        all_axes = []
-
+        # Create Grid
+        grid = matplotlib.gridspec.GridSpec(nrows=plot_size[p][0], ncols=plot_size[p][1]+10)
         # Subplot caps
         subfig_caps = 12
         label_x_pos = 0.85
         label_y_pos = 0.85
         subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
-        k = 0
-        for ax in grid:
+        for k in range(plot_size[p][0] * plot_size[p][1]):
+            ax = plt.subplot(grid[k])
             if method[p] is 'vr':
                 im = ax.imshow(plot_data[p][k], vmin=0, vmax=np.max(plot_data[p][k]), cmap='viridis')
+                ax.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[k]) + ' ms', transform=ax.transAxes, size=6,
+                             color='white')
+                ax.text(0.1, 0.05, 'dur = ' + str(duration_pulses[k]) + ' ms', transform=ax.transAxes, size=6,
+                             color='white')
+
             elif method[p] is 'pd':
                 pd_limit = [1, 1, np.max(plot_data[p][k][dur_d]), np.max(plot_data[p][k][dur_d])]
                 im = ax.imshow(plot_data[p][k][dur_d], vmin=0, vmax=pd_limit[k],  cmap='viridis')
-                cbar = ax.cax.colorbar(im)
-                cbar.ax.set_ylabel(cbar_labels[k], rotation=270)
-                cbar.solids.set_rasterized(True)  # Removes white lines
+                ax.text(0.1, 0.05, 'dur = ' + str(selected_duration) + ' ms', transform=ax.transAxes, size=6,
+                             color='white')
             else:
                 pd_limit = [1, 1, np.max(plot_data[p][k]), np.max(plot_data[p][k])]
                 im = ax.imshow(plot_data[p][k], vmin=0, vmax=pd_limit[k], cmap='viridis')
-                cbar = ax.cax.colorbar(im)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                cbar = plt.colorbar(im, cax=cax)
+                cbar.ax.get_yaxis().labelpad = 15
                 cbar.ax.set_ylabel(cbar_labels[k], rotation=270)
-                cbar.solids.set_rasterized(True)  # Removes white lines
-            all_axes.append(ax)
-            grid[k].text(label_x_pos, label_y_pos, subfig_caps_labels[k], transform=grid[k].transAxes, size=subfig_caps,
-                         color='black')
-            grid[k].text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[k]) + ' ms', transform=grid[k].transAxes, size=6,
-                         color='black')
-            grid[k].text(0.1, 0.05, 'dur = ' + str(duration_pulses[k]) + ' ms', transform=grid[k].transAxes, size=6,
-                         color='black')
-            k += 1
+
+                ax.text(0.1, 0.05, 'dur = ' + str(selected_duration) + ' ms', transform=ax.transAxes, size=6,
+                             color='white')
+
+            ax.set_xticks(np.arange(0, 20, 5))
+            ax.set_yticks(np.arange(0, 20, 5))
+
+            ax.text(label_x_pos, label_y_pos, subfig_caps_labels[k], transform=ax.transAxes, size=subfig_caps,
+                         color='white')
 
         # Colorbar
-        if method is 'vr':
-            cbar = ax.cax.colorbar(im)
-            # cbar.ax.set_ylabel('Spike trains', rotation=270)
-            cbar.solids.set_rasterized(True)  # Removes white lines
+        # if method[p] is 'vr':
+        #     norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+        #     cb1 = matplotlib.colorbar.ColorbarBase(ax, cmap='viridis', norm=norm)
+        #     cb1.set_label('Normalized Van Rossum Distance')
 
         # Axes Labels
         fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
         fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
         # Save Plot to HDD
-        # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.4)
+        # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.7, wspace=0.4, hspace=0.4)
         figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[p] + stim_type + '.pdf'
         fig.savefig(figname)
         plt.close(fig)
-
-    exit()
-    fig = plt.figure()
-    ax1 = plt.subplot(1, 2, 1)
-    ax2 = plt.subplot(1, 2, 2)
-    im1 = ax1.imshow(pulses_vr)
-    im2 = ax2.imshow(spikes_vr)
-    fig.colorbar(im1, ax=ax1)
-    fig.colorbar(im2, ax=ax2)
-    plt.show()
-    embed()
-    exit()
 
 if FI_OVERANIMALS:
     # Load data
@@ -1607,10 +1859,6 @@ if FI_OVERANIMALS:
     plt.close(fig)
     print('Plot saved')
 
-print('Analysis done!')
-print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
-
-
 if OVERALLVS:
     # RectInvterval
     # datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2017-12-05-ab', '2018-02-16-aa']
@@ -1707,5 +1955,92 @@ if OVERALLVS:
     fig.savefig(figname)
     plt.close(fig)
     print('Plot saved')
+
+if PLOT_CORRS:
+    protocol_name = 'PulseIntervalsRect'
+    # good recordings Rect
+    datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2018-02-16-aa']
+    # corrs = [[]] * len(datasets)
+    corrs = []
+    for k in range(len(datasets)):
+        data_name = datasets[k]
+        path_names = mf.get_directories(data_name=data_name)
+        print(data_name)
+        p = path_names[1]
+        dummy = np.load(p + protocol_name + '_corr.npy')
+        corrs.append(dummy)
+
+    # idx = 17
+    # gaps = corrs[:idx, 0]
+    # r_rate = corrs[:idx, 1]
+    # r_sync = corrs[:idx, 2]
+    # lag_rate = corrs[:idx, 3]
+    # lag_sync = corrs[:idx, 4]
+
+    # Plot
+    # Prepare Axes
+    mf.plot_settings()
+    subfig_caps = 12
+    fig = plt.figure()
+    fig_size = (1, 2)
+    fig.set_size_inches(5.9, 1.9)
+    fig.subplots_adjust(left=0.15, top=0.8, bottom=0.2, right=0.9, wspace=0.4, hspace=0.4)
+
+    corr_rate_ax = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
+    lag_rate_ax = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
+
+    # corr_sync_ax = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
+    # lag_sync_ax = plt.subplot2grid(fig_size, (1, 1), rowspan=1, colspan=1)
+
+    idx = 17
+    for k in range(len(corrs)):
+        gaps = corrs[k][:idx, 0]
+        corr_rate_ax.plot(gaps, corrs[k][:idx, 1], 'k-', label='Firing rate')
+        lag_rate_ax.plot(gaps, corrs[k][:idx, 3] * 1000, 'k-', label='Firing rate')
+        # corr_sync_ax.plot(gaps, corrs[k][:idx, 2], 'k-', label='SYNC')
+        # lag_sync_ax.plot(gaps, corrs[k][:idx, 4] * 1000, 'k-', label='SYNC')
+
+    # corr_rate_ax.legend(frameon=False)
+    # lag_rate_ax.legend(frameon=False)
+
+    # Subplot Letters
+    label_x_pos = -0.2
+    label_y_pos = 1.1
+    corr_rate_ax.text(label_x_pos, label_y_pos, 'a', transform=corr_rate_ax.transAxes, size=subfig_caps)
+    lag_rate_ax.text(label_x_pos, label_y_pos, 'b', transform=lag_rate_ax.transAxes, size=subfig_caps)
+
+
+    lag_lim1 = -200
+    lag_lim2 = 200
+
+    corr_rate_ax.set_ylim(0, 1)
+    corr_rate_ax.set_yticks(np.arange(0, 1.1, 0.5))
+    lag_rate_ax.set_ylim(lag_lim1, lag_lim2)
+    # lag_rate_ax.set_yticks([, -75, 0, 75, 150])
+
+    # corr_sync_ax.set_ylim(0, 1)
+    # corr_sync_ax.set_yticks(np.arange(0, 1.1, 0.5))
+    # lag_sync_ax.set_ylim(lag_lim1, lag_lim2)
+    # # lag_sync_ax.set_yticks([-150, -75, 0, 75, 150])
+
+    # corr_ax.set_xlim(0, 1)
+    corr_rate_ax.set_xticks(np.arange(0, 21, 5))
+    # lag_ax.set_xlim(-150, 150)
+    lag_rate_ax.set_xticks(np.arange(0, 21, 5))
+
+    corr_rate_ax.set_ylabel('Max. Correlation')
+    lag_rate_ax.set_ylabel('Lag [ms]')
+    fig.text(0.5, 0.025, 'Gap [ms]', ha='center', fontdict=None)
+    sns.despine()
+
+    # Save Plot to HDD
+    ps = "/media/brehm/Data/MasterMoth/figs/"
+    figname = ps + protocol_name + '_corrs.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
+
+
+print('Analysis done!')
+print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
 
 

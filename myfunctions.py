@@ -232,6 +232,7 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
 
     vector_strength = np.zeros(shape=(len(tag_list), 8))
     aa = 0
+    cors = np.zeros(shape=(len(tag_list), 5))
     # cohen_d = np.zeros(shape=(len(tag_list), 3))
     # Loop trough all tags in tag_list
     for i in tqdm(range(len(tag_list)), desc='Interval Analysis'):
@@ -323,6 +324,72 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         # cohen_d[i, 1] = (vs_mean[idx][0]-vs_mean_boot[idx][0]) / sd_pooled
         # cohen_d[i, 2] = cohen_d[i, 1] / np.sqrt(cohen_d[i, 1]**2 + 4)
 
+        # CORRELATION ==================================================================================================
+        # Compute Convolved Firing Rate
+        dt = 1 / fs
+        sigma = bin_size  # in seconds
+        rate_conv_time, rate_conv, rate_conv_std, conv_overall_frate, conv_overall_frate_std = convolution_rate(
+            spike_times, tmax, dt, sigma, method='mean')
+
+        # Distances Profiles
+        x_limit = stim_time[i][-1]
+        trains = [[]] * len(spike_times)
+        edges = [0, 1]
+        for q in range(len(spike_times)):
+            trains[q] = spk.SpikeTrain(spike_times[q], edges)
+        isi_profile = spk.isi_profile(trains)
+        spike_profile = spk.spike_profile(trains)
+        sync_profile = spk.spike_sync_profile(trains)
+        isi_x, isi_y = isi_profile.get_plottable_data()
+        spike_x, spike_y = spike_profile.get_plottable_data()
+        sync_x, sync_y = sync_profile.get_plottable_data()
+
+        # Running Average
+        N = 10
+        sync_ra = np.convolve(sync_y, np.ones((N,)) / N, mode='valid')
+        t_sync_ra = np.linspace(0, x_limit, len(sync_ra))
+
+        # Correlation
+        # duty_cycle = pd / period_num
+        # rect1 = scipy.signal.square(2 * np.pi * (1 / (period_num / 1000)) * rate_conv_time, duty=duty_cycle)
+        sin1 = np.sin(rate_conv_time * 2 * np.pi * (1 / (period_num / 1000)))
+        sin2 = np.sin(t_sync_ra * 2 * np.pi * (1 / (period_num / 1000)))
+
+        # normalize
+        x1 = (rate_conv - np.mean(rate_conv)) / (np.std(rate_conv))
+        x2 = (sync_ra - np.mean(sync_ra)) / (np.std(sync_ra))
+        # x13 = (rect1 - np.mean(rect1)) / (np.std(rect1))
+        x13 = (sin1 - np.mean(sin1)) / (np.std(sin1))
+        x23 = (sin2 - np.mean(sin2)) / (np.std(sin2))
+        fs1 = len(x1) / stim_time[i][-1]
+        fs2 = len(x2) / stim_time[i][-1]
+        lim1 = int(fs1 * (stim_time[i][-1] * 0.2))
+        lim2 = int(fs2 * (stim_time[i][-1] * 0.2))
+        r1 = scipy.signal.correlate(x1[lim1:], x13[lim1:]) / len(x1[lim1:])
+        r2 = scipy.signal.correlate(x2[lim2:], x23[lim2:]) / len(x2[lim2:])
+        # r1 = abs(r1)
+        # r2 = abs(r2)
+        lag1 = (np.where(r1 == np.max(r1))[0][0] - (len(r1)/2)) / fs1
+        lag2 = (np.where(r2 == np.max(r2))[0][0] - (len(r2)/2)) / fs2
+        # gaps | corr rate | corr sync | lag rate | lag sync
+        cors[i, :] = [gaps, np.max(r1), np.max(r2), lag1, lag2]
+
+        # # print(str(period_num) + ': rate: ' + str(np.max(r1)) + ', sync: ' + str(np.max(r1)))
+        # plt.subplot(2, 1, 1)
+        # plt.plot(x1, 'k')
+        # plt.plot(x13, 'r')
+        # plt.title(str(gaps) + ': ' + str(np.max(r1)))
+        # # plt.plot(r1)
+        # # plt.axvline(len(r1)/2, color='r')
+        # plt.subplot(2, 1, 2)
+        # plt.plot(x2, 'k')
+        # plt.plot(x23, 'r')
+        # plt.title(str(gaps) + ': ' + str(np.max(r2)))
+        # # plt.plot(r2)
+        # # plt.axvline(len(r2) / 2, color='r')
+        # plt.tight_layout()
+        # plt.show()
+
         # Put Data together
         vs = [[]] * 7
         vs[0] = vs_mean
@@ -353,8 +420,8 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
                                      vs_mean_boot[idx][0], vs_percentile_boot]
 
         # Now Plot it
-        # uu = gaps == np.array([10, 5, 4, 3, 2, 1, 0])
-        uu = gaps == np.array([6, 5])
+        uu = gaps == np.array([20, 15, 10, 5, 4, 3, 2, 1, 0])
+        # uu = gaps == np.array([20, 10])
         if show[0] and uu.any():
             # Adapt bin size to half the gap size
             if gaps < 0:
@@ -372,8 +439,8 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
                 # fig.savefig(figname, bbox_inches='tight', dpi=300)
                 fig.savefig(figname)
                 plt.close(fig)
-            else:
-                plt.show()
+            # else:
+            #     plt.show()
 
     fig, ax = plt.subplots()
     if show[1]:
@@ -398,15 +465,15 @@ def interval_analysis(path_names, protocol_name, bin_size, save_fig, show, save_
         # fig.set_size_inches(5, 5)
         fig.savefig(figname, bbox_inches='tight', dpi=300)
         plt.close(fig)
-    else:
-        plt.show()
+    # else:
+    #     plt.show()
 
     # Save Data to HDD
     if save_data:
         file_name = file_pathname + protocol_name + '_vs.npy'
         np.save(file_name, vector_strength)
+        np.save(file_pathname + protocol_name + '_corr.npy', cors)
         print('VS saved (protocol: ' + protocol_name + ')')
-
     return 0
 
 
@@ -754,15 +821,22 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     fig_size = (4, 3)
     fig.set_size_inches(5.9, 5.9)
     fig.subplots_adjust(left=0.15, top=0.9, bottom=0.1, right=0.9, wspace=0.6, hspace=0.8)
+    # Creat Grid
+    grid = matplotlib.gridspec.GridSpec(nrows=41, ncols=3)
+    stim1 = plt.subplot(grid[0:2, :])
+    raster = plt.subplot(grid[2:11, :])
+    psth_ax = plt.subplot(grid[14:24, :])
+    isi_ax = plt.subplot(grid[30:40, 0])
+    vs_hist_ax = plt.subplot(grid[30:40, 1])
+    vs_ax = plt.subplot(grid[30:40, 2])
 
-    isi_ax = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
-    vs_ax = plt.subplot2grid(fig_size, (0, 2), rowspan=1, colspan=1)
-    # vs_hist_ax = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1, projection='polar')
-    vs_hist_ax = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
-    raster = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=3)
-    psth_ax = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=3, sharex=raster)
-    distance = plt.subplot2grid(fig_size, (3, 0), rowspan=1, colspan=3, sharex=raster)
-    # stim_trace = plt.subplot2grid(fig_size, (4, 0), rowspan=1, colspan=3, sharex=raster)
+
+    # isi_ax = plt.subplot2grid(fig_size, (3, 0), rowspan=1, colspan=1)
+    # vs_ax = plt.subplot2grid(fig_size, (3, 2), rowspan=1, colspan=1)
+    # vs_hist_ax = plt.subplot2grid(fig_size, (3, 1), rowspan=1, colspan=1)
+    # raster = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=3)
+    # psth_ax = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=3, sharex=raster)
+    # distance = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=3, sharex=raster)
 
     label_x_pos1 = -0.60
     label_x_pos2 = label_x_pos1 / 4
@@ -778,10 +852,9 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     # isi_ax.legend(loc='upper right', shadow=False, frameon=False)
     isi_ax.set_xlim(0, 30)
     isi_ax.set_xticks(np.arange(0, 30+5, 5))
-    isi_ax.xaxis.set_label_coords(0.5, -0.4)
+    isi_ax.xaxis.set_label_coords(0.5, -0.3)
     isi_ax.yaxis.set_label_coords(yaxis_pos2, 0.5)
     sns.despine(ax=isi_ax)
-    isi_ax.text(label_x_pos1, label_y_pos, 'a', transform=isi_ax.transAxes, size=subfig_caps)
     isi_ax.legend(loc='best', shadow=False, frameon=False)
 
 
@@ -823,10 +896,9 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     vs_ax.set_ylim(0, 1)
     vs_ax.set_yticks(np.arange(0, 1.1, 0.5))
     # vs_ax.legend(loc='best', shadow=False, frameon=False)
-    vs_ax.xaxis.set_label_coords(0.5, -0.4)
+    vs_ax.xaxis.set_label_coords(0.5, -0.3)
     vs_ax.yaxis.set_label_coords(-0.25, 0.5)
     sns.despine(ax=vs_ax)
-    vs_ax.text(label_x_pos1, label_y_pos, 'c', transform=vs_ax.transAxes, size=subfig_caps)
 
     # Polar Hist =======================================================================================================
     # Convert radians to phase
@@ -850,9 +922,8 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     # vs_hist_ax.arrow(0, 0, np.angle(mu), np.abs(mu), head_starts_at_zero=False, color='r', linewidth=2)
     # vs_hist_ax.plot(92, 1, 'r-')
     vs_hist_ax.set_ylim(0, 1)
-    vs_hist_ax.xaxis.set_label_coords(0.5, -0.4)
+    vs_hist_ax.xaxis.set_label_coords(0.5, -0.3)
     vs_hist_ax.set_yticks(np.arange(0, 1.1, 0.5))
-    vs_hist_ax.text(label_x_pos1+0.2, label_y_pos, 'b', transform=vs_hist_ax.transAxes, size=subfig_caps)
     sns.despine(ax=vs_hist_ax)
 
     # Raster Plot ======================================================================================================
@@ -873,7 +944,6 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     raster.set_ylabel('Trial')
     raster.yaxis.set_label_coords(yaxis_pos1, 0.5)
     sns.despine(ax=raster)
-    raster.text(label_x_pos2, label_y_pos, 'd', transform=raster.transAxes, size=subfig_caps)
 
     # PSTH Plot ========================================================================================================
     # # Binned
@@ -900,65 +970,73 @@ def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_bo
     psth_ax.legend(loc='upper right', shadow=False, frameon=False)
     psth_ax.yaxis.set_label_coords(yaxis_pos1, 0.5)
     sns.despine(ax=psth_ax)
-    psth_ax.text(label_x_pos2, label_y_pos, 'e', transform=psth_ax.transAxes, size=subfig_caps)
+    psth_ax.set_xlabel('Time [ms]')
 
     # Distances Profiles Plot ==========================================================================================
-    trains = [[]] * len(spike_times)
-    edges = [0, 1]
-    for q in range(len(spike_times)):
-        trains[q] = spk.SpikeTrain(spike_times[q], edges)
-    isi_profile = spk.isi_profile(trains)
-    spike_profile = spk.spike_profile(trains)
-    sync_profile = spk.spike_sync_profile(trains)
-    isi_x, isi_y = isi_profile.get_plottable_data()
-    spike_x, spike_y = spike_profile.get_plottable_data()
-    sync_x, sync_y = sync_profile.get_plottable_data()
-
-    # Running Aveage
-    N = 10
-    sync_ra = np.convolve(sync_y, np.ones((N,)) / N, mode='valid')
-    t_sync_ra = np.linspace(0, x_limit, len(sync_ra))
-    spike_ra = np.convolve(spike_y, np.ones((N,)) / N, mode='valid')
-    t_spike_ra = np.linspace(0, x_limit, len(spike_ra))
-    isi_ra = np.convolve(isi_y, np.ones((N,)) / N, mode='valid')
-    t_isi_ra = np.linspace(0, x_limit, len(isi_ra))
-
-    distance.plot(stim_time*1000, stim, 'k', alpha=0.5, label='Stimulus')
-    distance.plot(t_sync_ra*1000, sync_ra, 'k', label='SYNC')
-    # distance.plot(t_spike_ra*1000, spike_ra, 'g', label='SPIKE')
-    # distance.plot(t_isi_ra*1000, isi_ra, 'm', label='ISI')
-
-    # distance.plot(sync_x, sync_y, 'g', label='SYNC')
-    # distance.plot(isi_x, isi_y, 'k', label='ISI')
-    # distance.plot(spike_x, spike_y, 'r', label='SPIKE')
-    distance.set_xlim(0, x_limit*1000)
-    distance.set_xticks(np.arange(0, x_limit*1000+1, 50))
-    if np.min(stim) < -0.1:
-        distance.set_ylim(-1, 1)
-        distance.set_yticks(np.arange(-1, 1.1, 1))
-    else:
-        distance.set_ylim(0, 1)
-        distance.set_yticks(np.arange(0, 1.1, 1))
-    distance.set_ylabel('SYNC value')
-    distance.legend(loc='upper right', shadow=False, frameon=True)
-    distance.yaxis.set_label_coords(yaxis_pos1, 0.5)
-    sns.despine(ax=distance)
-    distance.text(label_x_pos2, label_y_pos, 'f', transform=distance.transAxes, size=subfig_caps)
-    distance.set_xlabel('Time [ms]')
-
-    # plt.tight_layout()
+    # trains = [[]] * len(spike_times)
+    # edges = [0, 1]
+    # for q in range(len(spike_times)):
+    #     trains[q] = spk.SpikeTrain(spike_times[q], edges)
+    # isi_profile = spk.isi_profile(trains)
+    # spike_profile = spk.spike_profile(trains)
+    # sync_profile = spk.spike_sync_profile(trains)
+    # isi_x, isi_y = isi_profile.get_plottable_data()
+    # spike_x, spike_y = spike_profile.get_plottable_data()
+    # sync_x, sync_y = sync_profile.get_plottable_data()
+    #
+    # # Running Average
+    # N = 10
+    # sync_ra = np.convolve(sync_y, np.ones((N,)) / N, mode='valid')
+    # t_sync_ra = np.linspace(0, x_limit, len(sync_ra))
+    # spike_ra = np.convolve(spike_y, np.ones((N,)) / N, mode='valid')
+    # t_spike_ra = np.linspace(0, x_limit, len(spike_ra))
+    # isi_ra = np.convolve(isi_y, np.ones((N,)) / N, mode='valid')
+    # t_isi_ra = np.linspace(0, x_limit, len(isi_ra))
+    #
+    # distance.plot(stim_time*1000, stim, 'k-', label='Stimulus')
+    # # distance.plot(t_sync_ra*1000, sync_ra, 'k', label='SYNC')
+    # # distance.plot(t_spike_ra*1000, spike_ra, 'g', label='SPIKE')
+    # # distance.plot(t_isi_ra*1000, isi_ra, 'm', label='ISI')
+    #
+    # # distance.plot(sync_x, sync_y, 'g', label='SYNC')
+    # # distance.plot(isi_x, isi_y, 'k', label='ISI')
+    # # distance.plot(spike_x, spike_y, 'r', label='SPIKE')
+    # distance.set_xlim(0, x_limit*1000)
+    # distance.set_xticks(np.arange(0, x_limit*1000+1, 50))
+    # if np.min(stim) < -0.1:
+    #     distance.set_ylim(-1, 1)
+    #     distance.set_yticks(np.arange(-1, 1.1, 1))
+    # else:
+    #     distance.set_ylim(0, 1)
+    #     distance.set_yticks(np.arange(0, 1.1, 1))
+    # distance.set_ylabel('Stimulus')
+    # # distance.legend(loc='upper right', shadow=False, frameon=True)
+    # distance.yaxis.set_label_coords(yaxis_pos1, 0.5)
+    # sns.despine(ax=distance)
+    # distance.text(label_x_pos2, label_y_pos, 'a', transform=distance.transAxes, size=subfig_caps)
+    # # distance.set_xlabel('Time [ms]')
 
     # Stimulus Plot ====================================================================================================
-    # stim_trace.plot(stim_time, stim, 'k')
+    stim1.plot(stim_time*1000, stim, 'k')
+    stim1.set_xlim(0, x_limit*1000)
+    stim1.set_xticks(np.arange(0, x_limit*1000+1, 50))
+    stim1.set_axis_off()
+
+    # Sub Caps
+    raster.text(label_x_pos2, label_y_pos, 'a', transform=raster.transAxes, size=subfig_caps)
+    psth_ax.text(label_x_pos2, label_y_pos, 'b', transform=psth_ax.transAxes, size=subfig_caps)
+    isi_ax.text(label_x_pos1, label_y_pos, 'c', transform=isi_ax.transAxes, size=subfig_caps)
+    vs_hist_ax.text(label_x_pos1+0.2, label_y_pos, 'd', transform=vs_hist_ax.transAxes, size=subfig_caps)
+    vs_ax.text(label_x_pos1+0.1, label_y_pos, 'e', transform=vs_ax.transAxes, size=subfig_caps)
+
+    # stim_trace.plot(stim_time*1000, stim, 'k')
     # stim_trace.set_xlim(0, x_limit)
     # stim_trace.set_yticks(np.arange(0, 1.1, 1))
     # stim_trace.set_xlabel('Time [s]')
     # stim_trace.set_ylabel('Stimulus')
-    # fig.tight_layout()
-    # Remove Box
     # stim_trace.yaxis.set_label_coords(-0.06, 0.5)
     # sns.despine(ax=stim_trace)
-    # stim_trace.text(label_x_pos2, label_y_pos, 'g', transform=stim_trace.transAxes, size=8)
+    # stim_trace.text(label_x_pos2, label_y_pos, 'a', transform=stim_trace.transAxes, size=subfig_caps)
 
     return 0
 
@@ -1237,7 +1315,7 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
             # Plot detected spikes of random trials
             # rand_plot = np.random.randint(100)
             # if rand_plot >= 99 and show:
-            if k == 0 and show: #and connections[tag_list[i]].startswith('calls'):
+            if k == 0 and (i == 0 or i == 80) and show:  #and connections[tag_list[i]].startswith('calls'):
                 # Cut out spikes
                 snippets = pk.snippets(x, spike_times[k], start=-100, stop=100)
                 snippets_removed = pk.snippets(x, marked, start=-100, stop=100)
@@ -1271,7 +1349,7 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
                 ax2.set_ylabel('Spike Height[uV]', color='g')
                 ax2.tick_params(axis='y', labelcolor='g')
 
-                sound_file = wav.read('/media/brehm/Data/MasterMoth/stimuli/' + connections[tag_list[i]])
+                sound_file = wav.read('/media/brehm/Data/MasterMoth/stimuli_backup/' + connections[tag_list[i]])
                 t_sound = np.arange(0, len(sound_file[1])/sound_file[0], 1/sound_file[0])
 
                 plot_detected_spikes(x, spike_times[k], spike_times_valley[k], marked, th, window, connections[tag_list[i]], volt_trace)
@@ -1285,7 +1363,7 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
 
             spike_times[k] = spike_times[k] / fs  # in seconds
         spikes.update({tag_list[i]: spike_times})
-        if show:
+        if False:
             if connections[tag_list[i]].startswith('nat'):
                 x_limit = 0.4
             if connections[tag_list[i]].startswith('batcall'):
@@ -1296,7 +1374,8 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
             sound_file = wav.read('/media/brehm/Data/MasterMoth/stimuli/' + connections[tag_list[i]])
             t_sound = np.arange(0, len(sound_file[1]) / sound_file[0], 1 / sound_file[0])
             bin_size = 0.002
-            f_rate, bin_edges = psth(spike_times, len(spike_times), bin_size, plot=False, return_values=True, separate_trials=True)
+            f_rate, bin_edges = psth(spike_times, bin_size, plot=False, return_values=True, tmax=1, tmin=0)
+            # f_rate, bin_edges = psth(spike_times, len(spike_times), bin_size, plot=False, return_values=True, separate_trials=True)
             plt.figure()
             tr = 3
             for w in range(tr):
@@ -1813,10 +1892,16 @@ def convolution_rate(spikes, t_max, dt, sigma, method='mean'):
     rate = [[]] * len(spikes)
     for k in range(len(spikes)):
         spike_times = spikes[k][spikes[k] < t_max]
-        t = np.arange(0, t_max-dt, dt)
+        # t = np.arange(0, t_max-dt, dt)
+        t = np.arange(0, t_max, dt)
         r = np.zeros(len(t))
         spike_ids = np.round(spike_times / dt) - 1
-        r[spike_ids.astype('int')] = 1
+        try:
+            r[spike_ids.astype('int')] = 1
+        except:
+            print('Error in convolution rate')
+            embed()
+            exit()
         kernel = gauss_kernel(sigma, dt)
         rate[k] = np.convolve(r, kernel, mode='same')
 
