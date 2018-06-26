@@ -25,18 +25,34 @@ EPULSES = True
 VANROSSUM = True
 
 # Compute other Distances
-ISI = True
-DISTANCE_RATIOS = True
+ISI = False
+DISTANCE_RATIOS = False
 
 # datasets = ['2017-11-03-aa', '2017-11-14-aa', '2017-11-16-aa', '2017-11-17-aa', '2017-11-25-aa', '2017-11-25-ab',
 #             '2017-11-27-aa', '2017-12-01-aa', '2017-12-05-ab', '2018-01-26-ab', '2018-02-16-aa', '2017-11-29-aa',
 #             '2017-12-04-aa', '2018-02-15-aa']
-datasets = ['2018-02-16-aa', '2018-02-15-aa']
+# datasets = ['2018-02-16-aa', '2018-02-15-aa']
+datasets = ['2018-02-15-aa']
 
-stims = ['moth_single_selected', 'moth_series_selected', 'all_series', 'all_single']
-stims_l = ['single', 'series', 'series', 'single']
+# stims = ['moth_single_selected', 'moth_series_selected', 'all_series', 'all_single']
+# stims_l = ['single', 'series', 'series', 'single']
+stims = ['moth_series_selected', 'all_series', 'all_single']
+stims_l = ['series', 'series', 'single']
+
+# stims = ['all_series', 'all_single']
+# stims_l = ['series', 'single']
+# stims = ['all_single']
+# stims_l = ['single']
+
 
 for ss in tqdm(range(len(stims)), desc='Total'):
+    if stims[ss] is 'all_series' or stims[ss] is 'all_single':
+        ISI = False
+        DISTANCE_RATIOS = False
+    else:
+        ISI = True
+        DISTANCE_RATIOS = True
+
     for dd in tqdm(range(len(datasets)), desc='data sets'):
         data_name = datasets[dd]
         path_names = mf.get_directories(data_name=data_name)
@@ -77,15 +93,9 @@ for ss in tqdm(range(len(stims)), desc='Total'):
         # ==============================================================================================================
 
         if EPULSES:
-            datasets = [datasets[dd]]
-            for i in range(len(datasets)):
-                data_name = datasets[i]
-                path_names = mf.get_directories(data_name=data_name)
-                print(data_name)
-                method = 'exp'
-                r = Parallel(n_jobs=-2)(delayed(mf.trains_to_e_pulses)(path_names, taus[k] / 1000, dt, stim_type=stim_type
-                                                                       , method=method) for k in range(len(taus)))
-                # print('Converting done')
+            method = 'exp'
+            r = Parallel(n_jobs=-2)(delayed(mf.trains_to_e_pulses)(path_names, taus[k] / 1000, dt, stim_type=stim_type
+                                                                   , method=method) for k in range(len(taus)))
 
         if VANROSSUM:
             # Try to load e pulses from HDD
@@ -142,12 +152,12 @@ for ss in tqdm(range(len(stims)), desc='Total'):
 
             correct = np.zeros((len(duration), len(profs)))
             rand_correct = np.zeros((len(duration), len(profs)))
-            for p in tqdm(range(len(profs)), desc='Profiles'):
+            for pq in tqdm(range(len(profs)), desc='Profiles'):
                 distances_all = [[]] * len(duration)
                 mm = [[]] * len(duration)
                 # Parallel loop through all durations
                 r = Parallel(n_jobs=-2)(delayed(mf.isi_matrix)(path_names, duration[i] / 1000, boot_sample=nsamples,
-                                                               stim_type=stim_type, profile=profs[p], save_fig=save_fig) for i
+                                                               stim_type=stim_type, profile=profs[pq], save_fig=save_fig) for i
                                         in range(len(duration)))
 
                 # mm_mean, correct_matches, distances_per_boot, rand_correct_matches = mf.isi_matrix(path_names, duration[5]/1000, boot_sample=nsamples,stim_type=stim_type, profile=profs[p], save_fig=save_fig)
@@ -155,11 +165,11 @@ for ss in tqdm(range(len(stims)), desc='Total'):
                 # Put values from parallel loop into correct variables
                 for q in range(len(duration)):
                     mm[q] = r[q][0]
-                    correct[q, p] = r[q][1]
-                    rand_correct[q, p] = r[q][3]
+                    correct[q, pq] = r[q][1]
+                    rand_correct[q, pq] = r[q][3]
                     distances_all[q] = r[q][2]
-                dist_profs.update({profs[p]: distances_all})
-                matches.update({profs[p]: mm})
+                dist_profs.update({profs[pq]: distances_all})
+                matches.update({profs[pq]: mm})
 
             # Save to HDD
             np.save(path_save + 'distances_' + stim_type + '.npy', dist_profs)

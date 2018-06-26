@@ -1161,6 +1161,126 @@ def spike_times_gap(path_names, protocol_name, show, save_data, th_factor=1, fil
     return spikes
 
 
+def spike_times_gap_spont(path_names, protocol_name, show, save_data, th_factor=1, filter_on=True, window=None, mph_percent=2):
+    """Spike Detection for Gap and Rect Paradigm
+
+       Notes
+       ----------
+       This function detects spikes and plots the results with some additional statistics
+
+       Parameters
+       ----------
+       path_names: Pathnames
+       protocol_name:  protocol name (string)
+       show: If true show plots (list: 0: spike detection, 1: overview, 2: vector strength)
+       save_data: If true save spike times to HDD
+       th_factor: Threshold for spike detection (th_factor * std)
+       filter_on: If True data will be filtered with a band pass filter
+       window: window size (seconds) for calculating threshold. If set to None the window has the length of the whole
+       spike train
+       mph_percent: Threshold for removing large spikes (B-cell). Threshold = mph_percent * std * mean
+
+       Returns
+       -------
+       Spike Times (in seconds)
+
+       """
+    # Load Voltage Traces
+    dataset = path_names[0]
+    file_pathname = path_names[1]
+    file_name = file_pathname + protocol_name + '_spont_voltage.npy'
+    voltage = np.load(file_name).item()
+    if protocol_name is 'intervals_mas':
+        tag_list = np.arange(0, len(voltage), 1)
+    else:
+        tag_list_path = file_pathname + protocol_name + '_spont_tag_list.npy'
+        tag_list = np.load(tag_list_path)
+    spikes = {}
+    meta_data = {}
+    fs = 100*1000  # Sampling Rate of Ephys Recording
+
+    # Get Stimulus Information
+    if protocol_name is 'intervals_mas':
+        stim = [[]] * len(tag_list)
+        stim_time = [[]] * len(tag_list)
+    else:
+        stim, stim_time, gap, pulse_duration, period = tagtostimulus_gap(path_names, protocol_name)
+
+    # Loop trough all tags in tag_list
+    for i in tqdm(range(len(tag_list)), desc='Spike Detection'):
+        # if pulse_duration[i] == '10.0':
+        #     continue
+        try:
+            if protocol_name is 'intervals_mas':
+                trials = len(voltage[i]) - 5
+                stim[i] = voltage[i]['stimulus']
+                stim_time[i] = voltage[i]['stimulus_time']
+            else:
+                trials = len(voltage[tag_list[i]])
+        except:
+            continue
+        spike_times = [list()] * trials
+        spike_times_valley = [list()] * trials
+
+        for k in range(trials):  # loop trough all trials
+            if protocol_name is 'intervals_mas':
+                try:
+                    x = voltage[tag_list[i]][k][0]
+                except KeyError:
+                    print('Trial: ' + str(k) + ' not found')
+                    continue
+            else:
+                x = voltage[tag_list[i]][k]
+            if filter_on:
+                nyqst = 0.5 * fs
+                lowcut = 300
+                highcut = 3000
+                low = lowcut / nyqst
+                high = highcut / nyqst
+                x = voltage_trace_filter(x, [low, high], ftype='band', order=2, filter_on=True)
+
+            # Detect Spikes
+            th = pk.std_threshold(x, fs, window, th_factor)
+            spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
+
+            # Remove large spikes
+            t = np.arange(0, len(x) / fs, 1 / fs)
+            spike_size = pk.peak_size_width(t, x, spike_times[k], spike_times_valley[k], pfac=0.75)
+            spike_times[k], spike_times_valley[k], marked, marked_valley = \
+                remove_large_spikes(x, spike_times[k], spike_times_valley[k], mph_percent=mph_percent, method='std')
+
+            # Plot Spike Detection
+            # Cut out spikes
+            fs = 100 * 1000
+            snippets = pk.snippets(x, spike_times[k], start=-100, stop=100)
+            snippets_removed = pk.snippets(x, marked, start=-100, stop=100)
+
+            if k == 0 and show is True:
+                plot_spike_detection_gaps(x, spike_times[k], spike_times_valley[k], marked, spike_size, mph_percent, snippets,
+                                          snippets_removed, th, window, tag_list[i], stim_time[i], stim[i])
+                plt.show()
+
+            spike_times[k] = spike_times[k] / fs  # in seconds
+            spike_times_valley[k] = spike_times_valley[k] / fs  # in seconds
+        spikes.update({tag_list[i]: spike_times})
+
+        if protocol_name is 'intervals_mas':
+            # Stim | Time | Gap | Tau | Freq
+            metas = [voltage[i]['stimulus'], voltage[i]['stimulus_time'], voltage[i]['gap'], voltage[i][0][1], voltage[i][0][3]]
+            meta_data.update({tag_list[i]: metas})
+
+    # Save to HDD
+    if save_data:
+        file_name = file_pathname + protocol_name + '_spont_spikes.npy'
+        np.save(file_name, spikes)
+        if protocol_name is 'intervals_mas':
+            file_name2 = file_pathname + protocol_name + '_spont_meta.npy'
+            np.save(file_name2, meta_data)
+        print('Spike Times saved (protocol: ' + protocol_name + ')')
+
+    return spikes
+
+
 def remove_large_spikes(x, spike_times, spike_times_valley, mph_percent, method):
     # Remove large spikes
     if method == 'max':
@@ -1630,6 +1750,92 @@ def get_voltage_trace_gap(path_names, tag, protocol_name, multi_tag, search_for_
         print('Voltage Traces saved (protocol: ' + protocol_name + ')')
 
         file_name2 = file_pathname + protocol_name + '_tag_list.npy'
+        np.save(file_name2, tag_list)
+        print('Tag List saved (protocol: ' + protocol_name + ')')
+    f.close()
+    return voltage, tag_list
+
+
+def get_voltage_trace_gap_spontan(path_names, tag, protocol_name, multi_tag, search_for_tags, save_data):
+    """Get Voltage Trace from nix file.
+
+    Notes
+    ----------
+    This function reads out the voltage traces for the given tag names stored in the nix file
+
+    Parameters
+    ----------
+    dataset :       Data set name (string)
+    tag:            Tag name (string)
+    protocol_name:  protocol name (string) (only important for saving the data)
+    search_for_tags: search for all tags containing the string in tag. If set to false, the list in 'tag' is used.
+    multi_tag: If true then function treats tags as multi tags and looks for all trials.
+
+    Returns
+    -------
+    voltage: Saves Voltage Traces to HDD in a .npy file (dict)
+
+    """
+
+    dataset = path_names[0]
+    file_pathname = path_names[1]
+    nix_file = path_names[3] + '.nix'
+    f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
+    b = f.blocks[0]
+    if search_for_tags:
+        if multi_tag:
+            tag_list = [t.name for t in b.multi_tags if tag in t.name]  # Find Multi-Tags
+        else:
+            tag_list = [t.name for t in b.tags if tag in t.name]  # Find Tags
+    else:
+        tag_list = tag
+
+    # Find all multi tags that are linked to the tags (input):
+    m = 'SingleStimulus-square_wave-sine_wave-'
+    mtag_list = [t.name for t in b.multi_tags if m in t.name]  # Find Multi-Tags
+
+    sampling_rate = 100*1000
+
+    tag1 = b.tags[tag_list[0]].position[0]
+    tag2 = b.tags[tag_list[-1]].position[0] + b.tags[tag_list[-1]].extent[0]
+    mtags = []
+
+    for k in range(len(mtag_list)):
+        try:
+            pos = b.multi_tags[mtag_list[k]].positions[0]
+            if pos > tag1 and pos < tag2:
+                mtags.append(mtag_list[k])
+        except:
+            print(mtag_list[k] + ' not found')
+
+    if len(tag_list) > len(mtags):
+        print('Did you run this protocol more than once?')
+
+    voltage = {}
+    for i in tqdm(range(len(mtags)), desc='Get Voltage'):
+        # Get tags
+        mtag = b.multi_tags[mtags[i]]
+        look_back = 0.5
+        dat = b.data_arrays[mtag.references[0].name]
+        dim = dat.dimensions[0]
+        trials = len(mtag.positions[:])  # Get number of trials
+        volt = np.zeros((trials, int(np.ceil(mtag.extents[0]*sampling_rate))))  # allocate memory
+        for k in range(trials):  # Loop through all trials
+            idx = int(dim.index_of(mtag.positions[k] - look_back))
+            idx_extent = int(dim.index_of(mtag.positions[k]))
+            v = dat[idx:idx_extent]
+            # v = mtag.retrieve_data(k, 0)[:]  # Get Voltage for each trial
+            volt[k, :len(v)] = v
+        voltage.update({tag_list[i]: volt})  # Store Stimulus Name and voltage traces in dict
+        # voltage.update({mtags[i]: volt})  # Store Stimulus Name and voltage traces in dict
+
+    # Save to HDD
+    if save_data:
+        file_name = file_pathname + protocol_name + '_spont_voltage.npy'
+        np.save(file_name, voltage)
+        print('Voltage Traces saved (protocol: ' + protocol_name + ')')
+
+        file_name2 = file_pathname + protocol_name + '_spont_tag_list.npy'
         np.save(file_name2, tag_list)
         print('Tag List saved (protocol: ' + protocol_name + ')')
     f.close()

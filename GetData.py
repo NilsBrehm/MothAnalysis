@@ -23,10 +23,10 @@ VIEWNIX = False
 OVERVIEW = False
 GetSession = False
 
-FIFIELD = True
+FIFIELD = False
 
 INTERVAL_MAS = False
-INTERVAL_REC = False
+INTERVAL_REC = True
 GAP = False
 
 SOUND = False
@@ -155,11 +155,16 @@ if INTERVAL_MAS:
 # Rect Intervals
 if INTERVAL_REC:
     protocol_name = 'PulseIntervalsRect'
+    datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2018-02-16-aa']
+    data_name = datasets[1]
+    print(data_name)
+    path_names = mf.get_directories(data_name=data_name)
     target, p, mtarget, mp = mf.list_protocols(path_names, protocol_name,
                                                tag_name=['SingleStimulus_', 'SingleStimulus-file-'], save_txt=False)
-    voltage, tag_list = mf.get_voltage_trace_gap(path_names, target, protocol_name, multi_tag=False,
-                                                     search_for_tags=False, save_data=True)
-
+    # voltage, tag_list = mf.get_voltage_trace_gap(path_names, target, protocol_name, multi_tag=False,
+    #                                                  search_for_tags=False, save_data=True)
+    voltage, tag_list = mf.get_voltage_trace_gap_spontan(path_names, target, protocol_name, multi_tag=False,
+                                             search_for_tags=False, save_data=True)
 # Sound Recording Stimuli
 if SOUND:
     # Create Directory for Saving Data

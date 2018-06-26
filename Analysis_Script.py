@@ -14,6 +14,9 @@ import matplotlib
 from matplotlib.colors import LogNorm
 import scipy.io.wavfile as wav
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib.patheffects as path_effects
+from scipy import signal
+import scipy
 
 start_time = time.time()
 # Data File Name
@@ -33,12 +36,14 @@ start_time = time.time()
 
 CALLS = True
 CALL_STRUC = False
+CALL_STATS = True
 
 Bootstrapping = False
 
 # Compute Intervall stuff
 INTERVAL_MAS = False
 INTERVAL_REC = False
+INTERVAL_REC_SPONT = False
 OVERALLVS = False
 
 GAP = False
@@ -60,6 +65,7 @@ PLOT_CALLS = False
 
 # VanRossum Tau vs Duration
 PLOT_VR_TAUVSDUR = False
+PLOT_VR_TAUVSDUR_OVERALL = False
 
 # VanRossum Matched Spike Trains with different taus and durations
 PLOT_VR = False
@@ -69,30 +75,33 @@ PLOT_MvsB = False
 
 # Other Distances Correct Matches
 PLOT_CORRECT = False
+PLOT_CORRECT_OVERALL = False
 
 # Other Distances Matched Spike Trains with different durations
 PLOT_DISTANCES = False
 
 # Ratio: within vs. between distances
 PLOT_D_RATIOS = False
+PLOT_D_RATIOS_OVERALL = False
 
-# Rate and SYNC Correlation with Stimnulus (Rect and Pulses)
-PLOT_CORRS = False
 
 # Pulse Train Stuff
-PULSE_TRAIN_VANROSSUM = True
+PULSE_TRAIN_VANROSSUM = False
 PULSE_TRAIN_ISI = False
 
 # FI Stuff
 FIFIELD = False
 FI_OVERANIMALS = False
 
+# Rate and SYNC Correlation with Stimnulus (Rect and Pulses)
+PLOT_CORRS = False
+
 # Select recordings from csv file
 SELECT = True
 
 # **********************************************************************************************************************
 # Settings for Spike Detection =========================================================================================
-th_factor = 4
+th_factor = 3
 mph_percent = 2
 bin_size = 0.001
 # If true show plots (list: 0: spike detection, 1: overview, 2: vector strength)
@@ -100,9 +109,9 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_single_selected'
+stim_type = 'moth_series_selected'
 # stim_type = 'all_single'
-stim_length = 'single'
+stim_length = 'series'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -272,7 +281,8 @@ if DISTANCE_RATIOS:
 
 if PLOT_D_RATIOS:
     # data_name = '2018-02-09-aa'
-    data_name = datasets[-1]
+    data_name = '2018-02-15-aa'
+    # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     method = 'exp'
@@ -414,6 +424,35 @@ if GAP:
 
 
 # Rect Intervals
+if INTERVAL_REC_SPONT:
+    spont = True
+    # good recordings
+    datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2018-02-16-aa']
+    datasets = [datasets[1]]
+    vs_order = 2
+    old = False
+    protocol_name = 'PulseIntervalsRect'
+    spike_detection = True
+    for dat in tqdm(range(len(datasets)), desc='Interval Rect'):
+        print(str(dat) + ' of ' + str(len(datasets)))
+        data_name = datasets[dat]
+        path_names = mf.get_directories(data_name=data_name)
+        print(data_name)
+        if spike_detection:
+            show_detection = True
+            if spont:
+                mf.spike_times_gap_spont(path_names, protocol_name, show=show_detection, save_data=True, th_factor=th_factor,
+                                   filter_on=True, window=None, mph_percent=mph_percent)
+            else:
+                mf.spike_times_gap(path_names, protocol_name, show=show_detection, save_data=False,
+                                         th_factor=th_factor,
+                                         filter_on=True, window=None, mph_percent=mph_percent)
+
+        # mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=[True, True], save_data=True,
+        #                      old=old, vs_order=vs_order)
+    # mf.plot_cohen(protocol_name, datasets, save_fig=True)
+
+
 if INTERVAL_REC:
     # good recordings
     datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2018-02-16-aa']
@@ -529,7 +568,7 @@ if POISSON:
 # Analyse FIField data stored on HDD
 if FIFIELD:
     save_analysis = False
-    species = 'Carales'
+    species = 'Estigmene'
     durs = 20
 
     if species is 'Estigmene':
@@ -679,13 +718,13 @@ if FIFIELD:
                 label_y_pos = 1.1
                 fig = plt.figure()
                 
-                ax1 = plt.subplot(2, 2, 1)
-                ax1.plot(d_isi[ff][:, 0], d_isi[ff][:, 2], 'ko', label='sync')
+                ax1 = plt.subplot(2, 2, 3)
+                ax1.plot(d_isi[ff][:, 0], d_isi[ff][:, 3], 'ko', label='sync')
                 ax1.plot(x_d, y_d, 'k')
                 ax1.plot([th_d_fit, th_d_fit], [0, 1], 'k--')
                 ax1.set_ylabel('SYNC value')
                 ax1.set_ylim(0, 1)
-                ax1.text(label_x_pos, label_y_pos, 'a', transform=ax1.transAxes, size=subfig_caps)
+                ax1.text(label_x_pos, label_y_pos, 'c', transform=ax1.transAxes, size=subfig_caps)
                 ax1.set_xlim(x_min, x_max)
                 ax1.set_xticks(np.arange(x_min, x_max+x_step, x_step))
 
@@ -701,7 +740,7 @@ if FIFIELD:
                 ax2.set_xlim(x_min, x_max)
                 ax2.set_xticks(np.arange(x_min, x_max + x_step, x_step))
 
-                ax3 = plt.subplot(2, 2, 3)
+                ax3 = plt.subplot(2, 2, 4)
                 y_max = 30
                 ax3.errorbar(fsl[ff][:, 0], fsl[ff][:, 1], yerr=fsl[ff][:, 2], marker='o',
                              linestyle='-', color='k', label='first spike latency')
@@ -711,11 +750,11 @@ if FIFIELD:
                 ax3.set_ylabel('Time [ms]')
                 ax3.set_ylim(0, y_max)
                 ax3.set_yticks(np.arange(0, y_max+5, 5))
-                ax3.text(label_x_pos, label_y_pos, 'c', transform=ax3.transAxes, size=subfig_caps)
+                ax3.text(label_x_pos, label_y_pos, 'd', transform=ax3.transAxes, size=subfig_caps)
                 ax3.set_xlim(x_min, x_max)
                 ax3.set_xticks(np.arange(x_min, x_max + x_step, x_step))
 
-                ax4 = plt.subplot(2, 2, 4)
+                ax4 = plt.subplot(2, 2, 1)
                 y_max = 600
                 ax4.errorbar(conv_rate[ff][:, 0], conv_rate[ff][:, 1], yerr=conv_rate[ff][:, 2], marker='o', linestyle='', color='k', label='firing rate')
                 ax4.plot(x_conv, y_conv, 'k')
@@ -727,7 +766,7 @@ if FIFIELD:
                 ax4.set_ylim(0, y_max)
                 ax4.set_yticks(np.arange(0, y_max+100, 100))
                 # plt.legend(frameon=False)
-                ax4.text(label_x_pos, label_y_pos, 'd', transform=ax4.transAxes, size=subfig_caps)
+                ax4.text(label_x_pos, label_y_pos, 'a', transform=ax4.transAxes, size=subfig_caps)
                 ax4.set_xlim(x_min, x_max)
                 ax4.set_xticks(np.arange(x_min, x_max + x_step, x_step))
 
@@ -842,8 +881,8 @@ if VANROSSUM:
 
 if PLOT_MvsB:
     # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
-    # data_name = '2018-02-09-aa'
-    data_name = datasets[-1]
+    data_name = '2018-02-16-aa'
+    # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
@@ -1031,7 +1070,8 @@ if PLOT_MvsB:
 
 if PLOT_VR:
     # data_name = '2018-02-09-aa'
-    data_name = datasets[-1]
+    data_name = '2018-02-15-aa'
+    # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
@@ -1169,7 +1209,8 @@ if PLOT_DISTANCES:
 
 if PLOT_CORRECT:
     # data_name = '2018-02-09-aa'
-    data_name = datasets[-1]
+    data_name = '2018-02-15-aa'
+    # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
@@ -1216,7 +1257,8 @@ if PLOT_CORRECT:
 if PLOT_VR_TAUVSDUR:
     # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
     # data_name = '2018-02-09-aa'
-    data_name = datasets[-1]
+    data_name = '2018-02-16-aa'
+    # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
@@ -1612,10 +1654,12 @@ if PULSE_TRAIN_VANROSSUM:
     calls, calls_names = mf.mattopy(stim_type, fs)
 
     # Convert Pulse Trains to E Pulses
-    taus_pulses = [1, 10, 530, 10, 10, 10]
-    taus_pulses = [1, 10, 200, 10, 10, 10]
-    duration_pulses = [1000, 1000, 1000, 50, 500, 2000]
-    duration_pulses = [100, 100, 100, 5, 50, 200]
+    if stim_length is 'series':
+        taus_pulses = [1, 10, 530, 10, 10, 10]
+        duration_pulses = [1000, 1000, 1000, 50, 500, 2000]
+    if stim_length is 'single':
+        taus_pulses = [1, 10, 200, 10, 10, 10]
+        duration_pulses = [100, 100, 100, 5, 50, 200]
     duration_in_samples = (np.array(duration_pulses) / 1000) / dt
     e_pulses = [[]] * len(taus_pulses)
     for t in range(len(taus_pulses)):
@@ -1683,64 +1727,171 @@ if PULSE_TRAIN_VANROSSUM:
     cbar_mode = ['single', 'single', 'each', 'each']
     cbar_labels = ['ISI distance', 'SYNC value', 'Difference [s]', 'Difference [count]']
     figure_sizes = [5.9, 5.9, 3.9, 3.9]
-    # axes_labels = []
-    for p in range(4):
-        # Set up figure and image grid
-        fig = plt.figure(figsize=(figure_sizes[p], 3.9))
+    cc = 'white'
 
-        # Create Grid
-        grid = matplotlib.gridspec.GridSpec(nrows=plot_size[p][0], ncols=plot_size[p][1]+10)
-        # Subplot caps
-        subfig_caps = 12
-        label_x_pos = 0.85
-        label_y_pos = 0.85
-        subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
-        for k in range(plot_size[p][0] * plot_size[p][1]):
-            ax = plt.subplot(grid[k])
-            if method[p] is 'vr':
-                im = ax.imshow(plot_data[p][k], vmin=0, vmax=np.max(plot_data[p][k]), cmap='viridis')
-                ax.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[k]) + ' ms', transform=ax.transAxes, size=6,
-                             color='white')
-                ax.text(0.1, 0.05, 'dur = ' + str(duration_pulses[k]) + ' ms', transform=ax.transAxes, size=6,
-                             color='white')
+    for aa in range(4):
+        if method[aa] is 'vr':
+            fig = plt.figure(figsize=(5.9, 3.9))
+            grid = matplotlib.gridspec.GridSpec(nrows=23, ncols=25)
+            ax1 = plt.subplot(grid[0:11, 0:8])
+            ax2 = plt.subplot(grid[0:11, 8:16])
+            ax3 = plt.subplot(grid[0:11, 16:24])
+            ax4 = plt.subplot(grid[11:22, 0:8])
+            ax5 = plt.subplot(grid[11:22, 8:16])
+            ax6 = plt.subplot(grid[11:22, 16:24])
+            ax_cbar = plt.subplot(grid[0:22, -1])
 
-            elif method[p] is 'pd':
-                pd_limit = [1, 1, np.max(plot_data[p][k][dur_d]), np.max(plot_data[p][k][dur_d])]
-                im = ax.imshow(plot_data[p][k][dur_d], vmin=0, vmax=pd_limit[k],  cmap='viridis')
-                ax.text(0.1, 0.05, 'dur = ' + str(selected_duration) + ' ms', transform=ax.transAxes, size=6,
-                             color='white')
+            im1 = ax1.imshow(plot_data[aa][0], vmin=0, vmax=np.max(plot_data[aa][0]), cmap='viridis')
+            im2 = ax2.imshow(plot_data[aa][1], vmin=0, vmax=np.max(plot_data[aa][1]), cmap='viridis')
+            im3 = ax3.imshow(plot_data[aa][2], vmin=0, vmax=np.max(plot_data[aa][2]), cmap='viridis')
+            im4 = ax4.imshow(plot_data[aa][3], vmin=0, vmax=np.max(plot_data[aa][3]), cmap='viridis')
+            im5 = ax5.imshow(plot_data[aa][4], vmin=0, vmax=np.max(plot_data[aa][4]), cmap='viridis')
+            im6 = ax6.imshow(plot_data[aa][5], vmin=0, vmax=np.max(plot_data[aa][5]), cmap='viridis')
+            cb1 = matplotlib.colorbar.ColorbarBase(ax_cbar, cmap='viridis')
+            cb1.set_label('Normalized Van Rossum Distance')
+
+
+            ax1.set_xticks([])
+            ax2.set_xticks([])
+            ax3.set_xticks([])
+            ax4.set_xticks(np.arange(0, 20, 5))
+            ax5.set_xticks(np.arange(0, 20, 5))
+            ax6.set_xticks(np.arange(0, 20, 5))
+            ax2.set_yticks([])
+            ax3.set_yticks([])
+            ax5.set_yticks([])
+            ax6.set_yticks([])
+            ax1.set_yticks(np.arange(0, 20, 5))
+            ax4.set_yticks(np.arange(0, 20, 5))
+
+            # Axes Labels
+            fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
+            fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
+
+            # Subfig caps
+            subfig_caps = 12
+            label_x_pos = 0.85
+            label_y_pos = 0.85
+            subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+            ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+                     color='white')
+            ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+                     color='white')
+            ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
+                     color='white')
+            ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
+                     color='white')
+            ax5.text(label_x_pos, label_y_pos, subfig_caps_labels[4], transform=ax5.transAxes, size=subfig_caps,
+                     color='white')
+            ax6.text(label_x_pos, label_y_pos, subfig_caps_labels[5], transform=ax6.transAxes, size=subfig_caps,
+                     color='white')
+
+            t1 = ax1.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[0]) + ' ms', transform=ax1.transAxes, size=6,
+                     color=cc)
+            t2 = ax1.text(0.1, 0.05, 'dur = ' + str(duration_pulses[0]) + ' ms', transform=ax1.transAxes, size=6,
+                     color=cc)
+            t3 = ax2.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[1]) + ' ms', transform=ax2.transAxes, size=6,
+                     color=cc)
+            t4 = ax2.text(0.1, 0.05, 'dur = ' + str(duration_pulses[1]) + ' ms', transform=ax2.transAxes, size=6,
+                     color=cc)
+            t5 = ax3.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[2]) + ' ms', transform=ax3.transAxes, size=6,
+                     color=cc)
+            t6 = ax3.text(0.1, 0.05, 'dur = ' + str(duration_pulses[2]) + ' ms', transform=ax3.transAxes, size=6,
+                     color=cc)
+            t7 = ax4.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[3]) + ' ms', transform=ax4.transAxes, size=6,
+                     color=cc)
+            t8 = ax4.text(0.1, 0.05, 'dur = ' + str(duration_pulses[3]) + ' ms', transform=ax4.transAxes, size=6,
+                     color=cc)
+            t9 = ax5.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[4]) + ' ms', transform=ax5.transAxes, size=6,
+                     color=cc)
+            t10 = ax5.text(0.1, 0.05, 'dur = ' + str(duration_pulses[4]) + ' ms', transform=ax5.transAxes, size=6,
+                     color=cc)
+            t11 = ax6.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[5]) + ' ms', transform=ax6.transAxes, size=6,
+                     color=cc)
+            t12 = ax6.text(0.1, 0.05, 'dur = ' + str(duration_pulses[5]) + ' ms', transform=ax6.transAxes, size=6,
+                     color=cc)
+
+            t1.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t2.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t3.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t4.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t5.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t6.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t7.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t8.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t9.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t10.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t11.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+            t12.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+
+            fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.2, hspace=0.4)
+            figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[aa] + stim_type + '.pdf'
+            fig.savefig(figname)
+            plt.close(fig)
+
+        else:
+            fig = plt.figure(figsize=(5.9, 4.9))
+            grid = matplotlib.gridspec.GridSpec(nrows=82, ncols=102)
+            ax1 = plt.subplot(grid[0:40, 0:40])
+            cb1 = plt.subplot(grid[1:39, 41])
+
+            ax2 = plt.subplot(grid[0:40, 60:100])
+            cb2 = plt.subplot(grid[1:39, 101])
+
+            ax3 = plt.subplot(grid[41:81, 0:40])
+            cb3 = plt.subplot(grid[42:80, 41])
+
+            ax4 = plt.subplot(grid[41:81, 60:100])
+            cb4 = plt.subplot(grid[42:80, 101])
+
+            if method[aa] is 'sd':
+                im1 = ax1.imshow(plot_data[aa][0], vmin=0, vmax=1, cmap='viridis')
+                im2 = ax2.imshow(plot_data[aa][1], vmin=0, vmax=1, cmap='viridis')
+                im3 = ax3.imshow(plot_data[aa][2], vmin=0, vmax=np.max(plot_data[aa][2]), cmap='viridis')
+                im4 = ax4.imshow(plot_data[aa][3], vmin=0, vmax=np.max(plot_data[aa][3]), cmap='viridis')
             else:
-                pd_limit = [1, 1, np.max(plot_data[p][k]), np.max(plot_data[p][k])]
-                im = ax.imshow(plot_data[p][k], vmin=0, vmax=pd_limit[k], cmap='viridis')
-                divider = make_axes_locatable(ax)
-                cax = divider.append_axes("right", size="5%", pad=0.05)
-                cbar = plt.colorbar(im, cax=cax)
-                cbar.ax.get_yaxis().labelpad = 15
-                cbar.ax.set_ylabel(cbar_labels[k], rotation=270)
+                im1 = ax1.imshow(plot_data[aa][0][dur_d], vmin=0, vmax=1, cmap='viridis')
+                im2 = ax2.imshow(plot_data[aa][1][dur_d], vmin=0, vmax=1, cmap='viridis')
+                im3 = ax3.imshow(plot_data[aa][2][dur_d], vmin=0, vmax=np.max(plot_data[aa][2]), cmap='viridis')
+                im4 = ax4.imshow(plot_data[aa][3][dur_d], vmin=0, vmax=np.max(plot_data[aa][3]), cmap='viridis')
 
-                ax.text(0.1, 0.05, 'dur = ' + str(selected_duration) + ' ms', transform=ax.transAxes, size=6,
-                             color='white')
+            c1 = matplotlib.colorbar.ColorbarBase(cb1, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=1))
+            c2 = matplotlib.colorbar.ColorbarBase(cb2, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=1))
+            c3 = matplotlib.colorbar.ColorbarBase(cb3, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=np.max(plot_data[aa][2])))
+            c4 = matplotlib.colorbar.ColorbarBase(cb4, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=np.max(plot_data[aa][3])))
+            c1.set_label(cbar_labels[0])
+            c2.set_label(cbar_labels[1])
+            c3.set_label(cbar_labels[2])
+            c4.set_label(cbar_labels[3])
 
-            ax.set_xticks(np.arange(0, 20, 5))
-            ax.set_yticks(np.arange(0, 20, 5))
+            # axes
+            ax1.set_xticks([])
+            ax2.set_xticks([])
+            ax3.set_xticks(np.arange(0, 20, 5))
+            ax4.set_xticks(np.arange(0, 20, 5))
+            ax4.set_yticks([])
+            ax1.set_yticks(np.arange(0, 20, 5))
+            ax3.set_yticks(np.arange(0, 20, 5))
+            ax2.set_yticks([])
 
-            ax.text(label_x_pos, label_y_pos, subfig_caps_labels[k], transform=ax.transAxes, size=subfig_caps,
-                         color='white')
+            # Axes Labels
+            fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
+            fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
 
-        # Colorbar
-        # if method[p] is 'vr':
-        #     norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
-        #     cb1 = matplotlib.colorbar.ColorbarBase(ax, cmap='viridis', norm=norm)
-        #     cb1.set_label('Normalized Van Rossum Distance')
+            # Subfig caps
+            subfig_caps = 12
+            label_x_pos = 0.85
+            label_y_pos = 0.85
+            subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+            ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps, color='white')
+            ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps, color='white')
+            ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps, color='white')
+            ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps, color='white')
 
-        # Axes Labels
-        fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
-        fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
-        # Save Plot to HDD
-        # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.7, wspace=0.4, hspace=0.4)
-        figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[p] + stim_type + '.pdf'
-        fig.savefig(figname)
-        plt.close(fig)
+            # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.5, hspace=0.1)
+            figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[aa] + stim_type + '_' + str(selected_duration) +'.pdf'
+            fig.savefig(figname)
+            plt.close(fig)
 
 if FI_OVERANIMALS:
     # Load data
@@ -1759,6 +1910,51 @@ if FI_OVERANIMALS:
     # datasets_50 = ['2017-10-30-aa', '2017-10-31-aa', '2017-10-31-ac']  # 50 ms
     # datasets_05 = ['2017-10-23-ah']  # 5 ms
 
+    # Load calls
+    fs = 480 * 1000
+    # carales_calls = ['carales_11x11_01', 'carales_11x11_02', 'carales_12x12_01', 'carales_12x12_02', 'carales_13x13_01', 'carales_13x13_02', 'carales_19x19']
+    carales_calls = ['carales_12x12_01', 'carales_12x12_02']
+
+    estigmene = wav.read('/media/brehm/Data/MasterMoth/Esitgmene/Pk13060008_m.wav')[1]
+    y = estigmene[835000:996000]
+    freqs_estigmene, power_estigmene = signal.welch(y, fs, scaling='spectrum')
+    freqs_estigmene = freqs_estigmene / 1000
+
+    carales = [[]] * len(carales_calls)
+    freqs = [[]] * len(carales_calls)
+    power = [[]] * len(carales_calls)
+
+    for j in range(len(carales_calls)):
+        carales[j] = wav.read('/media/brehm/Data/MasterMoth/stimuli_backup/naturalmothcalls/' + carales_calls[j] + '.wav')[1]
+        x = carales[j]
+        # plt.plot(x)
+        freqs[j], power[j] = signal.welch(x, fs, scaling='spectrum')
+        freqs[j] = freqs[j] / 1000
+
+    # plt.show()
+    # mean_power = [[]] * 3
+    # mean_power[0] = np.mean(np.array(power[:2]), axis=0)
+    # mean_power[1] = np.mean(np.array(power[2:4]), axis=0)
+    # mean_power[2] = np.mean(np.array(power[4:6]), axis=0)
+
+    mean_power = np.mean(np.array(power), axis=0)
+    std_power = np.std(np.array(power), axis=0)
+    error_up = mean_power + std_power
+    error_down = mean_power - std_power
+    idx = error_down < 0
+    error_down[idx] = 1
+
+    # plt.semilogy(freqs, power)
+    # plt.xlim(0, 100)
+    # plt.xticks(np.arange(0, 100, 20))
+    # plt.show()
+    # f, t, Sxx = signal.spectrogram(x, fs, nfft=512, window=signal.get_window('hamming', 250), noverlap=200)
+    # plt.pcolormesh(t, f, Sxx, cmap='Spectral', vmin=100, vmax=1500)
+    # plt.colorbar()
+    # plt.show()
+    # f, Pxx_den = signal.periodogram(x, fs, window=signal.get_window('hamming', 250), nfft=512, return_onesided=True, scaling='spectrum', axis=-1)
+    # plt.specgram(carales[1], NFFT=256, Fs=2, Fc=0, window=np.hanning, noverlap=128, cmap=None, xextent=None, pad_to=None, sides='default', scale_by_freq=None, mode='default', scale='default')
+    # plt.specgram(carales[1],  NFFT=256, Fs=480*1000, Fc=0, window=np.hanning, noverlap=128)
 
     fi_20_estigmene = [[]] * len(datasets_20_estigmene)
     for i in range(len(datasets_20_estigmene)):
@@ -1782,10 +1978,20 @@ if FI_OVERANIMALS:
     mf.plot_settings()
     subfig_caps = 12
     fig = plt.figure()
-    ax1 = plt.subplot(221)
-    ax2 = plt.subplot(222)
-    ax3 = plt.subplot(223)
-    ax4 = plt.subplot(224)
+    ax1_power = plt.subplot(321)
+    ax2_power = plt.subplot(322)
+    ax1 = plt.subplot(323)
+    ax2 = plt.subplot(324)
+    ax3 = plt.subplot(325)
+    ax4 = plt.subplot(326)
+
+    # Plot Power Spectrum of calls
+    # ax1_power.fill_between(freqs[0], mean_power-std_power, mean_power+std_power, facecolors='k', alpha=0.5)
+    ax1_power.semilogy(freqs_estigmene, power_estigmene, 'k')
+    ax2_power.fill_between(freqs[0], mean_power-std_power, mean_power+std_power, facecolors='k', alpha=0.5)
+    ax2_power.semilogy(freqs[0], mean_power, 'k')
+    ax1_power.set_ylabel('Power')
+
     for k in range(len(fi_20_estigmene)):
         if k == 0:
             ax1.plot(fi_20_estigmene[k][0], fi_20_estigmene[k][1], '-', label='20 ms', color='k')
@@ -1812,17 +2018,19 @@ if FI_OVERANIMALS:
     # Subplot Letters
     label_x_pos = -0.2
     label_y_pos = 1.1
-    ax1.text(label_x_pos, label_y_pos, 'a', transform=ax1.transAxes, size=subfig_caps)
-    ax2.text(label_x_pos, label_y_pos, 'b', transform=ax2.transAxes, size=subfig_caps)
-    ax3.text(label_x_pos, label_y_pos, 'c', transform=ax3.transAxes, size=subfig_caps)
-    ax4.text(label_x_pos, label_y_pos, 'd', transform=ax4.transAxes, size=subfig_caps)
+    ax1_power.text(label_x_pos, label_y_pos, 'a', transform=ax1_power.transAxes, size=subfig_caps)
+    ax2_power.text(label_x_pos, label_y_pos, 'b', transform=ax2_power.transAxes, size=subfig_caps)
+    ax1.text(label_x_pos, label_y_pos, 'c', transform=ax1.transAxes, size=subfig_caps)
+    ax2.text(label_x_pos, label_y_pos, 'd', transform=ax2.transAxes, size=subfig_caps)
+    ax3.text(label_x_pos, label_y_pos, 'e', transform=ax3.transAxes, size=subfig_caps)
+    ax4.text(label_x_pos, label_y_pos, 'f', transform=ax4.transAxes, size=subfig_caps)
 
     ax1.legend(frameon=False)
     ax3.legend(frameon=False)
     ax4.legend(frameon=False)
     y_min = 20
     y_max = 100
-    y_step = 10
+    y_step = 20
     x_min = 0
     x_max = 100
     x_step = 20
@@ -1835,6 +2043,13 @@ if FI_OVERANIMALS:
     ax3.set_yticks(np.arange(y_min, y_max+y_step, y_step))
     ax4.set_ylim(y_min, y_max)
     ax4.set_yticks(np.arange(y_min, y_max+y_step, y_step))
+
+    ax1_power.set_ylim([1e2, 1e6])
+    ax2_power.set_ylim([1e2, 1e6])
+    ax1_power.set_xlim(x_min, x_max)
+    ax1_power.set_xticks(np.arange(x_min, x_max+x_step, x_step))
+    ax2_power.set_xlim(x_min, x_max)
+    ax2_power.set_xticks(np.arange(x_min, x_max + x_step, x_step))
 
     ax1.set_xlim(x_min, x_max)
     ax1.set_xticks(np.arange(x_min, x_max+x_step, x_step))
@@ -2039,7 +2254,310 @@ if PLOT_CORRS:
     fig.savefig(figname)
     plt.close(fig)
 
+if PLOT_VR_TAUVSDUR_OVERALL:
+    # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
+    # data_name = '2018-02-09-aa'
+    # data_name = '2018-02-16-aa'
+    # data_name = datasets[-1]
+    datasets = ['2018-02-20-aa', '2018-02-16-aa', '2018-02-09-aa']
+    vr_series = [[]] * len(datasets)
+    vr_single = [[]] * len(datasets)
 
+    for k in range(len(datasets)):
+        data_name = datasets[k]
+        path_names = mf.get_directories(data_name=data_name)
+        p = path_names[1]
+
+        vr_series[k] = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '.npy')
+        vr_single[k] = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '.npy')
+
+    vr_series_mean = np.mean(vr_series, axis=0)
+    vr_series_std = np.std(vr_series, axis=0)
+    vr_single_mean = np.mean(vr_single, axis=0)
+    vr_single_std = np.std(vr_single, axis=0)
+
+    mf.plot_settings()
+    # Create Grid
+    grid = matplotlib.gridspec.GridSpec(nrows=1, ncols=43)
+    fig = plt.figure(figsize=(5.9, 2.9))
+    ax1 = plt.subplot(grid[0:19])
+    ax2 = plt.subplot(grid[21:40])
+    ax3 = plt.subplot(grid[41])
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.05
+    label_y_pos = 0.90
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+
+    # Image Plot
+    x_single = list(np.arange(0, 255, 5))
+    x_single[0] = 1
+    x_series = list(np.arange(0, 2550, 50))
+    x_series[0] = 10
+    y = taus
+    X_single, Y_single = np.meshgrid(x_single, y)
+    X_series, Y_series = np.meshgrid(x_series, y)
+
+    im1 = ax1.pcolormesh(X_series, Y_series, vr_series_mean.T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
+    im2 = ax2.pcolormesh(X_series, Y_series, vr_series_std.T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
+
+    # im1 = ax1.pcolormesh(X_single, Y_single, vr_single_mean.T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
+    # im2 = ax2.pcolormesh(X_single, Y_single, vr_single_std.T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
+
+    # grid[0].axhline(200, color='black', linestyle=':', linewidth=0.5)
+
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax2.set_xscale('log')
+    ax2.set_yscale('log')
+
+    # Axes Limits
+    ax2.set_yticks([])
+
+    # Colorbar
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+    cb1 = matplotlib.colorbar.ColorbarBase(ax3, cmap='jet', norm=norm)
+    cb1.set_label('Correct')
+    # cbar2 = plt.colorbar(im2, ticks=np.arange(0, 1.1, 0.2))
+    # cbar2.ax.set_ylabel('Correct', rotation=270, labelpad=10)
+    # cbar2.solids.set_rasterized(True)  # Removes white lines
+
+    # Axes Labels
+    ax1.set_ylabel('Tau [ms]')
+    fig.text(0.5, 0.075, 'Spike train duration [ms]', ha='center', fontdict=None)
+
+    # Subfig Caps
+    ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+                 color='black')
+    ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+                 color='black')
+
+    # fig.set_size_inches(5.9, 1.9)
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+    figname = '/media/brehm/Data/MasterMoth/figs/VanRossum_TauVSDur_series_overall.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
+
+if PLOT_CORRECT_OVERALL:
+    # data_name = '2018-02-09-aa'
+    # data_name = '2018-02-15-aa'
+    # data_name = datasets[-1]
+    datasets = ['2018-02-20-aa', '2018-02-16-aa', '2018-02-09-aa']
+    matches = [[]] * len(datasets)
+    rand_matches = [[]] * len(datasets)
+
+    for kk in range(len(datasets)):
+        data_name = datasets[kk]
+        path_names = mf.get_directories(data_name=data_name)
+        print(data_name)
+        p = path_names[1]
+
+        matches[kk] = np.load(p + 'distances_correct_' + stim_type + '.npy')
+        rand_matches[kk] = np.load(p + 'distances_rand_correct_' + stim_type + '.npy')
+
+    matches_mean = np.mean(matches, axis=0)
+    matches_std = np.std(matches, axis=0) / np.sqrt(len(datasets))
+    rand_matches_mean = np.mean(rand_matches, axis=0)
+    rand_matches_std = np.std(rand_matches, axis=0) / np.sqrt(len(datasets))
+
+    # Plot
+    mf.plot_settings()
+    # fig = plt.figure(figsize=(5.9, 3.9))
+    fig, ax = plt.subplots()
+
+    marks = ['.', 'o', 'v', 's', '.']
+    cc = ['0', 'orangered', 'navy', 'teal', '0']
+    cc_e = ['0.8', 'orangered', 'navy', 'teal', '0.8']
+    styles = [':', '-', '-', '-', '--']
+    for k in range(len(profs)):
+        # ax.errorbar(duration, matches_mean, yerr=matches_std, marker=marks[k], label=profs[k], color=cc[k], linestyle=styles[k], markersize=3)
+        ax.errorbar(duration, matches_mean[:, k], yerr=matches_std[:, k], marker='', color=cc[k],
+                    linestyle='', ecolor=cc[k], alpha=0.5)
+        ax.plot(duration, matches_mean[:, k], marker=marks[k], label=profs[k], color=cc[k], linestyle=styles[k], markersize=3)
+
+
+    ax.plot(duration, rand_matches_mean[:, 1], 'k', linewidth=2, label='Random')
+    # ax.errorbar(duration, rand_matches_mean[:, 1], yerr=rand_matches_std[:, 1], color='k', linewidth=2, label='Random')
+    rand_mean = np.round(np.mean(rand_matches_mean[:, 1]), 2)
+    # ax.text(2000, 0.1, 'random mean = ' + str(rand_mean), size=6, color='black')
+
+    ax.set_xlabel('Spike train duration [ms]')
+    ax.set_ylabel('Correct')
+    ax.set_yticks(np.arange(0, 1.1, 0.2))
+    ax.set_ylim(0, 1)
+    if stim_length == 'series':
+        ax.text(2000, 0.1, 'random mean = ' + str(rand_mean), size=6, color='black')
+        ax.set_xticks(np.arange(0, duration[-1]+100, 500))
+        ax.set_xlim(-0.2, duration[-1]+100)
+    if stim_length == 'single':
+        ax.text(200, 0.07, 'random mean = ' + str(rand_mean), size=6, color='black')
+        ax.set_xticks(np.arange(0, duration[-1] + 10, 50))
+        ax.set_xlim(-0.2, duration[-1] + 10)
+    sns.despine()
+    ax.legend(frameon=False)
+    # Save Plot to HDD
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.4, hspace=0.4)
+    fig.set_size_inches(5.9, 2.9)
+    figname = '/media/brehm/Data/MasterMoth/figs/Distances_Correct_' + stim_type + '_overall.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
+    print('Distances Matrix Plot saved')
+
+if PLOT_D_RATIOS_OVERALL:
+    datasets = ['2018-02-20-aa', '2018-02-16-aa', '2018-02-09-aa']
+    ratios_isi = [[]] * len(datasets)
+    ratios_sync = [[]] * len(datasets)
+
+    for kk in range(len(datasets)):
+        data_name = datasets[kk]
+        path_names = mf.get_directories(data_name=data_name)
+        p = path_names[1]
+        ratios_isi[kk] = np.load(p + 'ISI_Ratios_' + stim_type + '.npy')
+        ratios_sync[kk] = np.load(p + 'SYNC_Ratios_' + stim_type + '.npy')
+
+    ratios_isi_mean = np.mean(ratios_isi, axis=0)
+    ratios_isi_std = np.std(ratios_isi, axis=0)
+    ratios_sync_mean = np.mean(ratios_sync, axis=0)
+    ratios_sync_std = np.std(ratios_sync, axis=0)
+
+    # Plot
+    mf.plot_settings()
+    if stim_length == 'series':
+        x_end = 2500 + 100
+        x_step = 500
+    if stim_length == 'single':
+        x_end = 250 + 10
+        x_step = 50
+
+    # Create Grid
+    grid = matplotlib.gridspec.GridSpec(nrows=2, ncols=2)
+    fig = plt.figure(figsize=(5.9, 2.9))
+    ax1 = plt.subplot(grid[0])
+    ax2 = plt.subplot(grid[1])
+    ax3 = plt.subplot(grid[2])
+    ax4 = plt.subplot(grid[3])
+
+    ax1.plot(duration, ratios_isi_mean[:, 0], color='k', marker='', label='within')
+    ax1.fill_between(duration, ratios_isi_mean[:, 0]-ratios_isi_mean[:, 1], ratios_isi_mean[:, 0]+ratios_isi_mean[:, 1], facecolors='k', alpha=0.25)
+    # ax1.errorbar(duration, ratios_isi_mean[:, 0], yerr=ratios_isi_mean[:, 1], color='k', marker='', label='within')
+    # ax1.errorbar(duration, ratios_isi_mean[:, 2], yerr=ratios_isi_std[:, 2], color='blue', marker='', label='between')
+    ax1.fill_between(duration, ratios_isi_mean[:, 2]-ratios_isi_std[:, 2], ratios_isi_mean[:, 2]+ratios_isi_std[:, 2], facecolors='blue', alpha=0.25)
+    ax1.plot(duration, ratios_isi_mean[:, 2], '-', label='between', color='blue')
+
+    ax1.set_ylim(0, 1)
+    ax1.set_yticks(np.arange(0, 1.1, 0.2))
+    ax1.set_xticklabels([])
+    ax1.set_ylabel('ISI Distance')
+    ax1.set_xlim(0, x_end)
+    ax1.set_xticks(np.arange(0, x_end, x_step))
+
+    ax3.plot(duration, ratios_isi_mean[:, 3], 'r-', label='ratio')
+    ax3.fill_between(duration, ratios_isi_mean[:, 3]-ratios_isi_std[:, 3], ratios_isi_mean[:, 3]+ratios_isi_std[:, 3], facecolors='red', alpha=0.25)
+    ax3.set_ylim(1, 3)
+    ax3.set_yticks(np.arange(1, 3.1, 0.5))
+    ax3.set_ylabel('Ratio')
+    ax3.set_xlim(0, x_end)
+    ax3.set_xticks(np.arange(0, x_end, x_step))
+
+    ax2.plot(duration, ratios_sync_mean[:, 0], color='k', marker='', label='within')
+    ax2.fill_between(duration, ratios_sync_mean[:, 0] - ratios_sync_mean[:, 1],
+                     ratios_sync_mean[:, 0] + ratios_sync_mean[:, 1], facecolors='k', alpha=0.25)
+    ax2.fill_between(duration, ratios_sync_mean[:, 2] - ratios_sync_std[:, 2],
+                     ratios_sync_mean[:, 2] + ratios_sync_std[:, 2], facecolors='blue', alpha=0.25)
+    ax2.plot(duration, ratios_sync_mean[:, 2], '-', label='between', color='blue')
+
+    # ax2.errorbar(duration, ratios_sync_mean[:, 0], yerr=ratios_sync_mean[:, 1], color='k', marker='', label='within')
+    # ax2.errorbar(duration, ratios_sync_mean[:, 2], yerr=ratios_sync_std[:, 2], color='blue', marker='', label='between')
+    # # ax2.plot(duration, ratios_sync[:, 2], '-', label='between', color='blue')
+    ax2.set_ylim(0, 1)
+    ax2.set_yticks(np.arange(0, 1.1, 0.2))
+    ax2.set_xticklabels([])
+    ax2.set_yticklabels([])
+    ax2.set_ylabel('SYNC Value')
+    ax2.set_xlim(0, x_end)
+    ax2.set_xticks(np.arange(0, x_end, x_step))
+
+    ax4.plot(duration, 1/ratios_sync_mean[:, 3], 'r-', label='ratio')
+    ax4.fill_between(duration, (1/ratios_sync_mean[:, 3])-(ratios_sync_std[:, 3]), (1/ratios_sync_mean[:, 3])+(ratios_sync_std[:, 3]), facecolors='red', alpha=0.25)
+    ax4.set_ylim(1, 3)
+    ax4.set_yticks(np.arange(1, 3.1, 0.5))
+    ax4.set_yticklabels([])
+    ax4.set_xlim(0, x_end)
+    ax4.set_xticks(np.arange(0, x_end, x_step))
+    # ax4.set_ylabel('Ratio')
+
+
+    # Axes Labels
+    fig.text(0.5, 0.055, 'Spike train duration [ms]', ha='center', fontdict=None)
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = -0.15
+    label_y_pos = 1.15
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+                 color='black')
+    ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+                 color='black')
+    ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
+             color='black')
+    ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
+             color='black')
+    sns.despine()
+
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
+    figname = '/media/brehm/Data/MasterMoth/figs/Distance_Ratios_' + stim_type + '_overall.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
+
+
+if CALL_STATS:
+
+    stims = ['naturalmothcalls/BCI1062_07x07.wav',
+             'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+             'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+             'naturalmothcalls/carales_12x12_01.wav',
+             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+             'naturalmothcalls/creatonotos_01x01.wav',
+             'naturalmothcalls/elysius_conspersus_11x11.wav',
+             'naturalmothcalls/epidesma_oceola_06x06.wav',
+             'naturalmothcalls/eucereon_appunctata_13x13.wav',
+             'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+             'naturalmothcalls/eucereon_obscurum_14x14.wav',
+             'naturalmothcalls/gl005_11x11.wav',
+             'naturalmothcalls/gl116_05x05.wav',
+             'naturalmothcalls/hypocladia_militaris_09x09.wav',
+             'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+             'naturalmothcalls/idalus_daga_18x18.wav',
+             'naturalmothcalls/melese_12x12_01_PK1297.wav',
+             'naturalmothcalls/neritos_cotes_10x10.wav',
+             'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+             'naturalmothcalls/syntrichura_12x12.wav']
+
+    call_stats = []
+    file_pathname = '/media/brehm/Data/MasterMoth/stimuli_backup/'
+
+    for k in range(len(stims)):
+        file_name = file_pathname + stims[k][0:-4] + '/call_stats.xls'
+        try:
+            with open(file_name, newline='') as f:
+                df = pd.read_excel(file_name)
+                call_stats.append(df.values[0])
+            with open('/media/brehm/Data/MasterMoth/outfile.csv', 'a', newline='') as csvfile:
+                writer = csv.writer(csvfile, delimiter=' ')
+                a = list(call_stats[k])
+                a.insert(0, stims[k][17:-10])
+                writer.writerow(a)
+        except:
+            print(stims[k] + ' not found')
+            with open('/media/brehm/Data/MasterMoth/outfile.csv', 'a', newline='') as csvfile:
+                writer = csv.writer(csvfile, delimiter=' ')
+                a = list([np.nan] * 18)
+                a.insert(0, stims[k][17:-10])
+                writer.writerow(a)
+    embed()
+    exit()
 print('Analysis done!')
 print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
 
