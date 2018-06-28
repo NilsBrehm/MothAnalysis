@@ -36,7 +36,7 @@ start_time = time.time()
 
 CALLS = True
 CALL_STRUC = False
-CALL_STATS = True
+CALL_STATS = False
 
 Bootstrapping = False
 
@@ -91,7 +91,7 @@ PULSE_TRAIN_ISI = False
 
 # FI Stuff
 FIFIELD = False
-FI_OVERANIMALS = False
+FI_OVERANIMALS = True
 
 # Rate and SYNC Correlation with Stimnulus (Rect and Pulses)
 PLOT_CORRS = False
@@ -568,7 +568,7 @@ if POISSON:
 # Analyse FIField data stored on HDD
 if FIFIELD:
     save_analysis = False
-    species = 'Estigmene'
+    species = 'Carales'
     durs = 20
 
     if species is 'Estigmene':
@@ -634,22 +634,38 @@ if FIFIELD:
         for ff in tqdm(freqs, desc='FI Curves'):
             i += 1
             # Fit Boltzman
-            x_d, y_d, params_d, perr_d = mf.fit_function(d_isi[ff][:, 0], d_isi[ff][:, 2])
-            x_r, y_r, params_r, perr_r = mf.fit_function(spike_count[ff][:, 0], spike_count[ff][:, 1])
-            x_inst, y_inst, params_inst, perr_inst = mf.fit_function(instant_rate[ff][:, 0], instant_rate[ff][:, 1])
-            x_conv, y_conv, params_conv, perr_conv = mf.fit_function(conv_rate[ff][:, 0], conv_rate[ff][:, 1])
+            x_d, y_d, params_d, perr_d, y0_d = mf.fit_function(d_isi[ff][:, 0], d_isi[ff][:, 2])
+            x_r, y_r, params_r, perr_r, y0_r = mf.fit_function(spike_count[ff][:, 0], spike_count[ff][:, 1])
+            # x_inst, y_inst, params_inst, perr_inst, y0_inst = mf.fit_function(instant_rate[ff][:, 0], instant_rate[ff][:, 1])
+            x_conv, y_conv, params_conv, perr_conv, y0_conv = mf.fit_function(conv_rate[ff][:, 0], conv_rate[ff][:, 1])
 
             # Compute Fitting Error
             # print(str(ff) + ' kHz: Summed Error = ' + str(perr_conv[2]+perr_conv[1]))
-            slope_conv = params_conv[-1]
-            slope_d = params_d[-1]
-            slope_inst = params_inst[-1]
-            slope_r = params_r[-1]
+            k_conv = params_conv[-1]
+            k_d = params_d[-1]
+            # k_inst = params_inst[-1]
+            k_r = params_r[-1]
+
+            I0_d = params_d[-2]
+            I0_r = params_r[-2]
+            # I0_inst = params_inst[-2]
+            I0_conv = params_conv[-2]
+
+            slope_d = (params_d[1]-params_d[0])*k_d / 4
+            slope_r = (params_r[1]-params_r[0])*k_r / 4
+            # slope_inst = (params_inst[1]-params_inst[0])*k_inst / 4
+            slope_conv = (params_conv[1]-params_conv[0])*k_conv / 4
+
+            c_d = y0_d / slope_d - I0_d
+            c_r = y0_r / slope_r - I0_r
+            # c_inst = y0_inst / slope_inst - I0_inst
+            c_conv = y0_conv / slope_conv - I0_conv
+
 
             summed_error_conv = perr_conv[1]
             summed_error_d = perr_d[1]
             summed_error_r = perr_r[1]
-            summed_error_inst = perr_inst[1]
+            # summed_error_inst = perr_inst[1]
             top_bottom_d = params_d[1] - params_d[0]
 
             # if ff == 5:
@@ -671,41 +687,62 @@ if FIFIELD:
             # data_th_r[i] = th_r
 
             # Estimate Thresholds from Boltzman Fit
-            th_d_fit = params_d[2]
-            th_r_fit = params_r[2]
-            th_inst_fit = params_inst[2]
-            th_conv_fit = params_conv[2]
+            th_d_fit = I0_d - (2/k_d)
+            th_r_fit = I0_r - (2/k_r)
+            # th_inst_fit = I0_inst - (2/k_inst)
+            th_conv_fit = I0_conv - (2/k_conv)
+
+            # Linear approximation
+            d_approx = slope_d * (x_d + c_d)
+            r_approx = slope_r * (x_r + c_r)
+            # inst_approx = slope_inst * (x_inst + c_inst)
+            conv_approx = slope_conv * (x_conv + c_conv)
+
+            # # V50
+            # th_d_fit = params_d[2]
+            # th_r_fit = params_r[2]
+            # th_inst_fit = params_inst[2]
+            # th_conv_fit = params_conv[2]
 
             limit_d = 0.4
             limit_r = np.min(y_r) + 2
             limit_conv = np.min(y_conv) * 1.5
-            limit_inst = np.min(y_inst) * 1.5
+            # limit_inst = np.min(y_inst) * 1.5
 
             no_th = [False] * 4
+            control_for_no_response = True
+            if control_for_no_response:
+                if np.max(y_d) < limit_d or np.max(y_d) <= 0 or slope_d <= 0:
+                    estimated_th_d[i] = np.max(d_isi[ff][:, 0])
+                    no_th[0] = True
+                else:
+                    estimated_th_d[i] = th_d_fit
 
-            if np.max(y_d) < limit_d or np.max(y_d) <= 0:
-                estimated_th_d[i] = np.max(d_isi[ff][:, 0])
-                no_th[0] = True
+                if np.max(y_r) < limit_r or np.max(y_r) <= 0 or slope_r <= 0:
+                    estimated_th_r[i] = np.max(spike_count[ff][:, 0])
+                    no_th[1] = True
+                else:
+                    estimated_th_r[i] = th_r_fit
+
+                # if np.max(y_inst) < limit_inst or np.max(y_inst) <= 0:
+                #     estimated_th_inst[i] = np.max(instant_rate[ff][:, 0])
+                #     no_th[2] = True
+                # else:
+                #     estimated_th_inst[i] = th_inst_fit
+
+                if np.max(y_conv) < limit_conv or np.max(y_conv) <= 0 or slope_conv <= 0:
+                    estimated_th_conv[i] = np.max(conv_rate[ff][:, 0])
+                    no_th[3] = True
+                else:
+                    estimated_th_conv[i] = th_conv_fit
             else:
                 estimated_th_d[i] = th_d_fit
-
-            if np.max(y_r) < limit_r or np.max(y_r) <= 0:
-                estimated_th_r[i] = np.max(spike_count[ff][:, 0])
-                no_th[1] = True
-            else:
                 estimated_th_r[i] = th_r_fit
-
-            if np.max(y_inst) < limit_inst or np.max(y_inst) <= 0:
-                estimated_th_inst[i] = np.max(instant_rate[ff][:, 0])
-                no_th[2] = True
-            else:
-                estimated_th_inst[i] = th_inst_fit
-
-            if np.max(y_conv) < limit_conv or np.max(y_conv) <= 0:
-                estimated_th_conv[i] = np.max(conv_rate[ff][:, 0])
-                no_th[3] = True
-            else:
                 estimated_th_conv[i] = th_conv_fit
+
+            # if ff == 5:
+            #     embed()
+            #     exit()
 
             # Plot FI Curves
             x_min = 10
@@ -719,9 +756,10 @@ if FIFIELD:
                 fig = plt.figure()
                 
                 ax1 = plt.subplot(2, 2, 3)
-                ax1.plot(d_isi[ff][:, 0], d_isi[ff][:, 3], 'ko', label='sync')
+                ax1.plot(d_isi[ff][:, 0], d_isi[ff][:, 2], 'ko', label='sync')
                 ax1.plot(x_d, y_d, 'k')
-                ax1.plot([th_d_fit, th_d_fit], [0, 1], 'k--')
+                # ax1.plot([th_d_fit, th_d_fit], [0, 1], 'k--')
+                ax1.plot(x_d, d_approx, 'k--')
                 ax1.set_ylabel('SYNC value')
                 ax1.set_ylim(0, 1)
                 ax1.text(label_x_pos, label_y_pos, 'c', transform=ax1.transAxes, size=subfig_caps)
@@ -732,7 +770,8 @@ if FIFIELD:
                 y_max = 30
                 ax2.errorbar(spike_count[ff][:, 0], spike_count[ff][:, 1], yerr=spike_count[ff][:, 2], marker='o', linestyle='', color='k', label='spike_count')
                 ax2.plot(x_r, y_r, 'k')
-                ax2.plot([th_r_fit, th_r_fit], [0, y_max], 'k--')
+                # ax2.plot([th_r_fit, th_r_fit], [0, y_max], 'k--')
+                ax2.plot(x_r, r_approx, 'k--')
                 ax2.set_ylabel('Spike count')
                 ax2.set_ylim(0, y_max)
                 ax2.set_yticks(np.arange(0, y_max+5, 5))
@@ -758,7 +797,8 @@ if FIFIELD:
                 y_max = 600
                 ax4.errorbar(conv_rate[ff][:, 0], conv_rate[ff][:, 1], yerr=conv_rate[ff][:, 2], marker='o', linestyle='', color='k', label='firing rate')
                 ax4.plot(x_conv, y_conv, 'k')
-                ax4.plot([th_conv_fit, th_conv_fit], [0, y_max], 'k--')
+                # ax4.plot([th_conv_fit, th_conv_fit], [0, y_max], 'k--')
+                ax4.plot(x_conv, conv_approx, 'k--')
                 # ax4.errorbar(instant_rate[ff][:, 0], instant_rate[ff][:, 1], yerr=instant_rate[ff][:, 2], marker='s', linestyle='', color='0.25', label='instantaneous rate')
                 # ax4.plot(x_inst, y_inst, '0.25')
                 # ax4.plot([th_inst_fit, th_inst_fit], [0, np.max(instant_rate[ff][:, 1])], '--', color='0.25')
@@ -1897,7 +1937,7 @@ if FI_OVERANIMALS:
     # Load data
     # all_data = [freqs, estimated_th_conv, estimated_th_d, estimated_th_r, estimated_th_inst]
     save_fig = True
-    species = 'Estigmene'
+    species = 'Carales'
 
     # if species is 'Estigmene':
         # Estigmene:
@@ -1906,7 +1946,9 @@ if FI_OVERANIMALS:
     # datasets_50 = ['2017-10-26-aa', '2017-12-05-aa']  # 50 ms
     # elif species is 'Carales':
         # Carales:
+
     datasets_20_carales = ['2017-11-01-aa', '2017-11-02-aa', '2017-11-02-ad', '2017-11-03-aa']  # 20 ms
+
     # datasets_50 = ['2017-10-30-aa', '2017-10-31-aa', '2017-10-31-ac']  # 50 ms
     # datasets_05 = ['2017-10-23-ah']  # 5 ms
 
@@ -1920,6 +1962,12 @@ if FI_OVERANIMALS:
     freqs_estigmene, power_estigmene = signal.welch(y, fs, scaling='spectrum')
     freqs_estigmene = freqs_estigmene / 1000
 
+    # bat = wav.read('/media/brehm/Data/MasterMoth/stimuli_backup/batcalls/Myotis_bechsteinii_1_n.wav')
+    # y_bat = bat[1]
+    # fs_bat = bat[0]
+    # freqs_bat, power_bat = signal.welch(y_bat, fs_bat, scaling='spectrum')
+    # freqs_bat = freqs_bat / 1000
+
     carales = [[]] * len(carales_calls)
     freqs = [[]] * len(carales_calls)
     power = [[]] * len(carales_calls)
@@ -1930,6 +1978,24 @@ if FI_OVERANIMALS:
         # plt.plot(x)
         freqs[j], power[j] = signal.welch(x, fs, scaling='spectrum')
         freqs[j] = freqs[j] / 1000
+
+    bat_calls = ['Barbastella_barbastellus_1_n', 'Eptesicus_nilssonii_1_s', 'Myotis_bechsteinii_1_n',
+                 'Myotis_brandtii_1_n', 'Myotis_nattereri_1_n', 'Nyctalus_leisleri_1_n', 'Nyctalus_noctula_2_s',
+                 'Pipistrellus_pipistrellus_1_n', 'Pipistrellus_pygmaeus_2_n', 'Rhinolophus_ferrumequinum_1_n',
+                 'Vespertilio_murinus_1_s']
+    bats = [[]] * len(bat_calls)
+    freqs_bats = [[]] * len(bat_calls)
+    power_bats = [[]] * len(bat_calls)
+    for j in range(len(bat_calls)):
+        bats[j] = wav.read('/media/brehm/Data/MasterMoth/stimuli_backup/batcalls/' + bat_calls[j] + '.wav')
+        fs = bats[j][0]
+        x = bats[j][1]
+        # plt.plot(x)
+        freqs_bats[j], power_bats[j] = signal.welch(x, fs, scaling='spectrum')
+        freqs_bats[j] = freqs_bats[j] / 1000
+    power_bats_mean = np.median(np.array(power_bats), axis=0)
+    power_bats_std = np.std(np.array(power_bats), axis=0)
+    power_bats_mean[freqs_bats[0] <= 5] = 0
 
     # plt.show()
     # mean_power = [[]] * 3
@@ -1987,10 +2053,17 @@ if FI_OVERANIMALS:
 
     # Plot Power Spectrum of calls
     # ax1_power.fill_between(freqs[0], mean_power-std_power, mean_power+std_power, facecolors='k', alpha=0.5)
-    ax1_power.semilogy(freqs_estigmene, power_estigmene, 'k')
+    ax1_power.semilogy(freqs_bats[0], power_bats_mean, 'k:', label='Bats')
+    ax2_power.semilogy(freqs_bats[0], power_bats_mean, 'k:', label='Bats')
+
+    # ax1_power.fill_between(freqs[0], power_bats_mean-power_bats_std, power_bats_mean+power_bats_std, facecolors='r', alpha=0.5)
+
+    ax1_power.semilogy(freqs_estigmene, power_estigmene, 'k', label='Estigmene')
     ax2_power.fill_between(freqs[0], mean_power-std_power, mean_power+std_power, facecolors='k', alpha=0.5)
-    ax2_power.semilogy(freqs[0], mean_power, 'k')
+    ax2_power.semilogy(freqs[0], mean_power, 'k', label='Carales')
     ax1_power.set_ylabel('Power')
+    ax1_power.legend(frameon=False)
+    ax2_power.legend(frameon=False)
 
     for k in range(len(fi_20_estigmene)):
         if k == 0:
@@ -2011,7 +2084,7 @@ if FI_OVERANIMALS:
     lin_styles = ['-', '--', ':', '-.']
     cc = ['0.5', 'k', 'k', 'k']
     method_labels = ['convolved rate', 'SYNC', 'spike count', 'instantaneous rate']
-    for j in range(4):
+    for j in range(3):
         ax3.plot(fi_20_estigmene[0][0], fi_20_estigmene[0][j+1], lin_styles[j], color=cc[j], label=method_labels[j])
         ax4.plot(fi_20_carales[0][0], fi_20_carales[0][j + 1], lin_styles[j], color=cc[j], label=method_labels[j])
 
@@ -2028,7 +2101,7 @@ if FI_OVERANIMALS:
     ax1.legend(frameon=False)
     ax3.legend(frameon=False)
     ax4.legend(frameon=False)
-    y_min = 20
+    y_min = 0
     y_max = 100
     y_step = 20
     x_min = 0
@@ -2044,8 +2117,8 @@ if FI_OVERANIMALS:
     ax4.set_ylim(y_min, y_max)
     ax4.set_yticks(np.arange(y_min, y_max+y_step, y_step))
 
-    ax1_power.set_ylim([1e2, 1e6])
-    ax2_power.set_ylim([1e2, 1e6])
+    ax1_power.set_ylim([1e0, 1e6])
+    ax2_power.set_ylim([1e0, 1e6])
     ax1_power.set_xlim(x_min, x_max)
     ax1_power.set_xticks(np.arange(x_min, x_max+x_step, x_step))
     ax2_power.set_xlim(x_min, x_max)

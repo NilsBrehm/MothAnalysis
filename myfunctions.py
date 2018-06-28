@@ -534,7 +534,8 @@ def poisson_vs_duration(ts, vs_tmax, rates, mode):
 def fit_function(x_fit, data):
     def func(xx, bottom, top, V50, Slope):
         # return a * np.exp(-d * x1) + c
-        return bottom + ((top-bottom)/(1+np.exp((V50-xx)/Slope)))
+        # return bottom + ((top-bottom)/(1+np.exp((V50-xx)/Slope)))
+        return bottom + ((top-bottom)/(1+np.exp(-Slope*(xx-V50))))
 
     # Check for Nans
     if np.isnan(data).all():
@@ -556,8 +557,9 @@ def fit_function(x_fit, data):
     popt, pcov = curve_fit(func, x_fit, data, p0=p0, maxfev=10000,  bounds=bounds)
     x = np.linspace(np.min(x_fit), np.max(x_fit), 1000)
     y = func(x, *popt)
+    y0 = func(popt[-2], *popt)
     perr = np.sqrt(np.diag(pcov))
-    return x, y, popt, perr
+    return x, y, popt, perr, y0
 
 
 def poisson_vs_duration2(ts, vs_rates, vs_samples, rates, nsamples):
