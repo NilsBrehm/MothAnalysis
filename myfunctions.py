@@ -692,7 +692,7 @@ def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_
     marked_spikes = spike_times[idx1]  # First spike in interval 10 ms
     marked_spikes2 = spike_times[idx2]  # Second spike in interval 10 ms
 
-    x_limit = stim_time[-1]
+    x_limit = stim_time[-1]+0.2
     fig = plt.figure(figsize=(12, 8))
     fig_size = (3, 2)
     spike_shapes = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
@@ -1817,15 +1817,17 @@ def get_voltage_trace_gap_spontan(path_names, tag, protocol_name, multi_tag, sea
     for i in tqdm(range(len(mtags)), desc='Get Voltage'):
         # Get tags
         mtag = b.multi_tags[mtags[i]]
-        look_back = 0.5
+        look_back = 0.1
+        look_future = 0.1
         dat = b.data_arrays[mtag.references[0].name]
         dim = dat.dimensions[0]
         trials = len(mtag.positions[:])  # Get number of trials
-        volt = np.zeros((trials, int(np.ceil(mtag.extents[0]*sampling_rate))))  # allocate memory
+        volt = np.zeros((trials, int(np.ceil((mtag.extents[0]+look_future+look_back)*sampling_rate))))  # allocate memory
         for k in range(trials):  # Loop through all trials
             idx = int(dim.index_of(mtag.positions[k] - look_back))
-            idx_extent = int(dim.index_of(mtag.positions[k]))
-            v = dat[idx:idx_extent]
+            idx2 = int(dim.index_of(mtag.positions[k] + mtag.extents[k] + look_future))
+            # idx_extent = int(dim.index_of(mtag.positions[k]))
+            v = dat[idx:idx2]
             # v = mtag.retrieve_data(k, 0)[:]  # Get Voltage for each trial
             volt[k, :len(v)] = v
         voltage.update({tag_list[i]: volt})  # Store Stimulus Name and voltage traces in dict

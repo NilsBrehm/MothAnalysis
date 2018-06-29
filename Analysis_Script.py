@@ -43,7 +43,7 @@ Bootstrapping = False
 # Compute Intervall stuff
 INTERVAL_MAS = False
 INTERVAL_REC = False
-INTERVAL_REC_SPONT = False
+INTERVAL_REC_SPONT = True
 OVERALLVS = False
 
 GAP = False
@@ -91,7 +91,7 @@ PULSE_TRAIN_ISI = False
 
 # FI Stuff
 FIFIELD = False
-FI_OVERANIMALS = True
+FI_OVERANIMALS = False
 
 # Rate and SYNC Correlation with Stimnulus (Rect and Pulses)
 PLOT_CORRS = False
@@ -102,7 +102,7 @@ SELECT = True
 # **********************************************************************************************************************
 # Settings for Spike Detection =========================================================================================
 th_factor = 3
-mph_percent = 2
+mph_percent = 1
 bin_size = 0.001
 # If true show plots (list: 0: spike detection, 1: overview, 2: vector strength)
 show = False
@@ -428,7 +428,7 @@ if INTERVAL_REC_SPONT:
     spont = True
     # good recordings
     datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-04-aa', '2018-02-16-aa']
-    datasets = [datasets[1]]
+    datasets = [datasets[0]]
     vs_order = 2
     old = False
     protocol_name = 'PulseIntervalsRect'
@@ -451,7 +451,6 @@ if INTERVAL_REC_SPONT:
         # mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=[True, True], save_data=True,
         #                      old=old, vs_order=vs_order)
     # mf.plot_cohen(protocol_name, datasets, save_fig=True)
-
 
 if INTERVAL_REC:
     # good recordings
