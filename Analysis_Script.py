@@ -43,12 +43,12 @@ Bootstrapping = False
 # Compute Intervall stuff
 INTERVAL_MAS = False
 INTERVAL_REC = False
-INTERVAL_REC_SPONT = True
+INTERVAL_REC_SPONT = False
 OVERALLVS = False
 
 GAP = False
 SOUND = False
-POISSON = False
+POISSON = True
 
 # Compute Van Rossum Distance
 EPULSES = False
@@ -504,7 +504,7 @@ if INTERVAL_MAS:
     # mf.moth_intervals_analysis(datasets[0])
 
 if POISSON:
-    vs_order = 2
+    vs_order = 1
     mode = 'all'
     pp = np.arange(0.5, 50, 0.5)
 
@@ -2156,7 +2156,6 @@ if OVERALLVS:
     # datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-01-ab', '2017-12-01-ac', '2017-12-05-ab']
     # [female, female, male]
     # datasets = ['2017-11-27-aa', '2017-11-29-aa', '2017-12-05-ab']  # all Estigmene
-
 
     protocol_name = 'PulseIntervalsRect'
     # protocol_name = 'intervals_mas'

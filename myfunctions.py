@@ -581,7 +581,7 @@ def poisson_vs_duration2(ts, vs_rates, vs_samples, rates, nsamples):
     plot_settings()
     fig_size = (1, 2)
     fig = plt.figure()
-    fig.subplots_adjust(left=0.2, top=0.98, bottom=0.2, right=0.98, wspace=0.5, hspace=0.4)
+    fig.subplots_adjust(left=0.2, top=0.9, bottom=0.2, right=0.9, wspace=0.5, hspace=0.4)
     samples_ax = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
     rates_ax = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
 
@@ -589,8 +589,8 @@ def poisson_vs_duration2(ts, vs_rates, vs_samples, rates, nsamples):
     # samples_ax.set_xlabel('Spike Train Duration [ms]')
     samples_ax.set_ylim(0, 1)
     samples_ax.set_xlim(0, 1)
-    samples_ax.set_yticks(np.arange(0, 1.1, 0.5))
-    samples_ax.set_xticks(np.arange(0, 1.1, 0.5))
+    samples_ax.set_yticks(np.arange(0, 1.1, 0.2))
+    samples_ax.set_xticks(np.arange(0, 1.1, 0.2))
     cc = ['0', '0.4', '0.85']
     for k in range(vs_samples.shape[0]):
         vs = np.delete(vs_samples[k], np.where(np.isnan(vs_samples[k])))
@@ -612,16 +612,16 @@ def poisson_vs_duration2(ts, vs_rates, vs_samples, rates, nsamples):
     # rates_ax.set_xlabel('Spike Train Duration [ms]')
     rates_ax.set_ylim(0, 1)
     rates_ax.set_xlim(0, 1)
-    rates_ax.set_yticks(np.arange(0, 1.1, 0.5))
-    rates_ax.set_xticks(np.arange(0, 1.1, 0.5))
+    rates_ax.set_yticks(np.arange(0, 1.1, 0.2))
+    rates_ax.set_xticks(np.arange(0, 1.1, 0.2))
     rates_ax.legend(frameon=False)
     subfig_caps = 12
-    label_x_pos = -0.4
-    label_y_pos = 1.1
+    label_x_pos = -0.3
+    label_y_pos = 1
     samples_ax.text(label_x_pos, label_y_pos, 'a', transform=samples_ax.transAxes, size=subfig_caps)
     rates_ax.text(label_x_pos, label_y_pos, 'b', transform=rates_ax.transAxes, size=subfig_caps)
 
-    fig.text(0.6, 0.02, 'Spike train duration [s]', ha='center', fontdict=None)
+    fig.text(0.55, 0.02, 'Spike train duration [s]', ha='center', fontdict=None)
     sns.despine()
     return 0
 
@@ -679,7 +679,7 @@ def plot_vs_gap(vs, ax, protocol_name):
     return 0
 
 
-def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets,
+def plot_spike_detection_gaps_backup(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets,
                               snippets_removed, th, window, tag_list, stim_time, stim):
     # Find 10 ms Intervals
     fs = 100 * 1000
@@ -740,6 +740,63 @@ def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_
     stim_trace.set_xlim(0, x_limit)
     fig.tight_layout()
     plt.show()
+
+
+def plot_spike_detection_gaps(x, spike_times, spike_times_valley, marked, spike_size, mph_percent, snippets,
+                              snippets_removed, th, window, tag_list, stim_time, stim):
+
+    plot_settings()
+    detect_on = True
+    x_limit = (stim_time[-1] + 0.1) * 1000
+    fig = plt.figure(figsize=(5.9, 3.9))
+    fig_size = (23, 1)
+    stim_trace = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
+    volt_trace = plt.subplot2grid(fig_size, (1, 0), rowspan=10, colspan=1)
+    close_up = plt.subplot2grid(fig_size, (13, 0), rowspan=22, colspan=1)
+
+    # Plot Stimulus ====================================================================================================
+    stim_trace.plot(stim_time*1000, stim, 'k')
+    stim_trace.set_xlim(-100, x_limit)
+    sns.despine(ax=stim_trace,  top=True, right=True, left=True, bottom=True)
+    stim_trace.set_xticks([])
+    stim_trace.set_yticks([])
+
+    # Plot Voltage and detected spikes =================================================================================
+    # plt.figure()
+    fs = 100 * 1000
+    t = np.arange(-0.1, (len(x) / fs)-0.1, 1 / fs)
+    volt_trace.plot(t*1000, x, 'k')
+    if detect_on:
+        volt_trace.plot(((marked/fs)-0.1)*1000, x[marked], 'bx', markersize=4)
+        volt_trace.plot(((spike_times/fs)-0.1)*1000, x[spike_times], 'r.', markersize=4)
+    volt_trace.set_ylabel('Voltage [uV]')
+    volt_trace.set_xlim(-100, x_limit)
+    volt_trace.set_ylim(-300, 300)
+    volt_trace.set_yticks([-300, -150, 0, 150, 300])
+    sns.despine(ax=volt_trace, top=True, right=True, left=False, bottom=False,)
+
+    start = int(0.1 * fs)
+    stop = int(0.2 * fs)
+    close_up.plot((t[start:stop])*1000, x[start:stop], 'k')
+    close_up.plot((t[start:stop])*1000, x[start:stop], 'k')
+    close_up.plot(((spike_times / fs) - 0.1) * 1000, np.zeros(len(spike_times))+150, 'r.', markersize=4)
+    close_up.plot(((marked / fs) - 0.1) * 1000, np.zeros(len(marked))+250, 'bx', markersize=4)
+
+    sns.despine(ax=close_up, top=True, right=True, left=False, bottom=False,)
+    close_up.set_ylabel('Voltage [uV]')
+    close_up.set_xlabel('Time [ms]')
+    close_up.set_xticks(np.arange(0, 101, 10))
+    close_up.set_xlim(0, 100)
+    close_up.set_ylim(-300, 300)
+    close_up.set_yticks([-300, -150, 0, 150, 300])
+
+    # plt.show()
+    if detect_on:
+        fig.savefig('/media/brehm/Data/MasterMoth/figs/spikes_rect_detected_ ' + tag_list + '.pdf')
+    else:
+        fig.savefig('/media/brehm/Data/MasterMoth/figs/spikes_rect_ '+  tag_list +'.pdf')
+    plt.close()
+    exit()
 
 
 def plot_gaps(spike_times, stim_time, stim, bin_size, p_spikes, isi_p, vs, vs_boot, mark_intervals):
