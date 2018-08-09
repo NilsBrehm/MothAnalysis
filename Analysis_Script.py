@@ -17,6 +17,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.patheffects as path_effects
 from scipy import signal
 import scipy
+import scipy.io as sio
 
 start_time = time.time()
 # Data File Name
@@ -61,6 +62,7 @@ DISTANCE_RATIOS = False
 # -------------
 # PLOTs
 # Plot Stimulus Calls
+CALLSFROMMATLAB = True
 PLOT_CALLS = False
 
 # VanRossum Tau vs Duration
@@ -86,7 +88,7 @@ PLOT_D_RATIOS_OVERALL = False
 
 
 # Pulse Train Stuff
-PULSE_TRAIN_VANROSSUM = True
+PULSE_TRAIN_VANROSSUM = False
 PULSE_TRAIN_ISI = False
 
 # FI Stuff
@@ -2737,7 +2739,6 @@ if PLOT_D_RATIOS_OVERALL:
     fig.savefig(figname)
     plt.close(fig)
 
-
 if CALL_STATS:
 
     stims = ['naturalmothcalls/BCI1062_07x07.wav',
@@ -2784,6 +2785,165 @@ if CALL_STATS:
                 writer.writerow(a)
     embed()
     exit()
+
+if CALLSFROMMATLAB:
+    pd_a = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/pd_a.mat')['pd_a_py'][0]
+    pd_p = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/pd_p.mat')['pd_p_py'][0]
+
+    ipi_a = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/ipi_a.mat')['ipi_a_py'][0]
+    ipi_p = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/ipi_p.mat')['ipi_p_py'][0]
+
+    freq_a = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/freq_a.mat')['freq_a_py'][0]
+    freq_p = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/freq_p.mat')['freq_p_py'][0]
+
+    pnr_a = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/pnr_a.mat')['pnr_a_py'][0]
+    pnr_p = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/pnr_p.mat')['pnr_p_py'][0]
+
+    ITI = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/ITI.mat')['ITI_py'][0]
+    call_dur = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/calldur.mat')['call_dur_py'][0]
+
+    # Bar Plot
+
+    mf.plot_settings()
+    # Create Grid
+    grid = matplotlib.gridspec.GridSpec(nrows=1, ncols=26)
+    fig = plt.figure(figsize=(5.9, 1.9))
+    ax1 = plt.subplot(grid[0, 0:10])
+    ax2 = plt.subplot(grid[0, 15:25])
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.05
+    label_y_pos = 0.90
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+
+    width = 0.35
+    ind = np.arange(0, 20, 1)
+    ax1.bar(ind, ITI, width, label='ITI', color='black')
+    ax1.bar(ind + width, call_dur, width, label='Call dur.', color='grey')
+    ax1.set_xticks(ind + width / 2)
+    ax1.legend(frameon=False, loc=1)
+
+    ax2.bar(ind, pnr_a, width, label='Active', color='black')
+    ax2.bar(ind + width, pnr_p, width, label='Passive', color='grey')
+    ax2.set_xticks(ind + width / 2)
+    ax2.legend(frameon=False, loc=1)
+
+    xlbls = [''] * 20
+    xlbls[0], xlbls[4], xlbls[9],xlbls[14], xlbls[19] = 1, 5, 10, 15, 20
+    ax1.set_xticklabels(xlbls)
+    ax2.set_xticklabels(xlbls)
+
+    fig.text(0.5, 0.05, 'Call number', ha='center', fontdict=None)
+    ax1.set_ylabel('Duration [ms]')
+    ax2.set_ylabel('Pulse count')
+
+    ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+             color='black')
+    ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+             color='black')
+
+    ax1.set_yticks(np.arange(0, 201, 50))
+    ax1.set_ylim(0, 200)
+    ax2.set_yticks(np.arange(0, 31, 5))
+    ax2.set_ylim(0, 30)
+
+    sns.despine()
+    figname = '/media/brehm/Data/MasterMoth/CallStats/CallStats_bar.pdf'
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+    fig.savefig(figname)
+    plt.close(fig)
+    exit()
+
+
+
+    # BOXPLOT
+    mf.plot_settings()
+    # Create Grid
+    grid = matplotlib.gridspec.GridSpec(nrows=23, ncols=41)
+    fig = plt.figure(figsize=(5.9, 3.9))
+    ax1 = plt.subplot(grid[0:10, 0:10])
+    ax2 = plt.subplot(grid[0:10, 15:25])
+    ax3 = plt.subplot(grid[0:10, 30:40])
+    ax4 = plt.subplot(grid[12:22, 0:10])
+    ax5 = plt.subplot(grid[12:22, 15:25])
+    ax6 = plt.subplot(grid[12:22, 30:40])
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.05
+    label_y_pos = 0.90
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+
+    ax1.boxplot(pd_a, showcaps=False, showfliers=False)
+    for k in range(len(freq_a)):
+        ax1.plot(np.zeros(len(pd_a[k]))+k+1, pd_a[k], 'ko', markersize=1)
+
+    ax2.boxplot(ipi_a, showcaps=False, showfliers=False)
+    for k in range(len(ipi_a)):
+        ax2.plot(np.zeros(len(ipi_a[k])) + k + 1, ipi_a[k], 'ko', markersize=1)
+
+    ax3.boxplot(freq_a, showcaps=False, showfliers=False)
+    for k in range(len(freq_a)):
+        ax3.plot(np.zeros(len(freq_a[k])) + k + 1, freq_a[k], 'ko', markersize=1)
+
+    ax4.boxplot(pd_p, showcaps=False, showfliers=False)
+    for k in range(len(freq_p)):
+        ax4.plot(np.zeros(len(pd_p[k])) + k + 1, pd_p[k], 'ko', markersize=1)
+
+    ax5.boxplot(ipi_p, showcaps=False, showfliers=False)
+    for k in range(len(ipi_p)):
+        ax5.plot(np.zeros(len(ipi_p[k])) + k + 1, ipi_p[k], 'ko', markersize=1)
+
+    ax6.boxplot(freq_p, showcaps=False, showfliers=False)
+    for k in range(len(freq_p)):
+        ax6.plot(np.zeros(len(freq_p[k])) + k + 1, freq_p[k], 'ko', markersize=1)
+
+    ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+             color='black')
+    ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+             color='black')
+    ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
+             color='black')
+    ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
+             color='black')
+    ax5.text(label_x_pos, label_y_pos, subfig_caps_labels[4], transform=ax5.transAxes, size=subfig_caps,
+             color='black')
+    ax6.text(label_x_pos, label_y_pos, subfig_caps_labels[5], transform=ax6.transAxes, size=subfig_caps,
+             color='black')
+
+    ax1.set_xticklabels([])
+    ax2.set_xticklabels([])
+    ax3.set_xticklabels([])
+    xlbls = [''] * 20
+    xlbls[0], xlbls[4], xlbls[9],xlbls[14], xlbls[19] = 1, 5, 10, 15, 20
+    ax4.set_xticklabels(xlbls)
+    ax5.set_xticklabels(xlbls)
+    ax6.set_xticklabels(xlbls)
+
+    ax1.set_ylim(0, 0.6)
+    ax4.set_ylim(0, 0.6)
+    ax2.set_ylim(0, 20)
+    ax5.set_ylim(0, 20)
+    ax3.set_ylim(0, 80)
+    ax6.set_ylim(0, 80)
+
+    fig.text(0.5, 0.05, 'Call number', ha='center', fontdict=None)
+    fig.text(0.925, 0.80, 'Active pulses', ha='center', fontdict=None, rotation=-90, color='red')
+    fig.text(0.925, 0.40, 'Passive pulses', ha='center', fontdict=None, rotation=-90, color='blue')
+
+    ax1.set_ylabel('Pulse duration [ms]')
+    ax2.set_ylabel('IPI [ms]')
+    ax3.set_ylabel('Frequency [kHz]')
+    ax4.set_ylabel('Pulse duration [ms]')
+    ax5.set_ylabel('IPI [ms]')
+    ax6.set_ylabel('Frequency [kHz]')
+    sns.despine()
+
+    figname = '/media/brehm/Data/MasterMoth/CallStats/CallStats.pdf'
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.1, hspace=0.1)
+    fig.savefig(figname)
+    plt.close(fig)
 print('Analysis done!')
 print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
 
