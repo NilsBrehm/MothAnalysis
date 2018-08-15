@@ -62,7 +62,8 @@ DISTANCE_RATIOS = False
 # -------------
 # PLOTs
 # Plot Stimulus Calls
-CALLSFROMMATLAB = True
+CALLSFROMMATLAB = False
+CALLSERIESFROMMATLAB = True
 PLOT_CALLS = False
 
 # VanRossum Tau vs Duration
@@ -2944,6 +2945,11 @@ if CALLSFROMMATLAB:
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.1, hspace=0.1)
     fig.savefig(figname)
     plt.close(fig)
+
+if CALLSERIESFROMMATLAB:
+    samples = sio.loadmat('/media/nils/Data/Moth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
+    embed()
+
 print('Analysis done!')
 print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
 
