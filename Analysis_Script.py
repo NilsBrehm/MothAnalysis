@@ -2947,8 +2947,32 @@ if CALLSFROMMATLAB:
     plt.close(fig)
 
 if CALLSERIESFROMMATLAB:
-    samples = sio.loadmat('/media/nils/Data/Moth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
-    embed()
+    # Call Series
+    # samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
+    # Single Calls
+    samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/samples.mat')['samples'][0]
+
+    # Raster Plot
+    mf.plot_settings()
+    step = 0.1
+    w = 0
+    fig, ax = plt.subplots(figsize=(5.9, 3.9))
+    # fig = plt.figure(figsize=(5.9, 1.9))
+
+    for k in range(len(samples)):
+        ax.plot(samples[k], np.zeros(len(samples[k]))+w, 'k|')
+        w += step
+    ax.set_yticks(np.arange(0, len(samples)*step, step))
+    ax.set_yticklabels(np.arange(0, len(samples), 1))
+    ax.set_ylabel('Call number')
+    ax.set_xlabel('Time [s]')
+    sns.despine()
+
+    fig.subplots_adjust(left=0.2, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+    figname = '/media/brehm/Data/MasterMoth/CallStats/SingleCallsRasterPlot.pdf'
+    fig.savefig(figname)
+    plt.close()
+
 
 print('Analysis done!')
 print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
