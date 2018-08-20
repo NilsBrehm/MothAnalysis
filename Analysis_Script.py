@@ -6,7 +6,7 @@ import pandas as pd
 from collections import OrderedDict
 import time
 from tqdm import tqdm
-from joblib import Parallel,delayed
+# from joblib import Parallel,delayed
 import os
 import seaborn as sns
 import pickle
@@ -35,7 +35,9 @@ start_time = time.time()
 # datasets = [dat[0]]
 # print(datasets)
 
-CALLS = True
+TEST = True
+
+CALLS = False
 CALL_STRUC = False
 CALL_STATS = False
 
@@ -63,7 +65,7 @@ DISTANCE_RATIOS = False
 # PLOTs
 # Plot Stimulus Calls
 CALLSFROMMATLAB = False
-CALLSERIESFROMMATLAB = True
+CALLSERIESFROMMATLAB = False
 PLOT_CALLS = False
 
 # VanRossum Tau vs Duration
@@ -89,7 +91,7 @@ PLOT_D_RATIOS_OVERALL = False
 
 
 # Pulse Train Stuff
-PULSE_TRAIN_VANROSSUM = False
+PULSE_TRAIN_VANROSSUM = True
 PULSE_TRAIN_ISI = False
 
 # FI Stuff
@@ -100,7 +102,7 @@ FI_OVERANIMALS = False
 PLOT_CORRS = False
 
 # Select recordings from csv file
-SELECT = True
+SELECT = False
 
 # **********************************************************************************************************************
 # Settings for Spike Detection =========================================================================================
@@ -1828,19 +1830,28 @@ if PULSE_TRAIN_VANROSSUM:
                                               norm=matplotlib.colors.Normalize(vmin=0, vmax=np.max(plot_data[3][2])), orientation='horizontal', ticklocation='top')
         c3.set_label(cbar_labels[2])
         if stim_length is 'series':
-            c3.set_ticks([0, 1, 2])
-            c3.set_ticklabels([0, 1, 2])
+            c3.set_ticks([0, 0.5, 1])
+            c3.set_ticklabels([0, 0.5, 1])
+            if dursSC[dd] == 200:
+                c3.set_ticks([0, 0.25, 0.5])
+                c3.set_ticklabels([0, 0.25, 0.5])
 
         if stim_length is 'single':
             c3.set_ticks([0, 0.04, 0.08])
             c3.set_ticklabels([0, 0.04, 0.08])
+            if dursSC[dd] == 20:
+                c3.set_ticks([0, 0.02, 0.04])
+                c3.set_ticklabels([0, 0.02, 0.04])
 
         c4 = matplotlib.colorbar.ColorbarBase(cb4, cmap='viridis',
                                               norm=matplotlib.colors.Normalize(vmin=0, vmax=np.max(plot_data[3][3])), orientation='horizontal', ticklocation='top')
         c4.set_label(cbar_labels[3])
         if stim_length is 'series':
-            c4.set_ticks([0, 200, 400])
-            c4.set_ticklabels([0, 200, 400])
+            c4.set_ticks([0, 100, 200])
+            c4.set_ticklabels([0, 100, 200])
+            if dursSC[dd] == 200:
+                c4.set_ticks([0, 50, 100])
+                c4.set_ticklabels([0, 50, 100])
 
         if stim_length is 'single':
             c4.set_ticks([0, 20, 40])
@@ -1891,9 +1902,13 @@ if PULSE_TRAIN_VANROSSUM:
         fig.text(0.9, 0.75, 'Spike trains', ha='center', fontdict=None, rotation=-90)
 
         # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.5, hspace=0.1)
-        figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/' + stim_type + '_' + str(
+        # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/' + stim_type + '_' + str(
+        #     selected_duration) + '_comparison.pdf'
+
+        figname = "/media/nils/Data/Moth/figs/" + data_name + '/' + stim_type + '_' + str(
             selected_duration) + '_comparison.pdf'
         fig.savefig(figname)
+
     exit()
     for aa in range(4):
         if method[aa] is 'vr':
@@ -2973,7 +2988,12 @@ if CALLSERIESFROMMATLAB:
     fig.savefig(figname)
     plt.close()
 
-
+if TEST:
+    data = [1, 2, 3, 4, 5, 7, 8, 9, 10]
+    mf.plot_settings()
+    plt.plot(data, data, 'rs--')
+    plt.show()
+    embed()
 print('Analysis done!')
 print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
 
