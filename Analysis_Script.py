@@ -35,7 +35,7 @@ start_time = time.time()
 # datasets = [dat[0]]
 # print(datasets)
 
-TEST = True
+TEST = False
 
 CALLS = False
 CALL_STRUC = False
@@ -65,7 +65,7 @@ DISTANCE_RATIOS = False
 # PLOTs
 # Plot Stimulus Calls
 CALLSFROMMATLAB = False
-CALLSERIESFROMMATLAB = False
+CALLSERIESFROMMATLAB = True
 PLOT_CALLS = False
 
 # VanRossum Tau vs Duration
@@ -91,7 +91,7 @@ PLOT_D_RATIOS_OVERALL = False
 
 
 # Pulse Train Stuff
-PULSE_TRAIN_VANROSSUM = True
+PULSE_TRAIN_VANROSSUM = False
 PULSE_TRAIN_ISI = False
 
 # FI Stuff
@@ -114,9 +114,9 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_single_selected'
+stim_type = 'moth_series_selected'
 # stim_type = 'all_single'
-stim_length = 'single'
+stim_length = 'series'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -1775,7 +1775,7 @@ if PULSE_TRAIN_VANROSSUM:
         plot_size = [(2, 3), (2, 3), (2, 2), (2, 2)]
         method = ['vr', 'vr', 'sd', 'pd']
         cbar_mode = ['single', 'single', 'each', 'each']
-        cbar_labels = ['ISI', 'SYNC', 'DUR [s]', 'COUNT']
+        cbar_labels = ['ISI', 'SYNC', 'DUR [s]', 'Norm. COUNT']
         figure_sizes = [5.9, 5.9, 3.9, 3.9]
         cc = 'white'
 
@@ -1806,15 +1806,125 @@ if PULSE_TRAIN_VANROSSUM:
         ax8 = plt.subplot(grid[25:45, 66:86])
         # cb8 = plt.subplot(grid[52, 3])
 
+        # Color Range Settings
+        # DUR metric
+        if stim_length is 'series':
+            c3_settings = [0, 0.5, 1]
+            if dursCS[dd] == 200:
+                c3_settings = [0, 0.1, 0.2]
+
+        if stim_length is 'single':
+            c3_settings = [0, 0.05, 0.1]
+            if dursSC[dd] == 20:
+                c3_settings = [0, 0.01, 0.02]
+
+        # COUNT metric
+        if stim_length is 'series':
+            c4_settings = [0, .5, 1]
+            if dursCS[dd] == 200:
+                c4_settings = [0, .5, 1]
+        if stim_length is 'single':
+            c4_settings = [0, .5, 1]
+
+        # Normalize
+        COUNT_S = plot_data[2][3] / np.max(plot_data[2][3])
+        COUNT_P = plot_data[3][3][dur_d] / np.max(plot_data[3][3][dur_d])
+
+        if dursCS[dd] != 1000:
+            continue
+
+        if dursCS[dd] == 1000:
+            plt.close('all')
+
+            ISI_diff = abs(plot_data[3][0][dur_d] - plot_data[2][0])
+            ISI_ratio = plot_data[3][0][dur_d] / plot_data[2][0]
+            ISI_diff_mean = np.mean(ISI_diff)
+
+            AA = [[]] * 8
+            # ISI, SYNC, DUR, COUNT
+            AA[0] = plot_data[2][0]
+            AA[1] = plot_data[2][1]
+            AA[2] = plot_data[2][2] / np.max(plot_data[2][2])
+            AA[3] = plot_data[2][3] / np.max(plot_data[2][3])
+
+            # Pulse trains
+            AA[4] = plot_data[3][0][dur_d]
+            AA[5] = plot_data[3][1][dur_d]
+            AA[6] = plot_data[3][2][dur_d] / np.max(plot_data[3][2][dur_d])
+            AA[7] = plot_data[3][3][dur_d] / np.max(plot_data[3][3][dur_d])
+
+            cors = np.zeros((len(AA), len(AA)))
+            for jj in range(len(AA)):
+                for kk in range(len(AA)):
+                    dummy = scipy.signal.correlate2d(AA[jj], AA[kk], mode='full')
+                    cors[jj, kk] = np.max(dummy)
+
+            # c = 0.001
+            BB_S = (AA[0] + (1-AA[1]) + AA[2] + AA[3]) / 4
+            BB_P = (AA[4] + (1-AA[5]) + AA[6] + AA[7]) / 4
+
+            plt.subplot(121)
+            plt.imshow(BB_S)
+            plt.colorbar()
+            plt.subplot(122)
+            plt.imshow(BB_P)
+            plt.colorbar()
+            # cors = cors / np.max(cors)
+            # # LINEAR COMBINATION OPT.
+            # # ww = np.array([0.001, 0.01, 0.1, 0.2, 0.5, 0.8, 1])
+            # ww = np.array(np.linspace(0.01, 1, 10))
+            # var = np.zeros(len(ww))
+            # result = np.zeros((len(ww), len(ww), len(ww), len(ww)))
+            # for w_count in range(len(ww)):
+            #     for w_sync in range(len(ww)):
+            #         for w_dur in range(len(ww)):
+            #             for w_isi in range(len(ww)):
+            #                 # w = [ww[w_isi], ww[w_dur], ww[w_sync], 0]
+            #                 # ISI_weight = w[0] * ISI_S + w[1] * (1/SYNC_S) + w[2] * DUR_S + w[3] * COUNT_S
+            #                 ISI_weight = ww[w_isi] * ISI_S + ww[w_sync] * (1/SYNC_S) + ww[w_dur] * DUR_S + ww[w_count] * COUNT_S
+            #                 ISI_weight_norm = ISI_weight / np.max(ISI_weight)
+            #                 ISI_mins = np.zeros(len(ISI_weight_norm))
+            #                 cr = 0
+            #                 for q in range(len(ISI_weight_norm)):
+            #                     # ISI_mins[q] = np.where(ISI_weight_norm[q, :] == np.min(ISI_weight_norm[q, :]))
+            #                     mm = np.where(ISI_weight_norm[q, :] == np.min(ISI_weight_norm[q, :]))[0][0]
+            #                     if mm == q:
+            #                         cr += 1
+            #                 result[w_count, w_sync, w_dur, w_isi] = cr
+            #     # fig, ax = plt.subplots()
+            #     # ax.imshow(ISI_weight_norm)
+            # # plt.show()
+            # a = np.where(result == np.max(result))
+            # b = [[]] * len(a[0])
+            # from mpl_toolkits.mplot3d import Axes3D
+            # fig = plt.figure()
+            # ax = fig.add_subplot(111, projection='3d')
+            # ax.scatter(b[kk][0], b[kk][2], b[kk][1], zdir='z', c='red')
+            #
+            # for kk in range(len(a[0])):
+            #     b[kk] = [ww[a[0][kk]], ww[a[1][kk]], ww[a[2][kk]], ww[a[3][kk]]]
+            #     ax.scatter(b[kk][0], b[kk][2], b[kk][1], zdir='z', c='red')
+            # ax.set_xlabel('COUNT weight')
+            # ax.set_ylabel('DUR weight')
+            # ax.set_zlabel('SYNC weight')
+            # plt.show()
+
+            embed()
+            exit()
+        # Plot on axes
         im1 = ax1.imshow(plot_data[2][0], vmin=0, vmax=1, cmap='viridis')
         im2 = ax2.imshow(plot_data[2][1], vmin=0, vmax=1, cmap='viridis')
-        im3 = ax3.imshow(plot_data[2][2], vmin=0, vmax=np.max(plot_data[3][2]), cmap='viridis')
-        im4 = ax4.imshow(plot_data[2][3], vmin=0, vmax=np.max(plot_data[3][3]), cmap='viridis')
+        # im3 = ax3.imshow(plot_data[2][2], vmin=0, vmax=np.max(plot_data[3][2]), cmap='viridis')
+        im3 = ax3.imshow(plot_data[2][2], vmin=c3_settings[0], vmax=c3_settings[-1], cmap='viridis')
+        # im4 = ax4.imshow(plot_data[2][3], vmin=0, vmax=np.max(plot_data[3][3]), cmap='viridis')
+        im4 = ax4.imshow(COUNT_S, vmin=c4_settings[0], vmax=c4_settings[-1], cmap='viridis')
 
         im5 = ax5.imshow(plot_data[3][0][dur_d], vmin=0, vmax=1, cmap='viridis')
         im6 = ax6.imshow(plot_data[3][1][dur_d], vmin=0, vmax=1, cmap='viridis')
-        im7 = ax7.imshow(plot_data[3][2][dur_d], vmin=0, vmax=np.max(plot_data[3][2]), cmap='viridis')
-        im8 = ax8.imshow(plot_data[3][3][dur_d], vmin=0, vmax=np.max(plot_data[3][3]), cmap='viridis')
+        # im7 = ax7.imshow(plot_data[3][2][dur_d], vmin=0, vmax=np.max(plot_data[3][2]), cmap='viridis')
+        im7 = ax7.imshow(plot_data[3][2][dur_d], vmin=c3_settings[0], vmax=c3_settings[-1], cmap='viridis')
+        # im8 = ax8.imshow(plot_data[3][3][dur_d], vmin=0, vmax=np.max(plot_data[3][3]), cmap='viridis')
+        im8 = ax8.imshow(COUNT_P, vmin=c4_settings[0], vmax=c4_settings[-1], cmap='viridis')
 
         c1 = matplotlib.colorbar.ColorbarBase(cb1, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=1), orientation='horizontal', ticklocation='top')
         c1.set_label(cbar_labels[0])
@@ -1827,36 +1937,16 @@ if PULSE_TRAIN_VANROSSUM:
         c2.set_ticklabels([0, 0.5, 1])
 
         c3 = matplotlib.colorbar.ColorbarBase(cb3, cmap='viridis',
-                                              norm=matplotlib.colors.Normalize(vmin=0, vmax=np.max(plot_data[3][2])), orientation='horizontal', ticklocation='top')
+                                              norm=matplotlib.colors.Normalize(vmin=c3_settings[0], vmax=c3_settings[-1]), orientation='horizontal', ticklocation='top')
         c3.set_label(cbar_labels[2])
-        if stim_length is 'series':
-            c3.set_ticks([0, 0.5, 1])
-            c3.set_ticklabels([0, 0.5, 1])
-            if dursSC[dd] == 200:
-                c3.set_ticks([0, 0.25, 0.5])
-                c3.set_ticklabels([0, 0.25, 0.5])
-
-        if stim_length is 'single':
-            c3.set_ticks([0, 0.04, 0.08])
-            c3.set_ticklabels([0, 0.04, 0.08])
-            if dursSC[dd] == 20:
-                c3.set_ticks([0, 0.02, 0.04])
-                c3.set_ticklabels([0, 0.02, 0.04])
+        c3.set_ticks(c3_settings)
+        c3.set_ticklabels(c3_settings)
 
         c4 = matplotlib.colorbar.ColorbarBase(cb4, cmap='viridis',
-                                              norm=matplotlib.colors.Normalize(vmin=0, vmax=np.max(plot_data[3][3])), orientation='horizontal', ticklocation='top')
+                                              norm=matplotlib.colors.Normalize(vmin=c4_settings[0], vmax=c4_settings[-1]), orientation='horizontal', ticklocation='top')
         c4.set_label(cbar_labels[3])
-        if stim_length is 'series':
-            c4.set_ticks([0, 100, 200])
-            c4.set_ticklabels([0, 100, 200])
-            if dursSC[dd] == 200:
-                c4.set_ticks([0, 50, 100])
-                c4.set_ticklabels([0, 50, 100])
-
-        if stim_length is 'single':
-            c4.set_ticks([0, 20, 40])
-            c4.set_ticklabels([0, 20, 40])
-
+        c4.set_ticks(c4_settings)
+        c4.set_ticklabels(c4_settings)
 
         ax1.set_xticks([])
         ax2.set_xticks([])
@@ -1902,11 +1992,11 @@ if PULSE_TRAIN_VANROSSUM:
         fig.text(0.9, 0.75, 'Spike trains', ha='center', fontdict=None, rotation=-90)
 
         # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.5, hspace=0.1)
-        # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/' + stim_type + '_' + str(
-        #     selected_duration) + '_comparison.pdf'
-
-        figname = "/media/nils/Data/Moth/figs/" + data_name + '/' + stim_type + '_' + str(
+        figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/' + stim_type + '_' + str(
             selected_duration) + '_comparison.pdf'
+
+        # figname = "/media/nils/Data/Moth/figs/" + data_name + '/' + stim_type + '_' + str(
+        #     selected_duration) + '_comparison.pdf'
         fig.savefig(figname)
 
     exit()
@@ -2965,28 +3055,41 @@ if CALLSERIESFROMMATLAB:
     # Call Series
     # samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
     # Single Calls
-    samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/samples.mat')['samples'][0]
+    samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
 
     # Raster Plot
     mf.plot_settings()
-    step = 0.1
-    w = 0
-    fig, ax = plt.subplots(figsize=(5.9, 3.9))
-    # fig = plt.figure(figsize=(5.9, 1.9))
+    tts = [0.02, 0.05, 0.1, 0.2, 0.5, 0.75, 1, 1.5]
+    for i in range(len(tts)):
+        time_limit = tts[i]
+        step = 0.1
+        w = 0
+        fig, ax = plt.subplots(figsize=(5.9, 3.9))
+        # fig = plt.figure(figsize=(5.9, 1.9))
 
-    for k in range(len(samples)):
-        ax.plot(samples[k], np.zeros(len(samples[k]))+w, 'k|')
-        w += step
-    ax.set_yticks(np.arange(0, len(samples)*step, step))
-    ax.set_yticklabels(np.arange(0, len(samples), 1))
-    ax.set_ylabel('Call number')
-    ax.set_xlabel('Time [s]')
-    sns.despine()
+        for k in range(len(samples)):
+            idx = samples[k] <= time_limit
+            count = np.sum(idx)
+            ax.plot([0, time_limit], [w, w], color='0.8')
+            ax.plot(samples[k], np.zeros(len(samples[k]))+w, 'k|')
+            ax.plot(np.max(samples[k][idx]), w, 'r|', markersize=3)
+            try:
+                ax.text(time_limit, w-0.01, str(count) + ' ; ' + str(int(np.round(np.mean(np.diff(np.sort(samples[k][idx])))*1000))) + ' ms', size=5)
+            except:
+                ax.text(time_limit, w-0.01, str(count) + ' ; -', size=5)
 
-    fig.subplots_adjust(left=0.2, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
-    figname = '/media/brehm/Data/MasterMoth/CallStats/SingleCallsRasterPlot.pdf'
-    fig.savefig(figname)
-    plt.close()
+            w += step
+        ax.set_yticks(np.arange(0, len(samples)*step, step))
+        ax.set_yticklabels(np.arange(0, len(samples), 1))
+        ax.set_ylabel('Call number')
+        ax.set_xlabel('Time [s]')
+        sns.despine()
+        ax.set_xlim(0, time_limit)
+
+        fig.subplots_adjust(left=0.2, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+        figname = '/media/brehm/Data/MasterMoth/CallStats/CallSeriesRasterPlot_' + str(int(time_limit*1000)) +'.pdf'
+        fig.savefig(figname)
+        plt.close()
 
 if TEST:
     data = [1, 2, 3, 4, 5, 7, 8, 9, 10]

@@ -8,24 +8,24 @@ import scipy as scipy
 from scipy import signal as sg
 from IPython import embed
 from shutil import copyfile
-# import quickspikes as qs
+import quickspikes as qs
 import itertools as itertools
-# import pyspike as spk
+import pyspike as spk
 import pickle
 from tqdm import tqdm
-# import thunderfish.peakdetection as pk
+import thunderfish.peakdetection as pk
 # from joblib import Parallel,delayed
 import csv
-# import pycircstat as c_stat
+import pycircstat as c_stat
 import seaborn as sns
 import matplotlib
 import warnings
 from scipy.optimize import curve_fit
-# import matplotlib.patheffects as pe
+import matplotlib.patheffects as pe
 import matplotlib.font_manager
 from scipy.stats import norm
 from math import exp, sqrt
-# import pymuvr
+import pymuvr
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Directories
