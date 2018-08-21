@@ -37,7 +37,7 @@ start_time = time.time()
 
 TEST = False
 
-CALLS = False
+CALLS = True
 CALL_STRUC = False
 CALL_STATS = False
 
@@ -65,8 +65,9 @@ DISTANCE_RATIOS = False
 # PLOTs
 # Plot Stimulus Calls
 CALLSFROMMATLAB = False
-CALLSERIESFROMMATLAB = True
+CALLSERIESFROMMATLAB = False
 PLOT_CALLS = False
+CUMHIST = True
 
 # VanRossum Tau vs Duration
 PLOT_VR_TAUVSDUR = False
@@ -102,7 +103,7 @@ FI_OVERANIMALS = False
 PLOT_CORRS = False
 
 # Select recordings from csv file
-SELECT = False
+SELECT = True
 
 # **********************************************************************************************************************
 # Settings for Spike Detection =========================================================================================
@@ -114,9 +115,9 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_series_selected'
+stim_type = 'moth_single_selected'
 # stim_type = 'all_single'
-stim_length = 'series'
+stim_length = 'single'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -224,8 +225,8 @@ if PLOT_CALLS:
 
 if DISTANCE_RATIOS:
     # Try to load e pulses from HDD
-    # data_name = '2018-02-09-aa'
-    data_name = datasets[-1]
+    datasets = ['2018-02-20-aa', '2018-02-16-aa', '2018-02-09-aa']
+    data_name = datasets[2]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     method = 'exp'
@@ -254,10 +255,15 @@ if DISTANCE_RATIOS:
 
     results = np.zeros(shape=(len(dur), 5))
     results_sync = np.zeros(shape=(len(dur), 5))
+    results_dur = np.zeros(shape=(len(dur), 5))
+    results_count = np.zeros(shape=(len(dur), 5))
+
     for j in tqdm(range(len(dur)), desc='Distances'):
         edges = [0, dur[j]]
         d = np.zeros(len(calls))
         d_sync = np.zeros(len(calls))
+        d_dur = np.zeros(len(calls))
+        d_count = np.zeros(len(calls))
         sp = [[]] * len(calls)
         for k in range(len(calls)):
             spike_times = [[]] * len(spikes[stimulus_tags[k]])
@@ -267,33 +273,79 @@ if DISTANCE_RATIOS:
             d[k] = abs(spk.isi_distance(spike_times, interval=[0, dur[j]]))
             d_sync[k] = spk.spike_sync(spike_times, interval=[0, dur[j]])
             # d[k] = abs(spk.spike_distance(spike_times, interval=[0, dur[j]]))
+            # DUR metric
+            last_spike = [[]] * len(spike_times)
+            count = [[]] * len(spike_times)
+            for kk in range(len(spike_times)):
+                dummy = spike_times[kk][spike_times[kk] <= dur[j]]
+                if len(dummy) > 0:
+                    last_spike[kk] = np.max(dummy)
+                    count[kk] = len(dummy)
+                else:
+                    last_spike[kk] = 0
+                    count[kk] = 0
+            d_dur[k] = np.mean(np.abs(np.diff(last_spike)))
+            d_count[k] = np.mean(np.abs(np.diff(count)))
+
         sp = np.concatenate(sp)
         over_all = abs(spk.isi_distance(sp, interval=[0, dur[j]]))
         over_all_sync = spk.spike_sync(sp, interval=[0, dur[j]])
         # over_all = abs(spk.spike_distance(sp, interval=[0, dur[j]]))
+        last_spike = [[]] * len(sp)
+        count = [[]] * len(sp)
+        for kk in range(len(sp)):
+            dummy = sp[kk][sp[kk] <= dur[j]]
+            if len(dummy) > 0:
+                last_spike[kk] = np.max(dummy)
+                count[kk] = len(dummy)
+            else:
+                last_spike[kk] = 0
+                count[kk] = 0
+        over_all_dur = np.mean(np.abs(np.diff(last_spike)))
+        over_all_count = np.mean(np.abs(np.diff(count)))
+
         ratio = over_all / np.mean(d)
         diff = over_all - np.mean(d)
         ratio_sync = over_all_sync / np.mean(d_sync)
         diff_sync = over_all_sync - np.mean(d_sync)
+        ratio_dur = over_all_dur / np.mean(d_dur)
+        diff_dur = over_all_dur - np.mean(d_dur)
+        ratio_count = over_all_count / np.mean(d_count)
+        diff_count = over_all_count - np.mean(d_count)
 
         results[j, :] = [np.mean(d), np.std(d), over_all, ratio, diff]
         results_sync[j, :] = [np.mean(d_sync), np.std(d_sync), over_all_sync, ratio_sync, diff_sync]
+        results_dur[j, :] = [np.mean(d_dur), np.std(d_dur), over_all_dur, ratio_dur, diff_dur]
+        results_count[j, :] = [np.mean(d_count), np.std(d_count), over_all_count, ratio_count, diff_count]
 
     # Save to HDD
     np.save(p + 'ISI_Ratios_' + stim_type + '.npy', results)
     np.save(p + 'SYNC_Ratios_' + stim_type + '.npy', results_sync)
+    np.save(p + 'DUR_Ratios_' + stim_type + '.npy', results_dur)
+    np.save(p + 'COUNT_Ratios_' + stim_type + '.npy', results_count)
+
     print('Ratios saved')
 
 if PLOT_D_RATIOS:
-    # data_name = '2018-02-09-aa'
-    data_name = '2018-02-15-aa'
+    data_name = '2018-02-09-aa'
+    # data_name = '2018-02-15-aa'
     # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     method = 'exp'
     p = path_names[1]
-    ratios_isi = np.load(p + 'ISI_Ratios_' + stim_type + '.npy')
-    ratios_sync = np.load(p + 'SYNC_Ratios_' + stim_type + '.npy')
+    ratios_isi = np.load(p + 'DUR_Ratios_' + stim_type + '.npy')
+    ratios_sync = np.load(p + 'COUNT_Ratios_' + stim_type + '.npy')
+
+    max_norm = np.max(ratios_isi[:, 2] * 1000)
+    ratios_isi[:, 0] = (ratios_isi[:, 0] * 1000) / max_norm
+    ratios_isi[:, 1] = (ratios_isi[:, 1] * 1000) / max_norm
+    ratios_isi[:, 2] = (ratios_isi[:, 2] * 1000) / max_norm
+
+    max_norm = np.max(ratios_sync[:, 2] * 1000)
+    ratios_sync[:, 0] = (ratios_sync[:, 0] * 1000) / max_norm
+    ratios_sync[:, 1] = (ratios_sync[:, 1] * 1000) / max_norm
+    ratios_sync[:, 2] = (ratios_sync[:, 2] * 1000) / max_norm
 
     # Plot
     mf.plot_settings()
@@ -317,7 +369,7 @@ if PLOT_D_RATIOS:
     ax1.set_ylim(0, 1)
     ax1.set_yticks(np.arange(0, 1.1, 0.2))
     ax1.set_xticklabels([])
-    ax1.set_ylabel('ISI Distance')
+    ax1.set_ylabel('Norm. DUR')
     ax1.set_xlim(0, x_end)
     ax1.set_xticks(np.arange(0, x_end, x_step))
 
@@ -334,11 +386,11 @@ if PLOT_D_RATIOS:
     ax2.set_yticks(np.arange(0, 1.1, 0.2))
     ax2.set_xticklabels([])
     ax2.set_yticklabels([])
-    ax2.set_ylabel('SYNC Value')
+    ax2.set_ylabel('Norm. COUNT')
     ax2.set_xlim(0, x_end)
     ax2.set_xticks(np.arange(0, x_end, x_step))
 
-    ax4.plot(duration, 1/ratios_sync[:, 3], 'r-', label='ratio')
+    ax4.plot(duration, ratios_sync[:, 3], 'r-', label='ratio')
     ax4.set_ylim(1, 3)
     ax4.set_yticks(np.arange(1, 3.1, 0.5))
     ax4.set_yticklabels([])
@@ -364,9 +416,99 @@ if PLOT_D_RATIOS:
     sns.despine()
 
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
-    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
+    # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
+    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_DUR_COUNT_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
+
+    # data_name = '2018-02-09-aa'
+    # # data_name = '2018-02-15-aa'
+    # # data_name = datasets[-1]
+    # path_names = mf.get_directories(data_name=data_name)
+    # print(data_name)
+    # method = 'exp'
+    # p = path_names[1]
+    # ratios_isi = np.load(p + 'ISI_Ratios_' + stim_type + '.npy')
+    # ratios_sync = np.load(p + 'SYNC_Ratios_' + stim_type + '.npy')
+    #
+    # # max_norm = np.max(ratios_isi[:, 2] * 1000)
+    # # ratios_isi[:, 0] = (ratios_isi[:, 0] * 1000) / max_norm
+    # # ratios_isi[:, 1] = (ratios_isi[:, 1] * 1000) / max_norm
+    # # ratios_isi[:, 2] = (ratios_isi[:, 2] * 1000) / max_norm
+    #
+    # # Plot
+    # mf.plot_settings()
+    # if stim_length == 'series':
+    #     x_end = 2500 + 100
+    #     x_step = 500
+    # if stim_length == 'single':
+    #     x_end = 250 + 10
+    #     x_step = 50
+    #
+    # # Create Grid
+    # grid = matplotlib.gridspec.GridSpec(nrows=2, ncols=2)
+    # fig = plt.figure(figsize=(5.9, 2.9))
+    # ax1 = plt.subplot(grid[0])
+    # ax2 = plt.subplot(grid[1])
+    # ax3 = plt.subplot(grid[2])
+    # ax4 = plt.subplot(grid[3])
+    #
+    # ax1.errorbar(duration, ratios_isi[:, 0], yerr=ratios_isi[:, 1], color='k', marker='o', label='within')
+    # ax1.plot(duration, ratios_isi[:, 2], '-', label='between', color='blue')
+    # ax1.set_ylim(0, 1)
+    # ax1.set_yticks(np.arange(0, 1.1, 0.2))
+    # ax1.set_xticklabels([])
+    # ax1.set_ylabel('ISI Distance')
+    # ax1.set_xlim(0, x_end)
+    # ax1.set_xticks(np.arange(0, x_end, x_step))
+    #
+    # ax3.plot(duration, ratios_isi[:, 3], 'r-', label='ratio')
+    # ax3.set_ylim(1, 3)
+    # ax3.set_yticks(np.arange(1, 3.1, 0.5))
+    # ax3.set_ylabel('Ratio')
+    # ax3.set_xlim(0, x_end)
+    # ax3.set_xticks(np.arange(0, x_end, x_step))
+    #
+    # ax2.errorbar(duration, ratios_sync[:, 0], yerr=ratios_sync[:, 1], color='k', marker='o', label='within')
+    # ax2.plot(duration, ratios_sync[:, 2], '-', label='between', color='blue')
+    # ax2.set_ylim(0, 1)
+    # ax2.set_yticks(np.arange(0, 1.1, 0.2))
+    # ax2.set_xticklabels([])
+    # ax2.set_yticklabels([])
+    # ax2.set_ylabel('SYNC Value')
+    # ax2.set_xlim(0, x_end)
+    # ax2.set_xticks(np.arange(0, x_end, x_step))
+    #
+    # ax4.plot(duration, 1 / ratios_sync[:, 3], 'r-', label='ratio')
+    # ax4.set_ylim(1, 3)
+    # ax4.set_yticks(np.arange(1, 3.1, 0.5))
+    # ax4.set_yticklabels([])
+    # ax4.set_xlim(0, x_end)
+    # ax4.set_xticks(np.arange(0, x_end, x_step))
+    #
+    # # Axes Labels
+    # fig.text(0.5, 0.055, 'Spike train duration [ms]', ha='center', fontdict=None)
+    #
+    # # Subplot caps
+    # subfig_caps = 12
+    # label_x_pos = 0.05
+    # label_y_pos = 0.90
+    # subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    # ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+    #          color='black')
+    # ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+    #          color='black')
+    # ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
+    #          color='black')
+    # ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
+    #          color='black')
+    # sns.despine()
+    #
+    # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
+    # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
+    # # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_TEST_' + stim_type + '.pdf'
+    # fig.savefig(figname)
+    # plt.close(fig)
 
 if CALL_STRUC:
     # Try to load e pulses from HDD
@@ -2747,13 +2889,30 @@ if PLOT_D_RATIOS_OVERALL:
         data_name = datasets[kk]
         path_names = mf.get_directories(data_name=data_name)
         p = path_names[1]
-        ratios_isi[kk] = np.load(p + 'ISI_Ratios_' + stim_type + '.npy')
-        ratios_sync[kk] = np.load(p + 'SYNC_Ratios_' + stim_type + '.npy')
+        ratios_isi[kk] = np.load(p + 'DUR_Ratios_' + stim_type + '.npy')
+        ratios_sync[kk] = np.load(p + 'COUNT_Ratios_' + stim_type + '.npy')
 
     ratios_isi_mean = np.mean(ratios_isi, axis=0)
     ratios_isi_std = np.std(ratios_isi, axis=0)
     ratios_sync_mean = np.mean(ratios_sync, axis=0)
     ratios_sync_std = np.std(ratios_sync, axis=0)
+
+    # Normalize
+    max_norm_isi = np.max(ratios_isi_mean[:, 2])
+    ratios_isi_mean[:, 0] = ratios_isi_mean[:, 0] / max_norm_isi
+    ratios_isi_mean[:, 1] = ratios_isi_mean[:, 1] / max_norm_isi
+    ratios_isi_mean[:, 2] = ratios_isi_mean[:, 2] / max_norm_isi
+    max_norm_sync = np.max(ratios_sync_mean[:, 2])
+    ratios_sync_mean[:, 0] = ratios_sync_mean[:, 0] / max_norm_sync
+    ratios_sync_mean[:, 1] = ratios_sync_mean[:, 1] / max_norm_sync
+    ratios_sync_mean[:, 2] = ratios_sync_mean[:, 2] / max_norm_sync
+
+    ratios_isi_std[:, 0] = ratios_isi_std[:, 0] / max_norm_isi
+    ratios_isi_std[:, 1] = ratios_isi_std[:, 1] / max_norm_isi
+    ratios_isi_std[:, 2] = ratios_isi_std[:, 2] / max_norm_isi
+    ratios_sync_std[:, 0] = ratios_sync_std[:, 0] / max_norm_sync
+    ratios_sync_std[:, 1] = ratios_sync_std[:, 1] / max_norm_sync
+    ratios_sync_std[:, 2] = ratios_sync_std[:, 2] / max_norm_sync
 
     # Plot
     mf.plot_settings()
@@ -2782,7 +2941,7 @@ if PLOT_D_RATIOS_OVERALL:
     ax1.set_ylim(0, 1)
     ax1.set_yticks(np.arange(0, 1.1, 0.2))
     ax1.set_xticklabels([])
-    ax1.set_ylabel('ISI Distance')
+    ax1.set_ylabel('Norm. DUR')
     ax1.set_xlim(0, x_end)
     ax1.set_xticks(np.arange(0, x_end, x_step))
 
@@ -2808,12 +2967,12 @@ if PLOT_D_RATIOS_OVERALL:
     ax2.set_yticks(np.arange(0, 1.1, 0.2))
     ax2.set_xticklabels([])
     ax2.set_yticklabels([])
-    ax2.set_ylabel('SYNC Value')
+    ax2.set_ylabel('Nornm. COUNT')
     ax2.set_xlim(0, x_end)
     ax2.set_xticks(np.arange(0, x_end, x_step))
 
-    ax4.plot(duration, 1/ratios_sync_mean[:, 3], 'r-', label='ratio')
-    ax4.fill_between(duration, (1/ratios_sync_mean[:, 3])-(ratios_sync_std[:, 3]), (1/ratios_sync_mean[:, 3])+(ratios_sync_std[:, 3]), facecolors='red', alpha=0.25)
+    ax4.plot(duration, ratios_sync_mean[:, 3], 'r-', label='ratio')
+    ax4.fill_between(duration, (ratios_sync_mean[:, 3])-(ratios_sync_std[:, 3]), (ratios_sync_mean[:, 3])+(ratios_sync_std[:, 3]), facecolors='red', alpha=0.25)
     ax4.set_ylim(1, 3)
     ax4.set_yticks(np.arange(1, 3.1, 0.5))
     ax4.set_yticklabels([])
@@ -2841,9 +3000,119 @@ if PLOT_D_RATIOS_OVERALL:
     sns.despine()
 
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
-    figname = '/media/brehm/Data/MasterMoth/figs/Distance_Ratios_' + stim_type + '_overall.pdf'
+    figname = '/media/brehm/Data/MasterMoth/figs/Distance_Ratios_DUR_COUNT_' + stim_type + '_overall.pdf'
     fig.savefig(figname)
     plt.close(fig)
+
+    # datasets = ['2018-02-20-aa', '2018-02-16-aa', '2018-02-09-aa']
+    # ratios_isi = [[]] * len(datasets)
+    # ratios_sync = [[]] * len(datasets)
+    #
+    # for kk in range(len(datasets)):
+    #     data_name = datasets[kk]
+    #     path_names = mf.get_directories(data_name=data_name)
+    #     p = path_names[1]
+    #     ratios_isi[kk] = np.load(p + 'ISI_Ratios_' + stim_type + '.npy')
+    #     ratios_sync[kk] = np.load(p + 'SYNC_Ratios_' + stim_type + '.npy')
+    #
+    # ratios_isi_mean = np.mean(ratios_isi, axis=0)
+    # ratios_isi_std = np.std(ratios_isi, axis=0)
+    # ratios_sync_mean = np.mean(ratios_sync, axis=0)
+    # ratios_sync_std = np.std(ratios_sync, axis=0)
+    #
+    # # Plot
+    # mf.plot_settings()
+    # if stim_length == 'series':
+    #     x_end = 2500 + 100
+    #     x_step = 500
+    # if stim_length == 'single':
+    #     x_end = 250 + 10
+    #     x_step = 50
+    #
+    # # Create Grid
+    # grid = matplotlib.gridspec.GridSpec(nrows=2, ncols=2)
+    # fig = plt.figure(figsize=(5.9, 2.9))
+    # ax1 = plt.subplot(grid[0])
+    # ax2 = plt.subplot(grid[1])
+    # ax3 = plt.subplot(grid[2])
+    # ax4 = plt.subplot(grid[3])
+    #
+    # ax1.plot(duration, ratios_isi_mean[:, 0], color='k', marker='', label='within')
+    # ax1.fill_between(duration, ratios_isi_mean[:, 0] - ratios_isi_mean[:, 1],
+    #                  ratios_isi_mean[:, 0] + ratios_isi_mean[:, 1], facecolors='k', alpha=0.25)
+    # # ax1.errorbar(duration, ratios_isi_mean[:, 0], yerr=ratios_isi_mean[:, 1], color='k', marker='', label='within')
+    # # ax1.errorbar(duration, ratios_isi_mean[:, 2], yerr=ratios_isi_std[:, 2], color='blue', marker='', label='between')
+    # ax1.fill_between(duration, ratios_isi_mean[:, 2] - ratios_isi_std[:, 2],
+    #                  ratios_isi_mean[:, 2] + ratios_isi_std[:, 2], facecolors='blue', alpha=0.25)
+    # ax1.plot(duration, ratios_isi_mean[:, 2], '-', label='between', color='blue')
+    #
+    # ax1.set_ylim(0, 1)
+    # ax1.set_yticks(np.arange(0, 1.1, 0.2))
+    # ax1.set_xticklabels([])
+    # ax1.set_ylabel('ISI Distance')
+    # ax1.set_xlim(0, x_end)
+    # ax1.set_xticks(np.arange(0, x_end, x_step))
+    #
+    # ax3.plot(duration, ratios_isi_mean[:, 3], 'r-', label='ratio')
+    # ax3.fill_between(duration, ratios_isi_mean[:, 3] - ratios_isi_std[:, 3],
+    #                  ratios_isi_mean[:, 3] + ratios_isi_std[:, 3], facecolors='red', alpha=0.25)
+    # ax3.set_ylim(1, 3)
+    # ax3.set_yticks(np.arange(1, 3.1, 0.5))
+    # ax3.set_ylabel('Ratio')
+    # ax3.set_xlim(0, x_end)
+    # ax3.set_xticks(np.arange(0, x_end, x_step))
+    #
+    # ax2.plot(duration, ratios_sync_mean[:, 0], color='k', marker='', label='within')
+    # ax2.fill_between(duration, ratios_sync_mean[:, 0] - ratios_sync_mean[:, 1],
+    #                  ratios_sync_mean[:, 0] + ratios_sync_mean[:, 1], facecolors='k', alpha=0.25)
+    # ax2.fill_between(duration, ratios_sync_mean[:, 2] - ratios_sync_std[:, 2],
+    #                  ratios_sync_mean[:, 2] + ratios_sync_std[:, 2], facecolors='blue', alpha=0.25)
+    # ax2.plot(duration, ratios_sync_mean[:, 2], '-', label='between', color='blue')
+    #
+    # # ax2.errorbar(duration, ratios_sync_mean[:, 0], yerr=ratios_sync_mean[:, 1], color='k', marker='', label='within')
+    # # ax2.errorbar(duration, ratios_sync_mean[:, 2], yerr=ratios_sync_std[:, 2], color='blue', marker='', label='between')
+    # # # ax2.plot(duration, ratios_sync[:, 2], '-', label='between', color='blue')
+    # ax2.set_ylim(0, 1)
+    # ax2.set_yticks(np.arange(0, 1.1, 0.2))
+    # ax2.set_xticklabels([])
+    # ax2.set_yticklabels([])
+    # ax2.set_ylabel('SYNC Value')
+    # ax2.set_xlim(0, x_end)
+    # ax2.set_xticks(np.arange(0, x_end, x_step))
+    #
+    # ax4.plot(duration, 1 / ratios_sync_mean[:, 3], 'r-', label='ratio')
+    # ax4.fill_between(duration, (1 / ratios_sync_mean[:, 3]) - (ratios_sync_std[:, 3]),
+    #                  (1 / ratios_sync_mean[:, 3]) + (ratios_sync_std[:, 3]), facecolors='red', alpha=0.25)
+    # ax4.set_ylim(1, 3)
+    # ax4.set_yticks(np.arange(1, 3.1, 0.5))
+    # ax4.set_yticklabels([])
+    # ax4.set_xlim(0, x_end)
+    # ax4.set_xticks(np.arange(0, x_end, x_step))
+    # # ax4.set_ylabel('Ratio')
+    #
+    #
+    # # Axes Labels
+    # fig.text(0.5, 0.055, 'Spike train duration [ms]', ha='center', fontdict=None)
+    #
+    # # Subplot caps
+    # subfig_caps = 12
+    # label_x_pos = -0.15
+    # label_y_pos = 1.15
+    # subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    # ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+    #          color='black')
+    # ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+    #          color='black')
+    # ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
+    #          color='black')
+    # ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
+    #          color='black')
+    # sns.despine()
+    #
+    # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
+    # figname = '/media/brehm/Data/MasterMoth/figs/Distance_Ratios_' + stim_type + '_overall.pdf'
+    # fig.savefig(figname)
+    # plt.close(fig)
 
 if CALL_STATS:
 
@@ -3056,29 +3325,51 @@ if CALLSERIESFROMMATLAB:
     # samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
     # Single Calls
     samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
+    # samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/samples.mat')['samples'][0]
 
     # Raster Plot
     mf.plot_settings()
     tts = [0.02, 0.05, 0.1, 0.2, 0.5, 0.75, 1, 1.5]
+    # tts = [0.01, 0.02, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25]
+
     for i in range(len(tts)):
         time_limit = tts[i]
         step = 0.1
         w = 0
         fig, ax = plt.subplots(figsize=(5.9, 3.9))
         # fig = plt.figure(figsize=(5.9, 1.9))
-
+        ending = [[]] * len(samples)
         for k in range(len(samples)):
             idx = samples[k] <= time_limit
             count = np.sum(idx)
+
             ax.plot([0, time_limit], [w, w], color='0.8')
             ax.plot(samples[k], np.zeros(len(samples[k]))+w, 'k|')
             ax.plot(np.max(samples[k][idx]), w, 'r|', markersize=3)
+            # ax.plot(np.max(samples[k][idx]), len(samples)*step+step, 'g|', markersize=3)
             try:
                 ax.text(time_limit, w-0.01, str(count) + ' ; ' + str(int(np.round(np.mean(np.diff(np.sort(samples[k][idx])))*1000))) + ' ms', size=5)
             except:
                 ax.text(time_limit, w-0.01, str(count) + ' ; -', size=5)
-
+            if i == len(tts)-1:
+                ending[k] = np.max(samples[k][idx])
             w += step
+
+        # if i == len(tts)-1:
+        #     # plot the cumulative histogram
+        #     a= plt.axes([.55, .7, .32, .175], facecolor='w')
+        #     # a = fig.add_subplot(40, 1, 1)
+        #     n_bins = int(tts[i] / 0.005)
+        #     n, bins, patches = a.hist(ending, n_bins, normed=0, histtype='step', cumulative=True, label='CumHist')
+        #     a.set_xlim(0, time_limit)
+        #     plt.xticks(fontsize=6)
+        #     plt.yticks(fontsize=6)
+        #     # a.set_xticks([])
+        #     a.set_yticks(np.arange(0, 20.1, 5))
+        #     a.set_xlabel('Time [s]', size=6)
+        #     a.set_ylabel('Count of finished calls', size=6)
+        #     # a.patch.set_facecolor('white')
+
         ax.set_yticks(np.arange(0, len(samples)*step, step))
         ax.set_yticklabels(np.arange(0, len(samples), 1))
         ax.set_ylabel('Call number')
@@ -3088,8 +3379,66 @@ if CALLSERIESFROMMATLAB:
 
         fig.subplots_adjust(left=0.2, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
         figname = '/media/brehm/Data/MasterMoth/CallStats/CallSeriesRasterPlot_' + str(int(time_limit*1000)) +'.pdf'
+        # figname = '/media/brehm/Data/MasterMoth/CallStats/SingleCallsRasterPlot_' + str(int(time_limit*1000)) +'.pdf'
         fig.savefig(figname)
         plt.close()
+        np.save('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_CallSeries.npy', ending)
+        # np.save('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_SingleCalls.npy', ending)
+
+if CUMHIST:
+    endings_callseries = np.load('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_CallSeries.npy')
+    endings_singlecalls = np.load('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_SingleCalls.npy')
+
+    # Plot
+    mf.plot_settings()
+    fig = plt.figure(figsize=(5.9, 2.9))
+    grid = matplotlib.gridspec.GridSpec(nrows=1, ncols=46)
+    ax1 = plt.subplot(grid[0, 0:20])
+    ax2 = plt.subplot(grid[0, 25:45])
+
+    n_bins = int(0.2 / 0.005)
+    n, bins, patches = ax1.hist(endings_singlecalls, n_bins, normed=0, histtype='stepfilled', cumulative=True, label='CumHist', color='0.75')
+    n, bins, patches = ax1.hist(endings_singlecalls, n_bins, normed=0, histtype='step', cumulative=True,
+                                label='CumHist', color='k')
+
+    n_bins = int(2 / 0.005)
+    n, bins, patches = ax2.hist(endings_callseries, n_bins, normed=0, histtype='stepfilled', cumulative=True,
+                                label='CumHist', color='0.75')
+    n, bins, patches = ax2.hist(endings_callseries, n_bins, normed=0, histtype='step', cumulative=True,
+                                label='CumHist', color='k')
+
+    ax1.set_ylabel('Count of finished calls')
+    fig.text(0.5, 0.035, 'Time [s]', ha='center', fontdict=None)
+    sns.despine()
+
+    ax1.set_yticks(np.arange(0, 20.1, 5))
+    ax2.set_yticks(np.arange(0, 20.1, 5))
+    ax1.set_ylim(0, 20)
+    ax2.set_ylim(0, 20)
+
+    ax1.set_xticks(np.arange(0, 0.21, 0.05))
+    ax2.set_xticks(np.arange(0, 2.1, 0.5))
+    ax1.set_xlim(0, 0.2)
+    ax2.set_xlim(0, 2)
+
+    ax1.grid(color='0.3', linestyle='--', linewidth=.5)
+    ax2.grid(color='0.3', linestyle='--', linewidth=.5)
+
+    # Subfig caps
+    subfig_caps = 12
+    label_x_pos = -0.025
+    label_y_pos = 0.95
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    ax1.text(label_x_pos - 0.2, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+             color='black')
+    ax2.text(label_x_pos - 0.2, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+             color='black')
+
+    fig.subplots_adjust(left=0.2, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+    figname = '/media/brehm/Data/MasterMoth/CallStats/CumHists.pdf'
+    fig.savefig(figname)
+    plt.close()
+
 
 if TEST:
     data = [1, 2, 3, 4, 5, 7, 8, 9, 10]
