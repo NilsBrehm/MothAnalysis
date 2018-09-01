@@ -7,6 +7,7 @@ import matplotlib
 from scipy import signal as sg
 import seaborn as sns
 from tqdm import tqdm
+import scalebars as sb
 
 
 def plot_settings():
@@ -69,7 +70,7 @@ def tagtostimulus(nix_file, pathname):
     return connection, connection2
 
 
-def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit):
+def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, ID):
 
     if stim_type is 'series':
         call_name = 'callseries/moths/' + name
@@ -108,7 +109,7 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit):
     b, a = sg.butter(cutoff[2], [low, high], btype=ftype, analog=False)
     y = sg.filtfilt(b, a, call_volt[trial_nr])
 
-    call_dur = t_audio[-1] - 0.05
+    call_dur = np.round(t_audio[-1] - 0.075, 2)
     # Plot
     plot_settings()
     if t_limit[1] <= 0:
@@ -116,40 +117,47 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit):
 
     # Create Grid
     grid = matplotlib.gridspec.GridSpec(nrows=3, ncols=1)
-    fig = plt.figure(figsize=(2.9, 1.9))
+    fig = plt.figure(figsize=(2.9, 1.4))
     ax1 = plt.subplot(grid[0, 0])
     ax2 = plt.subplot(grid[1, 0])
     ax3 = plt.subplot(grid[2, 0])
 
-    ax1.plot(t_audio*1000, call_audio[1], 'k')
+    ax1.plot(t_audio*1000, call_audio[1], 'k', linewidth=0.5)
     # ax2.plot(t_volt*1000, call_volt[trial_nr], 'b')
-    ax2.plot(t_volt*1000, y, 'k')
+    ax2.plot(t_volt*1000, y, 'k', linewidth=0.5)
     for k in range(len(call_spikes)):
-        ax3.plot(call_spikes[k]*1000, np.ones(len(call_spikes[k])) + k, 'ks', markersize=0.2)
+        ax3.plot(call_spikes[k]*1000, np.ones(len(call_spikes[k])) + k, 'ks', markersize=0.2, linewidth=0.5)
 
-    ax3.set_xlim(t_limit[0]*1000, t_limit[1]*1000)
-    ax3.set_xticks(np.arange(t_limit[0]*1000, t_limit[1]*1000+1, 20))
-    ax3.set_xticks(np.arange(t_limit[0]*1000, t_limit[1]*1000, 10), minor=True)
+    # ax1.set_xticks(np.arange(t_limit[0] * 1000, t_limit[1] * 1000, 20))
+    # ax2.set_xticks(np.arange(t_limit[0] * 1000, t_limit[1] * 1000, 20))
+    # ax3.set_xticks(np.arange(t_limit[0] * 1000, t_limit[1] * 1000, 20))
+    # ax3.set_xticks(np.arange(t_limit[0]*1000, t_limit[1]*1000+100, 10), minor=True)
 
-    ax1.set_xlim(t_limit[0]*1000, t_limit[1]*1000)
-    ax2.set_xlim(t_limit[0]*1000, t_limit[1]*1000)
+    ax1.set_xlim(t_limit[0] * 1000, t_limit[1] * 1000)
+    ax2.set_xlim(t_limit[0] * 1000, t_limit[1] * 1000)
+    ax3.set_xlim(t_limit[0] * 1000, t_limit[1] * 1000)
 
     ax1.set_xticklabels([])
     ax2.set_xticklabels([])
 
     ax1.set_yticks([])
     ax1.set_xticks([])
+    ax3.set_xticks([])
     ax2.set_xticks([])
     ax1.set_yticklabels([])
     ax2.set_yticks([])
     # ax3.set_yticks(np.arange(0, len(call_volt)+1, 10))
     ax3.set_yticks([])
 
-    ax3.set_xlabel('Time [ms]')
+    # ax3.set_xlabel('Time [ms]')
 
     sns.despine(ax=ax1, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
     sns.despine(ax=ax2, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
-    sns.despine(ax=ax3, top=True, right=True, left=True, bottom=False, offset=5, trim=False)
+    sns.despine(ax=ax3, top=True, right=True, left=True, bottom=True, offset=5, trim=False)
+
+    ob = sb.AnchoredHScaleBar(size=10, label='', loc=1, frameon=False, pad=0.2, sep=4, color="k")
+    ax1.add_artist(ob)
+    fig.text(0.84, 0.90, '10 ms', ha='center', fontdict=None, size=6)
 
     # Subplot caps
     subfig_caps = 6
@@ -163,9 +171,12 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit):
     ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
              color='black')
 
-    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.25, right=0.9, wspace=0.2, hspace=0.2)
-    figname = '/media/nils/Data/Moth/figs/' + rec + '/responses' + '/' + name[0:-4] + '_' + \
-              stim_type + '_trial' + str(trial_nr) + '.pdf'
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.05, right=0.9, wspace=0.2, hspace=0.2)
+    # figname = '/media/nils/Data/Moth/figs/' + rec + '/responses' + '/' + name[0:-4] + '_' + \
+    #           stim_type + '_trial' + str(trial_nr) + '.pdf'
+    # figname = '/media/nils/Data/Moth/figs/' + rec + '/responses/' + stim_type + str(ID) + '.pdf'
+    figname = '/media/nils/Data/Moth/Thesis/nilsbrehm/figs/responses/' + stim_type + str(ID) + '.pdf'
+
     fig.savefig(figname)
     plt.close(fig)
     return 0
@@ -203,6 +214,6 @@ volt = np.load(p + 'Calls_voltage.npy').item()
 spikes = np.load(p + 'Calls_spikes.npy').item()
 
 for k in tqdm(range(len(stims)), desc='Calls'):
-    plot_spikes(rec, stims[k], stim_types, volt, spikes, cutoff, trials[k], [0, 0])
+    plot_spikes(rec, stims[k], stim_types, volt, spikes, cutoff, trials[k], [0, 0], ID=k)
 
 print('All plots saved')
