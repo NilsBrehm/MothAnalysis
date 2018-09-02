@@ -52,6 +52,35 @@ def plot_settings():
     return matplotlib.rcParams
 
 
+def remove_large_spikes(x, spike_times, mph_percent, method):
+    # Remove large spikes
+    fs = 100*1000
+    if method == 'max':
+        if spike_times.any():
+            mask = np.ones(len(spike_times), dtype=bool)
+            idx = spike_times * fs
+            a = x[idx.astype('int')]
+            idx_a = a >= np.max(a) * mph_percent
+            mask[idx_a] = False
+            marked = spike_times[idx_a]
+            spike_times = spike_times[mask]
+
+    if method == 'std':
+        if spike_times.any():
+            mask = np.ones(len(spike_times), dtype=bool)
+            idx = spike_times * fs
+            a = x[idx.astype('int')]
+            a = a / np.max(a)
+            idx_a = a >= np.mean(a) + np.std(a) * mph_percent
+            mask[idx_a] = False
+            marked = spike_times[idx_a]
+            spike_times = spike_times[mask]
+        else:
+            marked = np.nan
+
+    return spike_times, marked
+
+
 def tagtostimulus(nix_file, pathname):
     tag_list = np.load(pathname + 'Calls_tag_list.npy')
     f = nix.File.open(nix_file, nix.FileMode.ReadOnly)
@@ -75,12 +104,18 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, I
     if stim_type is 'series':
         call_name = 'callseries/moths/' + name
         audio_path = '/media/nils/Data/Moth/stimuli_plotting/callseries/moths/'
+
     if stim_type is 'single':
         call_name = 'naturalmothcalls/' + name
         audio_path = '/media/nils/Data/Moth/stimuli_plotting/naturalmothcalls/'
-    else:
-        print('Wrong stim type')
-        return 0
+
+    if stim_type is 'bats_single':
+        call_name = 'batcalls/' + name
+        audio_path = '/media/nils/Data/Moth/stimuli_plotting/batcalls/'
+
+    if stim_type is 'bats_series':
+        call_name = 'callseries/bats/' + name
+        audio_path = '/media/nils/Data/Moth/stimuli_plotting/callseries/bats/'
 
     p_nix = '/media/nils/Data/Moth/mothdata/' + rec + '/' + rec + '.nix'
     p = '/media/nils/Data/Moth/figs/' + rec + '/DataFiles/'
@@ -98,6 +133,11 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, I
     t_volt = np.arange(0, len(call_volt[trial_nr])/fs, 1/fs)
 
     # print('Trial number: ' + str(trial_nr))
+    if stim_type is 'series':
+        marked = [[]] * len(call_volt)
+        # Remove large spikes
+        for i in range(len(call_volt)):
+            call_spikes[i], marked[i] = remove_large_spikes(call_volt[i], call_spikes[i], mph_percent=10, method='std')
 
     # Filter volt trace
     nyqst = 0.5 * fs
@@ -122,9 +162,16 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, I
     ax2 = plt.subplot(grid[1, 0])
     ax3 = plt.subplot(grid[2, 0])
 
-    ax1.plot(t_audio*1000, call_audio[1], 'k', linewidth=0.5)
-    # ax2.plot(t_volt*1000, call_volt[trial_nr], 'b')
+    if stim_type is 'bats_single' or stim_type is 'bats_series':
+        ax1.plot(t_audio[0:len(call_audio[1])]*1000, call_audio[1], 'k', linewidth=0.5)
+    else:
+        ax1.plot(t_audio * 1000, call_audio[1], 'k', linewidth=0.5)
     ax2.plot(t_volt*1000, y, 'k', linewidth=0.5)
+    fs = 100*1000
+    if stim_type is 'series':
+        mared_idx = marked[trial_nr] * fs
+        ax2.plot(marked[trial_nr]*1000, y[mared_idx.astype('int')], 'rx', linewidth=0.5, markersize=0.25)
+
     for k in range(len(call_spikes)):
         ax3.plot(call_spikes[k]*1000, np.ones(len(call_spikes[k])) + k, 'ks', markersize=0.2, linewidth=0.5)
 
@@ -183,37 +230,86 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, I
 
 
 # SCRIPT STARTS HERE ===================================================================================================
-stims = ['BCI1062_07x07.wav',
-         'aclytia_gynamorpha_24x24.wav',
-         'agaraea_semivitrea_07x07.wav',
-         'carales_12x12_01.wav',
-         'chrostosoma_thoracicum_05x05.wav',
-         'creatonotos_01x01.wav',
-         'elysius_conspersus_11x11.wav',
-         'epidesma_oceola_06x06.wav',
-         'eucereon_appunctata_13x13.wav',
-         'eucereon_hampsoni_11x11.wav',
-         'eucereon_obscurum_14x14.wav',
-         'gl005_11x11.wav',
-         'gl116_05x05.wav',
-         'hypocladia_militaris_09x09.wav',
-         'idalu_fasciipuncta_05x05.wav',
-         'idalus_daga_18x18.wav',
-         'melese_12x12_01_PK1297.wav',
-         'neritos_cotes_10x10.wav',
-         'ormetica_contraria_peruviana_09x09.wav',
-         'syntrichura_12x12.wav']
+stim_types = 'series'
+if stim_types is 'single':
+    stims = ['BCI1062_07x07.wav',
+             'aclytia_gynamorpha_24x24.wav',
+             'agaraea_semivitrea_07x07.wav',
+             'carales_12x12_01.wav',
+             'chrostosoma_thoracicum_05x05.wav',
+             'creatonotos_01x01.wav',
+             'elysius_conspersus_11x11.wav',
+             'epidesma_oceola_06x06.wav',
+             'eucereon_appunctata_13x13.wav',
+             'eucereon_hampsoni_11x11.wav',
+             'eucereon_obscurum_14x14.wav',
+             'gl005_11x11.wav',
+             'gl116_05x05.wav',
+             'hypocladia_militaris_09x09.wav',
+             'idalu_fasciipuncta_05x05.wav',
+             'idalus_daga_18x18.wav',
+             'melese_12x12_01_PK1297.wav',
+             'neritos_cotes_10x10.wav',
+             'ormetica_contraria_peruviana_09x09.wav',
+             'syntrichura_12x12.wav']
 
-trials = [17, 5, 3, 19, 6, 2, 12, 3, 7, 2, 8, 2, 0, 4, 16, 8, 17, 10, 10, 18]
-rec = '2018-02-16-aa'
-stim_types = 'single'
-c_name = 'melese_11x11_PK1299' + '.wav'
+if stim_types is 'series':
+    stims = ['A7838.wav',
+             'BCI1348.wav',
+             'Chrostosoma_thoracicum.wav',
+             'Creatonotos.wav',
+             'Eucereon_appunctata.wav',
+             'Eucereon_hampsoni.wav',
+             'Eucereon_maia.wav',
+             'GL005.wav',
+             'Hyaleucera_erythrotelus.wav',
+             'Hypocladia_militaris.wav',
+             'PP241.wav',
+             'PP612.wav',
+             'PP643.wav',
+             'Saurita.wav',
+             'Uranophora_leucotelus.wav',
+             'carales_PK1275.wav',
+             'melese_PK1300_01.wav']
+
+if stim_types is'bats_single':
+    stims = ['Barbastella_barbastellus_1_n.wav',
+             'Eptesicus_nilssonii_1_s.wav',
+             'Myotis_bechsteinii_1_n.wav',
+             'Myotis_brandtii_1_n.wav',
+             'Myotis_nattereri_1_n.wav',
+             'Nyctalus_leisleri_1_n.wav',
+             'Nyctalus_noctula_2_s.wav',
+             'Pipistrellus_pipistrellus_1_n.wav',
+             'Pipistrellus_pygmaeus_2_n.wav',
+             'Rhinolophus_ferrumequinum_1_n.wav',
+             'Vespertilio_murinus_1_s.wav']
+
+if stim_types is 'bats_series':
+    stims = ['Barbastella_barbastellus_1_n.wav',
+             'Myotis_bechsteinii_1_n.wav',
+             'Myotis_brandtii_1_n.wav',
+             'Myotis_nattereri_1_n.wav',
+             'Nyctalus_leisleri_1_n.wav',
+             'Nyctalus_noctula_2_s.wav',
+             'Pipistrellus_pipistrellus_1_n.wav',
+             'Pipistrellus_pygmaeus_2_n.wav',
+             'Rhinolophus_ferrumequinum_1_n.wav',
+             'Vespertilio_murinus_1_s.wav']
+
+trials = [17, 5, 3, 19, 6, 2, 12, 3, 7, 2, 8, 2, 0, 4, 16, 8, 17, 10, 10, 18]  # good trials for single calls
+# rec = '2018-02-16-aa'  # good recs for single calls
+# rec = '2018-02-20-aa'  # good recs for bats single
+# rec = '2018-02-16-aa'  # good recs for bats series
+rec = '2018-02-16-aa'  # good recs for call series
+
+
 cutoff = [100, 2000, 2]
 p = '/media/nils/Data/Moth/figs/' + rec + '/DataFiles/'
 volt = np.load(p + 'Calls_voltage.npy').item()
 spikes = np.load(p + 'Calls_spikes.npy').item()
 
-for k in tqdm(range(len(stims)), desc='Calls'):
-    plot_spikes(rec, stims[k], stim_types, volt, spikes, cutoff, trials[k], [0, 0], ID=k)
+for kk in tqdm(range(len(stims)), desc='Calls'):
+    plot_spikes(rec, stims[kk], stim_types, volt, spikes, cutoff, None, [0, 0.4], ID=kk)
 
 print('All plots saved')
