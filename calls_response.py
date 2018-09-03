@@ -8,6 +8,7 @@ from scipy import signal as sg
 import seaborn as sns
 from tqdm import tqdm
 import scalebars as sb
+import os
 
 
 def plot_settings():
@@ -50,6 +51,16 @@ def plot_settings():
     matplotlib.rcParams['legend.fontsize'] = 6
 
     return matplotlib.rcParams
+
+
+def get_directories(data_name):
+    data_files_path = os.path.join('..', 'figs', data_name, 'DataFiles', '')
+    figs_path = os.path.join('..', 'figs', data_name, '')
+    nix_path = os.path.join('..', 'mothdata', data_name, data_name)
+    thesis_figs = os.path.join('..', 'Thesis/nilsbrehm/figs/responses/')
+    audio_path = os.path.join('..', 'stimuli_plotting/')
+    path_names = [data_name, data_files_path, figs_path, nix_path, thesis_figs, audio_path]
+    return path_names
 
 
 def remove_large_spikes(x, spike_times, mph_percent, method):
@@ -99,26 +110,29 @@ def tagtostimulus(nix_file, pathname):
     return connection, connection2
 
 
-def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, ID):
+def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, ID, path_names):
 
     if stim_type is 'series':
         call_name = 'callseries/moths/' + name
-        audio_path = '/media/nils/Data/Moth/stimuli_plotting/callseries/moths/'
+        audio_path = path_names[5] + 'callseries/moths/'
 
     if stim_type is 'single':
         call_name = 'naturalmothcalls/' + name
-        audio_path = '/media/nils/Data/Moth/stimuli_plotting/naturalmothcalls/'
+        audio_path = path_names[5] + 'naturalmothcalls/'
 
     if stim_type is 'bats_single':
         call_name = 'batcalls/' + name
-        audio_path = '/media/nils/Data/Moth/stimuli_plotting/batcalls/'
+        audio_path = path_names[5] + 'batcalls/'
 
     if stim_type is 'bats_series':
         call_name = 'callseries/bats/' + name
-        audio_path = '/media/nils/Data/Moth/stimuli_plotting/callseries/bats/'
+        audio_path = path_names[5] + 'callseries/bats/'
 
-    p_nix = '/media/nils/Data/Moth/mothdata/' + rec + '/' + rec + '.nix'
-    p = '/media/nils/Data/Moth/figs/' + rec + '/DataFiles/'
+    # p_nix = '/media/nils/Data/Moth/mothdata/' + rec + '/' + rec + '.nix'
+    p_nix = path_names[3] + '.nix'
+
+    # p = '/media/nils/Data/Moth/figs/' + rec + '/DataFiles/'
+    p = path_names[1]
 
     c1, c2 = tagtostimulus(p_nix, p)
 
@@ -157,7 +171,10 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, I
 
     # Create Grid
     grid = matplotlib.gridspec.GridSpec(nrows=3, ncols=1)
-    fig = plt.figure(figsize=(2.9, 1.4))
+    if stim_type is 'bats_single':
+        fig = plt.figure(figsize=(2.9, 1.2))
+    else:
+        fig = plt.figure(figsize=(2.9, 1.4))
     ax1 = plt.subplot(grid[0, 0])
     ax2 = plt.subplot(grid[1, 0])
     ax3 = plt.subplot(grid[2, 0])
@@ -222,7 +239,8 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, I
     # figname = '/media/nils/Data/Moth/figs/' + rec + '/responses' + '/' + name[0:-4] + '_' + \
     #           stim_type + '_trial' + str(trial_nr) + '.pdf'
     # figname = '/media/nils/Data/Moth/figs/' + rec + '/responses/' + stim_type + str(ID) + '.pdf'
-    figname = '/media/nils/Data/Moth/Thesis/nilsbrehm/figs/responses/' + stim_type + str(ID) + '.pdf'
+    # figname = '/media/nils/Data/Moth/Thesis/nilsbrehm/figs/responses/' + stim_type + str(ID) + '.pdf'
+    figname = path_names[4] + stim_type + str(ID) + '.pdf'
 
     fig.savefig(figname)
     plt.close(fig)
@@ -230,8 +248,9 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, I
 
 
 # SCRIPT STARTS HERE ===================================================================================================
-stim_types = 'series'
+stim_types = 'bats_series'
 if stim_types is 'single':
+    rec = '2018-02-16-aa'  # good recs for single calls
     stims = ['BCI1062_07x07.wav',
              'aclytia_gynamorpha_24x24.wav',
              'agaraea_semivitrea_07x07.wav',
@@ -254,6 +273,7 @@ if stim_types is 'single':
              'syntrichura_12x12.wav']
 
 if stim_types is 'series':
+    rec = '2018-02-16-aa'  # good recs for call series
     stims = ['A7838.wav',
              'BCI1348.wav',
              'Chrostosoma_thoracicum.wav',
@@ -273,6 +293,7 @@ if stim_types is 'series':
              'melese_PK1300_01.wav']
 
 if stim_types is'bats_single':
+    rec = '2018-02-20-aa'  # good recs for bats single
     stims = ['Barbastella_barbastellus_1_n.wav',
              'Eptesicus_nilssonii_1_s.wav',
              'Myotis_bechsteinii_1_n.wav',
@@ -286,6 +307,7 @@ if stim_types is'bats_single':
              'Vespertilio_murinus_1_s.wav']
 
 if stim_types is 'bats_series':
+    rec = '2018-02-16-aa'  # good recs for bats series
     stims = ['Barbastella_barbastellus_1_n.wav',
              'Myotis_bechsteinii_1_n.wav',
              'Myotis_brandtii_1_n.wav',
@@ -301,15 +323,17 @@ trials = [17, 5, 3, 19, 6, 2, 12, 3, 7, 2, 8, 2, 0, 4, 16, 8, 17, 10, 10, 18]  #
 # rec = '2018-02-16-aa'  # good recs for single calls
 # rec = '2018-02-20-aa'  # good recs for bats single
 # rec = '2018-02-16-aa'  # good recs for bats series
-rec = '2018-02-16-aa'  # good recs for call series
+# rec = '2018-02-16-aa'  # good recs for call series
 
-
+# for i in range(len(stims)):
+#     print(str(i) + ': ' + stims[i][0:-4])
+# exit()
+path_names = get_directories(rec)
 cutoff = [100, 2000, 2]
-p = '/media/nils/Data/Moth/figs/' + rec + '/DataFiles/'
-volt = np.load(p + 'Calls_voltage.npy').item()
-spikes = np.load(p + 'Calls_spikes.npy').item()
+volt = np.load(path_names[1] + 'Calls_voltage.npy').item()
+spikes = np.load(path_names[1] + 'Calls_spikes.npy').item()
 
 for kk in tqdm(range(len(stims)), desc='Calls'):
-    plot_spikes(rec, stims[kk], stim_types, volt, spikes, cutoff, None, [0, 0.4], ID=kk)
+    plot_spikes(rec, stims[kk], stim_types, volt, spikes, cutoff, None, [0, 0], ID=kk, path_names=path_names)
 
 print('All plots saved')
