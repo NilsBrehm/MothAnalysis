@@ -67,7 +67,7 @@ DISTANCE_RATIOS = False
 CALLSFROMMATLAB = False
 CALLSERIESFROMMATLAB = False
 PLOT_CALLS = False
-CUMHIST = True
+CUMHIST = False
 
 # VanRossum Tau vs Duration
 PLOT_VR_TAUVSDUR = False
@@ -92,7 +92,7 @@ PLOT_D_RATIOS_OVERALL = False
 
 
 # Pulse Train Stuff
-PULSE_TRAIN_VANROSSUM = False
+PULSE_TRAIN_VANROSSUM = True
 PULSE_TRAIN_ISI = False
 
 # FI Stuff
@@ -115,9 +115,9 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_single_selected'
+stim_type = 'moth_series_selected'
 # stim_type = 'all_single'
-stim_length = 'single'
+stim_length = 'series'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -543,9 +543,6 @@ if CALL_STRUC:
     plt.axvline(1, color='k')
     plt.axvline(2, color='k')
     plt.show()
-
-    embed()
-    exit()
 
 if GAP:
     # dat = datasets[5]
@@ -1922,30 +1919,30 @@ if PULSE_TRAIN_VANROSSUM:
         cc = 'white'
 
         fig = plt.figure(figsize=(5.9, 2.9))
-        grid = matplotlib.gridspec.GridSpec(nrows=48, ncols=88)
+        grid_step = 12
+        x1 = 0
+        x2 = 9
+        y1 = 4
+        y2 = 14
+        grid = matplotlib.gridspec.GridSpec(nrows=y2+grid_step+1, ncols=x2+3*grid_step+1)
 
-        ax1 = plt.subplot(grid[4:24, 0:20])
-        cb1 = plt.subplot(grid[1, 1:19])
+        ax1 = plt.subplot(grid[y1:y2, x1:x2])
+        cb1 = plt.subplot(grid[2, x1:x2])
 
-        ax2 = plt.subplot(grid[4:24, 22:42])
-        cb2 = plt.subplot(grid[1, 23:41])
+        ax2 = plt.subplot(grid[y1:y2, x1+grid_step:x2+grid_step])
+        cb2 = plt.subplot(grid[2, x1+grid_step:x2+grid_step])
 
-        ax3 = plt.subplot(grid[4:24, 44:64])
-        cb3 = plt.subplot(grid[1, 45:63])
+        ax3 = plt.subplot(grid[y1:y2, x1 + 2*grid_step:x2 + 2*grid_step])
+        cb3 = plt.subplot(grid[2, x1 + 2*grid_step:x2 + 2*grid_step])
 
-        ax4 = plt.subplot(grid[4:24, 66:86])
-        cb4 = plt.subplot(grid[1, 67:85])
+        ax4 = plt.subplot(grid[y1:y2, x1 + 3 * grid_step:x2 + 3 * grid_step])
+        cb4 = plt.subplot(grid[2, x1 + 3 * grid_step:x2 + 3 * grid_step])
 
-        ax5 = plt.subplot(grid[25:45, 0:20])
-        # cb5 = plt.subplot(grid[52, 0])
+        ax5 = plt.subplot(grid[y1+grid_step:y2+grid_step, x1:x2])
+        ax6 = plt.subplot(grid[y1+grid_step:y2+grid_step, x1+grid_step:x2+grid_step])
+        ax7 = plt.subplot(grid[y1+grid_step:y2+grid_step, x1+2*grid_step:x2+2*grid_step])
+        ax8 = plt.subplot(grid[y1+grid_step:y2+grid_step, x1+3*grid_step:x2+3*grid_step])
 
-        ax6 = plt.subplot(grid[25:45, 22:42])
-        # cb6 = plt.subplot(grid[52, 1])
-
-        ax7 = plt.subplot(grid[25:45, 44:64])
-        # cb7 = plt.subplot(grid[52, 2])
-
-        ax8 = plt.subplot(grid[25:45, 66:86])
         # cb8 = plt.subplot(grid[52, 3])
 
         # Color Range Settings
@@ -1972,101 +1969,113 @@ if PULSE_TRAIN_VANROSSUM:
         COUNT_S = plot_data[2][3] / np.max(plot_data[2][3])
         COUNT_P = plot_data[3][3][dur_d] / np.max(plot_data[3][3][dur_d])
 
-        if dursCS[dd] != 1000:
-            continue
-
-        if dursCS[dd] == 1000:
-            plt.close('all')
-
-            ISI_diff = abs(plot_data[3][0][dur_d] - plot_data[2][0])
-            ISI_ratio = plot_data[3][0][dur_d] / plot_data[2][0]
-            ISI_diff_mean = np.mean(ISI_diff)
-
-            AA = [[]] * 8
-            # ISI, SYNC, DUR, COUNT
-            AA[0] = plot_data[2][0]
-            AA[1] = plot_data[2][1]
-            AA[2] = plot_data[2][2] / np.max(plot_data[2][2])
-            AA[3] = plot_data[2][3] / np.max(plot_data[2][3])
-
-            # Pulse trains
-            AA[4] = plot_data[3][0][dur_d]
-            AA[5] = plot_data[3][1][dur_d]
-            AA[6] = plot_data[3][2][dur_d] / np.max(plot_data[3][2][dur_d])
-            AA[7] = plot_data[3][3][dur_d] / np.max(plot_data[3][3][dur_d])
-
-            cors = np.zeros((len(AA), len(AA)))
-            for jj in range(len(AA)):
-                for kk in range(len(AA)):
-                    dummy = scipy.signal.correlate2d(AA[jj], AA[kk], mode='full')
-                    cors[jj, kk] = np.max(dummy)
-
-            # c = 0.001
-            BB_S = (AA[0] + (1-AA[1]) + AA[2] + AA[3]) / 4
-            BB_P = (AA[4] + (1-AA[5]) + AA[6] + AA[7]) / 4
-
-            plt.subplot(121)
-            plt.imshow(BB_S)
-            plt.colorbar()
-            plt.subplot(122)
-            plt.imshow(BB_P)
-            plt.colorbar()
-            # cors = cors / np.max(cors)
-            # # LINEAR COMBINATION OPT.
-            # # ww = np.array([0.001, 0.01, 0.1, 0.2, 0.5, 0.8, 1])
-            # ww = np.array(np.linspace(0.01, 1, 10))
-            # var = np.zeros(len(ww))
-            # result = np.zeros((len(ww), len(ww), len(ww), len(ww)))
-            # for w_count in range(len(ww)):
-            #     for w_sync in range(len(ww)):
-            #         for w_dur in range(len(ww)):
-            #             for w_isi in range(len(ww)):
-            #                 # w = [ww[w_isi], ww[w_dur], ww[w_sync], 0]
-            #                 # ISI_weight = w[0] * ISI_S + w[1] * (1/SYNC_S) + w[2] * DUR_S + w[3] * COUNT_S
-            #                 ISI_weight = ww[w_isi] * ISI_S + ww[w_sync] * (1/SYNC_S) + ww[w_dur] * DUR_S + ww[w_count] * COUNT_S
-            #                 ISI_weight_norm = ISI_weight / np.max(ISI_weight)
-            #                 ISI_mins = np.zeros(len(ISI_weight_norm))
-            #                 cr = 0
-            #                 for q in range(len(ISI_weight_norm)):
-            #                     # ISI_mins[q] = np.where(ISI_weight_norm[q, :] == np.min(ISI_weight_norm[q, :]))
-            #                     mm = np.where(ISI_weight_norm[q, :] == np.min(ISI_weight_norm[q, :]))[0][0]
-            #                     if mm == q:
-            #                         cr += 1
-            #                 result[w_count, w_sync, w_dur, w_isi] = cr
-            #     # fig, ax = plt.subplots()
-            #     # ax.imshow(ISI_weight_norm)
-            # # plt.show()
-            # a = np.where(result == np.max(result))
-            # b = [[]] * len(a[0])
-            # from mpl_toolkits.mplot3d import Axes3D
-            # fig = plt.figure()
-            # ax = fig.add_subplot(111, projection='3d')
-            # ax.scatter(b[kk][0], b[kk][2], b[kk][1], zdir='z', c='red')
-            #
-            # for kk in range(len(a[0])):
-            #     b[kk] = [ww[a[0][kk]], ww[a[1][kk]], ww[a[2][kk]], ww[a[3][kk]]]
-            #     ax.scatter(b[kk][0], b[kk][2], b[kk][1], zdir='z', c='red')
-            # ax.set_xlabel('COUNT weight')
-            # ax.set_ylabel('DUR weight')
-            # ax.set_zlabel('SYNC weight')
-            # plt.show()
-
-            embed()
-            exit()
+        # if dursCS[dd] != 1000:
+        #     continue
+        #
+        # if dursCS[dd] == 1000:
+        #     plt.close('all')
+        #
+        #     ISI_diff = abs(plot_data[3][0][dur_d] - plot_data[2][0])
+        #     ISI_ratio = plot_data[3][0][dur_d] / plot_data[2][0]
+        #     ISI_diff_mean = np.mean(ISI_diff)
+        #
+        #     AA = [[]] * 8
+        #     # ISI, SYNC, DUR, COUNT
+        #     AA[0] = plot_data[2][0]
+        #     AA[1] = plot_data[2][1]
+        #     AA[2] = plot_data[2][2] / np.max(plot_data[2][2])
+        #     AA[3] = plot_data[2][3] / np.max(plot_data[2][3])
+        #
+        #     # Pulse trains
+        #     AA[4] = plot_data[3][0][dur_d]
+        #     AA[5] = plot_data[3][1][dur_d]
+        #     AA[6] = plot_data[3][2][dur_d] / np.max(plot_data[3][2][dur_d])
+        #     AA[7] = plot_data[3][3][dur_d] / np.max(plot_data[3][3][dur_d])
+        #
+        #     cors = np.zeros((len(AA), len(AA)))
+        #     for jj in range(len(AA)):
+        #         for kk in range(len(AA)):
+        #             dummy = scipy.signal.correlate2d(AA[jj], AA[kk], mode='full')
+        #             cors[jj, kk] = np.max(dummy)
+        #
+        #     # c = 0.001
+        #     BB_S = (AA[0] + (1-AA[1]) + AA[2] + AA[3]) / 4
+        #     BB_P = (AA[4] + (1-AA[5]) + AA[6] + AA[7]) / 4
+        #
+        #     plt.subplot(121)
+        #     plt.imshow(BB_S)
+        #     plt.colorbar()
+        #     plt.subplot(122)
+        #     plt.imshow(BB_P)
+        #     plt.colorbar()
+        #     # cors = cors / np.max(cors)
+        #     # # LINEAR COMBINATION OPT.
+        #     # # ww = np.array([0.001, 0.01, 0.1, 0.2, 0.5, 0.8, 1])
+        #     # ww = np.array(np.linspace(0.01, 1, 10))
+        #     # var = np.zeros(len(ww))
+        #     # result = np.zeros((len(ww), len(ww), len(ww), len(ww)))
+        #     # for w_count in range(len(ww)):
+        #     #     for w_sync in range(len(ww)):
+        #     #         for w_dur in range(len(ww)):
+        #     #             for w_isi in range(len(ww)):
+        #     #                 # w = [ww[w_isi], ww[w_dur], ww[w_sync], 0]
+        #     #                 # ISI_weight = w[0] * ISI_S + w[1] * (1/SYNC_S) + w[2] * DUR_S + w[3] * COUNT_S
+        #     #                 ISI_weight = ww[w_isi] * ISI_S + ww[w_sync] * (1/SYNC_S) + ww[w_dur] * DUR_S + ww[w_count] * COUNT_S
+        #     #                 ISI_weight_norm = ISI_weight / np.max(ISI_weight)
+        #     #                 ISI_mins = np.zeros(len(ISI_weight_norm))
+        #     #                 cr = 0
+        #     #                 for q in range(len(ISI_weight_norm)):
+        #     #                     # ISI_mins[q] = np.where(ISI_weight_norm[q, :] == np.min(ISI_weight_norm[q, :]))
+        #     #                     mm = np.where(ISI_weight_norm[q, :] == np.min(ISI_weight_norm[q, :]))[0][0]
+        #     #                     if mm == q:
+        #     #                         cr += 1
+        #     #                 result[w_count, w_sync, w_dur, w_isi] = cr
+        #     #     # fig, ax = plt.subplots()
+        #     #     # ax.imshow(ISI_weight_norm)
+        #     # # plt.show()
+        #     # a = np.where(result == np.max(result))
+        #     # b = [[]] * len(a[0])
+        #     # from mpl_toolkits.mplot3d import Axes3D
+        #     # fig = plt.figure()
+        #     # ax = fig.add_subplot(111, projection='3d')
+        #     # ax.scatter(b[kk][0], b[kk][2], b[kk][1], zdir='z', c='red')
+        #     #
+        #     # for kk in range(len(a[0])):
+        #     #     b[kk] = [ww[a[0][kk]], ww[a[1][kk]], ww[a[2][kk]], ww[a[3][kk]]]
+        #     #     ax.scatter(b[kk][0], b[kk][2], b[kk][1], zdir='z', c='red')
+        #     # ax.set_xlabel('COUNT weight')
+        #     # ax.set_ylabel('DUR weight')
+        #     # ax.set_zlabel('SYNC weight')
+        #     # plt.show()
+        #     embed()
+        #     exit()
         # Plot on axes
-        im1 = ax1.imshow(plot_data[2][0], vmin=0, vmax=1, cmap='viridis')
-        im2 = ax2.imshow(plot_data[2][1], vmin=0, vmax=1, cmap='viridis')
-        # im3 = ax3.imshow(plot_data[2][2], vmin=0, vmax=np.max(plot_data[3][2]), cmap='viridis')
-        im3 = ax3.imshow(plot_data[2][2], vmin=c3_settings[0], vmax=c3_settings[-1], cmap='viridis')
-        # im4 = ax4.imshow(plot_data[2][3], vmin=0, vmax=np.max(plot_data[3][3]), cmap='viridis')
-        im4 = ax4.imshow(COUNT_S, vmin=c4_settings[0], vmax=c4_settings[-1], cmap='viridis')
 
-        im5 = ax5.imshow(plot_data[3][0][dur_d], vmin=0, vmax=1, cmap='viridis')
-        im6 = ax6.imshow(plot_data[3][1][dur_d], vmin=0, vmax=1, cmap='viridis')
-        # im7 = ax7.imshow(plot_data[3][2][dur_d], vmin=0, vmax=np.max(plot_data[3][2]), cmap='viridis')
-        im7 = ax7.imshow(plot_data[3][2][dur_d], vmin=c3_settings[0], vmax=c3_settings[-1], cmap='viridis')
-        # im8 = ax8.imshow(plot_data[3][3][dur_d], vmin=0, vmax=np.max(plot_data[3][3]), cmap='viridis')
-        im8 = ax8.imshow(COUNT_P, vmin=c4_settings[0], vmax=c4_settings[-1], cmap='viridis')
+        x = np.arange(0, len(COUNT_S)+1, 1)
+        y = np.arange(0, len(COUNT_S)+1, 1)
+        XX, YY = np.meshgrid(x, y)
+        l_width = 0.2
+        edge_color = 'k'
+        im1 = ax1.pcolormesh(XX, YY, plot_data[2][0], cmap='viridis', vmin=0, vmax=1, shading='flat', edgecolor=edge_color, linewidths=l_width)
+        im2 = ax2.pcolormesh(XX, YY, plot_data[2][1], vmin=0, vmax=1, cmap='viridis', shading='flat', edgecolor=edge_color, linewidths=l_width)
+        im3 = ax3.pcolormesh(XX, YY, plot_data[2][2], vmin=c3_settings[0], vmax=c3_settings[-1], cmap='viridis', shading='flat', edgecolor=edge_color, linewidths=l_width)
+        im4 = ax4.pcolormesh(XX, YY, COUNT_S, vmin=c4_settings[0], vmax=c4_settings[-1], cmap='viridis', shading='flat', edgecolor=edge_color, linewidths=l_width)
+
+        im5 = ax5.pcolormesh(XX, YY, plot_data[3][0][dur_d], vmin=0, vmax=1, cmap='viridis', shading='flat', edgecolor=edge_color, linewidths=l_width)
+        im6 = ax6.pcolormesh(XX, YY, plot_data[3][1][dur_d], vmin=0, vmax=1, cmap='viridis', shading='flat', edgecolor=edge_color, linewidths=l_width)
+        im7 = ax7.pcolormesh(XX, YY, plot_data[3][2][dur_d], vmin=c3_settings[0], vmax=c3_settings[-1], cmap='viridis', shading='flat', edgecolor=edge_color, linewidths=l_width)
+        im8 = ax8.pcolormesh(XX, YY, COUNT_P, vmin=c4_settings[0], vmax=c4_settings[-1], cmap='viridis', shading='flat', edgecolor=edge_color, linewidths=l_width)
+
+
+        # im1 = ax1.imshow(plot_data[2][0], vmin=0, vmax=1, cmap='viridis')
+        # im2 = ax2.imshow(plot_data[2][1], vmin=0, vmax=1, cmap='viridis')
+        # im3 = ax3.imshow(plot_data[2][2], vmin=c3_settings[0], vmax=c3_settings[-1], cmap='viridis')
+        # im4 = ax4.imshow(COUNT_S, vmin=c4_settings[0], vmax=c4_settings[-1], cmap='viridis')
+
+        # im5 = ax5.imshow(plot_data[3][0][dur_d], vmin=0, vmax=1, cmap='viridis')
+        # im6 = ax6.imshow(plot_data[3][1][dur_d], vmin=0, vmax=1, cmap='viridis')
+        # im7 = ax7.imshow(plot_data[3][2][dur_d], vmin=c3_settings[0], vmax=c3_settings[-1], cmap='viridis')
+        # im8 = ax8.imshow(COUNT_P, vmin=c4_settings[0], vmax=c4_settings[-1], cmap='viridis')
 
         c1 = matplotlib.colorbar.ColorbarBase(cb1, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=1), orientation='horizontal', ticklocation='top')
         c1.set_label(cbar_labels[0])
@@ -2090,55 +2099,154 @@ if PULSE_TRAIN_VANROSSUM:
         c4.set_ticks(c4_settings)
         c4.set_ticklabels(c4_settings)
 
-        ax1.set_xticks([])
-        ax2.set_xticks([])
-        ax3.set_xticks([])
-        ax4.set_xticks([])
-        ax5.set_xticks([])
-        ax6.set_xticks([])
+        ax1.set_xlim(0, len(COUNT_S))
+        ax1.set_xticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax1.set_xticklabels(np.arange(0, len(COUNT_S), 5))
+        ax1.set_xticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
 
-        ax2.set_yticks([])
-        ax3.set_yticks([])
-        ax4.set_yticks([])
-        ax6.set_yticks([])
-        ax7.set_yticks([])
-        ax8.set_yticks([])
+        ax2.set_xlim(0, len(COUNT_S))
+        ax2.set_xticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax2.set_xticklabels(np.arange(0, len(COUNT_S), 5))
+        ax2.set_xticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
 
-        ax1.set_yticks(np.arange(0, 20, 5))
-        ax5.set_yticks(np.arange(0, 20, 5))
+        ax3.set_xlim(0, len(COUNT_S))
+        ax3.set_xticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax3.set_xticklabels(np.arange(0, len(COUNT_S), 5))
+        ax3.set_xticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
 
-        ax5.set_xticks(np.arange(0, 20, 5))
-        ax6.set_xticks(np.arange(0, 20, 5))
-        ax7.set_xticks(np.arange(0, 20, 5))
-        ax8.set_xticks(np.arange(0, 20, 5))
+        ax4.set_xlim(0, len(COUNT_S))
+        ax4.set_xticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax4.set_xticklabels(np.arange(0, len(COUNT_S), 5))
+        ax4.set_xticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax5.set_xlim(0, len(COUNT_S))
+        ax5.set_xticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax5.set_xticklabels(np.arange(0, len(COUNT_S), 5))
+        ax5.set_xticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax6.set_xlim(0, len(COUNT_S))
+        ax6.set_xticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax6.set_xticklabels(np.arange(0, len(COUNT_S), 5))
+        ax6.set_xticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax7.set_xlim(0, len(COUNT_S))
+        ax7.set_xticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax7.set_xticklabels(np.arange(0, len(COUNT_S), 5))
+        ax7.set_xticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax8.set_xlim(0, len(COUNT_S))
+        ax8.set_xticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax8.set_xticklabels(np.arange(0, len(COUNT_S), 5))
+        ax8.set_xticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        # Y Axis
+        ax1.set_ylim(len(COUNT_S), 0)
+        ax1.set_yticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax1.set_yticklabels(np.arange(0, len(COUNT_S), 5))
+        ax1.set_yticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax2.set_ylim(len(COUNT_S), 0)
+        ax2.set_yticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax2.set_yticklabels(np.arange(0, len(COUNT_S), 5))
+        ax2.set_yticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax3.set_ylim(len(COUNT_S), 0)
+        ax3.set_yticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax3.set_yticklabels(np.arange(0, len(COUNT_S), 5))
+        ax3.set_yticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax4.set_ylim(len(COUNT_S), 0)
+        ax4.set_yticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax4.set_yticklabels(np.arange(0, len(COUNT_S), 5))
+        ax4.set_yticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax5.set_ylim(len(COUNT_S), 0)
+        ax5.set_yticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax5.set_yticklabels(np.arange(0, len(COUNT_S), 5))
+        ax5.set_yticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax6.set_ylim(len(COUNT_S), 0)
+        ax6.set_yticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax6.set_yticklabels(np.arange(0, len(COUNT_S), 5))
+        ax6.set_yticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax7.set_ylim(len(COUNT_S), 0)
+        ax7.set_yticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax7.set_yticklabels(np.arange(0, len(COUNT_S), 5))
+        ax7.set_yticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        ax8.set_ylim(len(COUNT_S), 0)
+        ax8.set_yticks(np.arange(0, len(COUNT_S), 5) + 0.5)
+        ax8.set_yticklabels(np.arange(0, len(COUNT_S), 5))
+        ax8.set_yticks(np.arange(0, len(COUNT_S), 1) + 0.5, minor=True)
+
+        # ax1.tick_params(axis='both', which='minor', colors='white')
+
+        ax1.set_xticklabels([])
+        ax2.set_xticklabels([])
+        ax3.set_xticklabels([])
+        ax4.set_xticklabels([])
+
+        ax2.set_yticklabels([])
+        ax3.set_yticklabels([])
+        ax4.set_yticklabels([])
+        ax6.set_yticklabels([])
+        ax7.set_yticklabels([])
+        ax8.set_yticklabels([])
+
+        # Remove axis lines
+        sns.despine(ax=ax1, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
+        sns.despine(ax=ax2, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
+        sns.despine(ax=ax3, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
+        sns.despine(ax=ax4, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
+        sns.despine(ax=ax5, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
+        sns.despine(ax=ax6, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
+        sns.despine(ax=ax7, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
+        sns.despine(ax=ax8, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
+
+        # # Grid
+        # grid_color = 'w'
+        # grid_linewidth = 1
+        # ax1.grid(which='minor', color=grid_color, linestyle='-', linewidth=grid_linewidth, snap=True)
+        # ax2.grid(which='both', color=grid_color, linestyle='-', linewidth=grid_linewidth)
+        # ax3.grid(which='both', color=grid_color, linestyle='-', linewidth=grid_linewidth)
+        # ax4.grid(which='both', color=grid_color, linestyle='-', linewidth=grid_linewidth)
+        # ax5.grid(which='both', color=grid_color, linestyle='-', linewidth=grid_linewidth)
+        # ax6.grid(which='both', color=grid_color, linestyle='-', linewidth=grid_linewidth)
+        # ax7.grid(which='both', color=grid_color, linestyle='-', linewidth=grid_linewidth)
+        # ax8.grid(which='both', color=grid_color, linestyle='-', linewidth=grid_linewidth)
+
+        # X, Y = np.meshgrid(np.arange(0, len(COUNT_P), 1), np.arange(0, len(COUNT_P), 1))
+        # ax1.contourf(X, Y)
 
         # Subfig caps
         subfig_caps = 12
-        label_x_pos = -0.15
-        label_y_pos = 0.9
+        label_x_pos = -0.2
+        label_y_pos = 0.92
         subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
-        ax1.text(label_x_pos-0.2, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps, color='black')
+        ax1.text(label_x_pos-0.15, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps, color='black')
         # sfc1.set_path_effects([path_effects.Stroke(linewidth=2, foreground='black'), path_effects.Normal()])
         ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps, color='black')
         ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps, color='black')
         ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps, color='black')
-        ax5.text(label_x_pos-0.2, label_y_pos, subfig_caps_labels[4], transform=ax5.transAxes, size=subfig_caps, color='black')
+        ax5.text(label_x_pos-0.15, label_y_pos, subfig_caps_labels[4], transform=ax5.transAxes, size=subfig_caps, color='black')
         ax6.text(label_x_pos, label_y_pos, subfig_caps_labels[5], transform=ax6.transAxes, size=subfig_caps, color='black')
         ax7.text(label_x_pos, label_y_pos, subfig_caps_labels[6], transform=ax7.transAxes, size=subfig_caps, color='black')
         ax8.text(label_x_pos, label_y_pos, subfig_caps_labels[7], transform=ax8.transAxes, size=subfig_caps, color='black')
 
         # Axes Labels
         fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
-        fig.text(0.05, 0.60, 'Matched call', ha='center', fontdict=None, rotation=90)
-        fig.text(0.9, 0.42, 'Pulse trains', ha='center', fontdict=None, rotation=-90)
-        fig.text(0.9, 0.75, 'Spike trains', ha='center', fontdict=None, rotation=-90)
+        fig.text(0.045, 0.60, 'Matched call', ha='center', fontdict=None, rotation=90)
+        fig.text(0.92, 0.38, 'Pulse trains', ha='center', fontdict=None, rotation=-90)
+        fig.text(0.92, 0.73, 'Spike trains', ha='center', fontdict=None, rotation=-90)
 
-        # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.5, hspace=0.1)
-        figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/' + stim_type + '_' + str(
-            selected_duration) + '_comparison.pdf'
+        fig.subplots_adjust(left=0.12, top=0.9, bottom=0.12, right=0.9, wspace=0.1, hspace=0.1)
+        # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/' + stim_type + '_' + str(
+        #     selected_duration) + '_comparison.pdf'
 
         # figname = "/media/nils/Data/Moth/figs/" + data_name + '/' + stim_type + '_' + str(
         #     selected_duration) + '_comparison.pdf'
+        figname = path_names[2] + stim_type + '_' + str(selected_duration) + '_comparison.pdf'
         fig.savefig(figname)
 
     exit()
