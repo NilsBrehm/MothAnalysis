@@ -164,16 +164,20 @@ def get_ratios(z, max_rand, duration, stim_types, calls):
 # ======================================================================================================================
 # SCRIPT SECTION =======================================================================================================
 # ======================================================================================================================
-RATIOS = True
+RATIOS = False
 compute_ratios = False
-plot_ratios = True
+plot_ratios = False
 
-compare_ratios = False
+compare_ratios = True
 
 # max_rand = 0.01
 no_jitter = False
 trials = 20
-rands = np.round(np.geomspace(0.001, 0.1, num=100), 5)
+if no_jitter:
+    rands = [0]
+else:
+    rands = np.round(np.geomspace(0.001, 0.1, num=100), 5)
+
 stims = ['series', 'single']
 
 if compute_ratios:
@@ -459,18 +463,18 @@ if compare_ratios:
         XX_single, YY_single = np.meshgrid(x_single, rands*1000)
 
         fig = plt.figure(figsize=(5.9, 3.5))
-        grid = matplotlib.gridspec.GridSpec(nrows=26, ncols=52)
+        grid = matplotlib.gridspec.GridSpec(nrows=24, ncols=52)
 
         ax1 = plt.subplot(grid[0:10, 0:10])
         ax2 = plt.subplot(grid[0:10, 12:22])
         ax3 = plt.subplot(grid[0:10, 24:34])
         ax4 = plt.subplot(grid[0:10, 36:46])
-        ax5 = plt.subplot(grid[15:25, 0:10])
-        ax6 = plt.subplot(grid[15:25, 12:22])
-        ax7 = plt.subplot(grid[15:25, 24:34])
-        ax8 = plt.subplot(grid[15:25, 36:46])
+        ax5 = plt.subplot(grid[13:23, 0:10])
+        ax6 = plt.subplot(grid[13:23, 12:22])
+        ax7 = plt.subplot(grid[13:23, 24:34])
+        ax8 = plt.subplot(grid[13:23, 36:46])
 
-        cb1 = plt.subplot(grid[0:25, 50:51])
+        cb1 = plt.subplot(grid[0:23, 50:51])
         # Ratio limits
         ratio_lower = 1
         ratio_upper = 4
@@ -493,26 +497,27 @@ if compare_ratios:
         c1.solids.set_rasterized(True)  # Removes white lines
 
         # Subfig Caps
+        subfig_color = 'white'
         subfig_caps = 12
         label_x_pos = 0.05
         label_y_pos = 0.83
         subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
         ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
-                     color='black')
+                     color=subfig_color)
         ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
-                     color='black')
+                     color=subfig_color)
         ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
-                     color='black')
+                     color=subfig_color)
         ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
-                     color='black')
+                     color=subfig_color)
         ax5.text(label_x_pos, label_y_pos, subfig_caps_labels[4], transform=ax5.transAxes, size=subfig_caps,
-                     color='black')
+                     color=subfig_color)
         ax6.text(label_x_pos, label_y_pos, subfig_caps_labels[5], transform=ax6.transAxes, size=subfig_caps,
-                     color='black')
+                     color=subfig_color)
         ax7.text(label_x_pos, label_y_pos, subfig_caps_labels[6], transform=ax7.transAxes, size=subfig_caps,
-                     color='black')
+                     color=subfig_color)
         ax8.text(label_x_pos, label_y_pos, subfig_caps_labels[7], transform=ax8.transAxes, size=subfig_caps,
-                     color='black')
+                     color=subfig_color)
         # Axis label
         ax2.set_yticklabels([])
         ax3.set_yticklabels([])
@@ -591,7 +596,7 @@ if compare_ratios:
         fig.text(0.02, 0.75, 'Amount of jitter [ms]', ha='center', fontdict=None, rotation=90)
         fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
 
-        figname = '/media/nils/Data/Moth/CallStats/pulsetrains/figs/pulse_train_distance_ratios.pdf'
+        figname = '/media/nils/Data/Moth/CallStats/pulsetrains/figs/pulse_train_distance_ratios2.pdf'
         fig.savefig(figname)
         plt.close(fig)
 print('All done!')
