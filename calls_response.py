@@ -286,12 +286,6 @@ def plot_volt(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, ID,
 
     # print(str(ID) + ' - ' + name + ' Trial number: ' + str(trial_nr))
 
-    if stim_type is 'series':
-        marked = [[]] * len(call_volt)
-        # Remove large spikes
-        for i in range(len(call_volt)):
-            call_spikes[i], marked[i] = remove_large_spikes(call_volt[i], call_spikes[i], mph_percent=10, method='std')
-
     # Filter volt trace
     nyqst = 0.5 * fs
     lowcut = cutoff[0]
@@ -300,7 +294,15 @@ def plot_volt(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, ID,
     high = highcut / nyqst
     ftype = 'band'
     b, a = sg.butter(cutoff[2], [low, high], btype=ftype, analog=False)
-    y = sg.filtfilt(b, a, call_volt[trial_nr])
+
+    if stim_type is 'series':
+        marked = [[]] * len(call_volt)
+        y = [[]] * len(call_volt)
+        # Remove large spikes
+        for i in range(len(call_volt)):
+            y[i] = sg.filtfilt(b, a, call_volt[i])
+            # call_spikes[i], marked[i] = remove_large_spikes(y[i], call_spikes[i], mph_percent=0.001, method='max')
+            marked[i] = call_spikes[i]
 
     call_dur = np.round(t_audio[-1] - 0.075, 2)
     # Plot
@@ -309,54 +311,35 @@ def plot_volt(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, ID,
         t_limit[1] = call_dur
 
     # Create Grid
-    grid = matplotlib.gridspec.GridSpec(nrows=3, ncols=1)
-    if stim_type is 'bats_single':
-        fig = plt.figure(figsize=(2.9, 1.2))
-    else:
-        fig = plt.figure(figsize=(2.9, 1.4))
+    trial_count = len(call_volt)
+    grid = matplotlib.gridspec.GridSpec(nrows=trial_count+1, ncols=1)
+    fig = plt.figure(figsize=(5.9, 10))
     ax1 = plt.subplot(grid[0, 0])
-    ax2 = plt.subplot(grid[1, 0])
-    ax3 = plt.subplot(grid[2, 0])
 
     if stim_type is 'bats_single' or stim_type is 'bats_series':
-        ax1.plot(t_audio[0:len(call_audio[1])]*1000, call_audio[1], 'k', linewidth=0.5)
+        ax1.plot(t_audio[0:len(call_audio[1])] * 1000, call_audio[1], 'k', linewidth=0.5)
     else:
         ax1.plot(t_audio * 1000, call_audio[1], 'k', linewidth=0.5)
-    ax2.plot(t_volt*1000, y, 'k', linewidth=0.5)
-    fs = 100*1000
-    if stim_type is 'series':
-        marked_idx = marked[trial_nr] * fs
-        ax2.plot(marked[trial_nr]*1000, y[marked_idx.astype('int')], 'rx', linewidth=0.5, markersize=0.25)
 
-    for k in range(len(call_spikes)):
-        ax3.plot(call_spikes[k]*1000, np.ones(len(call_spikes[k])) + k, 'ks', markersize=0.2, linewidth=0.5)
-
-    # ax1.set_xticks(np.arange(t_limit[0] * 1000, t_limit[1] * 1000, 20))
-    # ax2.set_xticks(np.arange(t_limit[0] * 1000, t_limit[1] * 1000, 20))
-    # ax3.set_xticks(np.arange(t_limit[0] * 1000, t_limit[1] * 1000, 20))
-    # ax3.set_xticks(np.arange(t_limit[0]*1000, t_limit[1]*1000+100, 10), minor=True)
+    for j in range(trial_count):
+        ax = plt.subplot(grid[j+1, 0])
+        t_volt = np.arange(0, len(call_volt[j]) / fs, 1 / fs)
+        ax.plot(t_volt*1000, y[j], 'k', linewidth=0.5)
+        if stim_type is 'series':
+            marked_idx = marked[j] * fs
+            ax.plot(marked[j]*1000, y[j][marked_idx.astype('int')], 'rx', linewidth=1, markersize=1)
+        ax.set_xlim(t_limit[0] * 1000, t_limit[1] * 1000)
+        ax.set_xticklabels([])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        sns.despine(ax=ax, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
 
     ax1.set_xlim(t_limit[0] * 1000, t_limit[1] * 1000)
-    ax2.set_xlim(t_limit[0] * 1000, t_limit[1] * 1000)
-    ax3.set_xlim(t_limit[0] * 1000, t_limit[1] * 1000)
-
     ax1.set_xticklabels([])
-    ax2.set_xticklabels([])
-
     ax1.set_yticks([])
     ax1.set_xticks([])
-    ax3.set_xticks([])
-    ax2.set_xticks([])
     ax1.set_yticklabels([])
-    ax2.set_yticks([])
-    # ax3.set_yticks(np.arange(0, len(call_volt)+1, 10))
-    ax3.set_yticks([])
-
-    # ax3.set_xlabel('Time [ms]')
-
     sns.despine(ax=ax1, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
-    sns.despine(ax=ax2, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
-    sns.despine(ax=ax3, top=True, right=True, left=True, bottom=True, offset=5, trim=False)
 
     ob = sb.AnchoredHScaleBar(size=10, label='', loc=1, frameon=False, pad=0.2, sep=4, color="k")
     ax1.add_artist(ob)
@@ -369,25 +352,17 @@ def plot_volt(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, ID,
     subfig_caps_labels = ['S', 'V', 'RP', 'd', 'e', 'f', 'g', 'h', 'i']
     ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
              color='black')
-    ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
-             color='black')
-    ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
-             color='black')
 
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.05, right=0.9, wspace=0.2, hspace=0.2)
-    # figname = '/media/nils/Data/Moth/figs/' + rec + '/responses' + '/' + name[0:-4] + '_' + \
-    #           stim_type + '_trial' + str(trial_nr) + '.pdf'
-    # figname = '/media/nils/Data/Moth/figs/' + rec + '/responses/' + stim_type + str(ID) + '.pdf'
-    # figname = '/media/nils/Data/Moth/Thesis/nilsbrehm/figs/responses/' + stim_type + str(ID) + '.pdf'
     # figname = path_names[4] + 'test/' + stim_type + str(ID) + '.pdf'
-    figname = path_names[2] + 'responses/' + stim_type + str(ID) + '.png'
+    figname = path_names[2] + 'responses/VoltageTraces/VoltageTraces_' + stim_type + str(ID) + '.png'
     fig.savefig(figname)
     plt.close(fig)
     return 0
 
 
 # SCRIPT STARTS HERE ===================================================================================================
-stim_types = 'bats_single'
+stim_types = 'series'
 if stim_types is 'single':
     rec = '2018-02-16-aa'  # good recs for single calls
     call_limit = 0.19
@@ -477,6 +452,10 @@ cutoff = [100, 2000, 2]
 volt = np.load(path_names[1] + 'Calls_voltage.npy').item()
 spikes = np.load(path_names[1] + 'Calls_spikes.npy').item()
 
+for kk in tqdm(range(len(stims)), desc='Calls'):
+    plot_volt(rec, stims[kk], stim_types, volt, spikes, cutoff, None, [0, call_limit], ID=kk, path_names=path_names)
+
+exit()
 # change = [5, 6, 7, 9]
 # trials = [0, 1, 1, 10]
 # change_stims = np.array(stims)[change]
