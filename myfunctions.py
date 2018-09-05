@@ -13,8 +13,8 @@ import itertools as itertools
 import pyspike as spk
 import pickle
 from tqdm import tqdm
-# import thunderfish.peakdetection as pk
-# from joblib import Parallel,delayed
+import thunderfish.peakdetection as pk
+from joblib import Parallel,delayed
 import csv
 # import pycircstat as c_stat
 import seaborn as sns
@@ -1460,6 +1460,7 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
     voltage = np.load(file_name).item()
     tag_list = np.load(tag_list_path)
     spikes = {}
+    valleys = {}
     fs = 100*1000  # Sampling Rate of Ephys Recording
 
     _, connections = tagtostimulus(path_names)
@@ -1474,136 +1475,178 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
             x = voltage[tag_list[i]][k]
             if filter_on:
                 nyqst = 0.5 * fs
-                lowcut = 300
+                lowcut = 100
                 highcut = 2000
                 low = lowcut / nyqst
                 high = highcut / nyqst
                 x = voltage_trace_filter(x, [low, high], ftype='band', order=2, filter_on=True)
 
             th = pk.std_threshold(x, fs, window, th_factor)
+
+            # pk.hist_threshold(x, fs, window, th_factor)
+            # pk.std_threshold(x, fs, window, th_factor)
+            # pk.minmax_threshold(x, fs, window, th_factor=0.8)
+            # pk.percentile_threshold(x, fs, window, th_factor=0.8, percentile=0.1)
+
             spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
+            t = np.arange(0, len(x) / fs, 1 / fs)
 
             # Remove large spikes
-            t = np.arange(0, len(x) / fs, 1 / fs)
-            spike_size = pk.peak_size_width(t, x, spike_times[k], spike_times_valley[k], pfac=0.75)
-            # [idx][time, height, size, width, count]
+            # spike_size = [idx][time, height, size, width, count]
+            # spike_size = pk.peak_size_width(t, x, spike_times[k], spike_times_valley[k], pfac=0.75)
+            #
+            # th_size = (np.mean(spike_size[:, 2]) + np.std(spike_size[:, 2])) * mph_percent
+            # spike_times[k] = spike_times[k][spike_size[:, 2] <= th_size]
 
-            spike_times[k], spike_times_valley[k], marked, marked_valley = \
-                remove_large_spikes(x, spike_times[k], spike_times_valley[k], mph_percent=2, method='std')
+            # if connections[tag_list[i]] == 'callseries/moths/melese_PK1300_01.wav':
+            #     embed()
+            #     exit()
+
+            # Trim peaks
+            spike_times[k], spike_times_valley[k] = pk.trim_to_peak(spike_times[k], spike_times_valley[k])
+
+            # Remove peaks with a too high distance to the next valley
+            spike_times[k] = spike_times[k][spike_times_valley[k] - spike_times[k] < 200]
+
+            # Remove spikes with to high intervals
+            diff_times = abs(np.diff(spike_times[k]))
+            th_time03 = 0.1 * fs
+            idx_times03 = diff_times < th_time03
+            idx_times03 = np.append(idx_times03, True)
+            spike_times[k] = spike_times[k][idx_times03]
+
+            diff_times = abs(np.diff(spike_times[k]))
+            th_time01 = 0.01 * fs
+            th_time02 = 0.05 * fs
+            idx_times01 = diff_times < th_time01
+            idx_times02 = diff_times > th_time02
+
+            idx_times = idx_times01 + idx_times02
+            idx_times = np.append(idx_times, True)
+            spike_times[k] = spike_times[k][idx_times]
+
+
+
+            # spike_times[k], spike_times_valley[k], marked, marked_valley = \
+            #     remove_large_spikes(x, spike_times[k], spike_times_valley[k], mph_percent=mph_percent, method='std')
 
             # Plot detected spikes of random trials
             # rand_plot = np.random.randint(100)
             # if rand_plot >= 99 and show:
-            if k == 0 and (i == 0 or i == 80) and show:  #and connections[tag_list[i]].startswith('calls'):
-                # Cut out spikes
-                snippets = pk.snippets(x, spike_times[k], start=-100, stop=100)
-                snippets_removed = pk.snippets(x, marked, start=-100, stop=100)
-
-                fig = plt.figure(figsize=(12, 8))
-                fig_size = (3, 2)
-                spike_shapes = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
-                spike_width = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
-                volt_trace = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=2)
-                stim_trace = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=2)
-
-                t_snippets = np.arange(-100/fs, 100/fs, 1/fs)*1000
-                for s in range(len(snippets)):
-                    spike_shapes.plot(t_snippets, snippets[s], 'k')
-                for s in range(len(snippets_removed)):
-                    spike_shapes.plot(t_snippets, snippets_removed[s], 'r')
-
-                spike_shapes.set_xlabel('Time [ms]')
-                spike_shapes.set_ylabel('Voltage [uV]')
-
-                # Width vs Size
-                spike_width.plot(spike_size[:, 3]*1000, spike_size[:, 2], 'ko')
-                spike_width.set_xlabel('Spike Width [ms]')
-                spike_width.set_ylabel('Spike Size [uV]')
-
-                # Width vs Height
-                ax2 = spike_width.twinx()  # instantiate a second axes that shares the same x-axis
-                ax2.plot(spike_size[:, 3] * 1000, spike_size[:, 1], 'gx')
-                ax2.plot([np.min(spike_size[:, 3] * 1000), np.max(spike_size[:, 3] * 1000)],
-                         [np.max(spike_size[:, 1]) * mph_percent, np.max(spike_size[:, 1]) * mph_percent], 'g--')
-                ax2.set_ylabel('Spike Height[uV]', color='g')
-                ax2.tick_params(axis='y', labelcolor='g')
-
-                sound_file = wav.read('/media/brehm/Data/MasterMoth/stimuli_backup/' + connections[tag_list[i]])
-                t_sound = np.arange(0, len(sound_file[1])/sound_file[0], 1/sound_file[0])
-
-                plot_detected_spikes(x, spike_times[k], spike_times_valley[k], marked, th, window, connections[tag_list[i]], volt_trace)
-                volt_trace.set_xticks([])
-
-                stim_trace.plot(t_sound*1000, sound_file[1], 'k')
-                stim_trace.set_xlabel('Time [ms]')
-                stim_trace.set_yticks([])
-                fig.tight_layout()
-                plt.show()
+            # if k == 0 and (i == 0 or i == 80) and show:  #and connections[tag_list[i]].startswith('calls'):
+            #     # Cut out spikes
+            #     snippets = pk.snippets(x, spike_times[k], start=-100, stop=100)
+            #     snippets_removed = pk.snippets(x, marked, start=-100, stop=100)
+            #
+            #     fig = plt.figure(figsize=(12, 8))
+            #     fig_size = (3, 2)
+            #     spike_shapes = plt.subplot2grid(fig_size, (0, 0), rowspan=1, colspan=1)
+            #     spike_width = plt.subplot2grid(fig_size, (0, 1), rowspan=1, colspan=1)
+            #     volt_trace = plt.subplot2grid(fig_size, (1, 0), rowspan=1, colspan=2)
+            #     stim_trace = plt.subplot2grid(fig_size, (2, 0), rowspan=1, colspan=2)
+            #
+            #     t_snippets = np.arange(-100/fs, 100/fs, 1/fs)*1000
+            #     for s in range(len(snippets)):
+            #         spike_shapes.plot(t_snippets, snippets[s], 'k')
+            #     for s in range(len(snippets_removed)):
+            #         spike_shapes.plot(t_snippets, snippets_removed[s], 'r')
+            #
+            #     spike_shapes.set_xlabel('Time [ms]')
+            #     spike_shapes.set_ylabel('Voltage [uV]')
+            #
+            #     # Width vs Size
+            #     spike_width.plot(spike_size[:, 3]*1000, spike_size[:, 2], 'ko')
+            #     spike_width.set_xlabel('Spike Width [ms]')
+            #     spike_width.set_ylabel('Spike Size [uV]')
+            #
+            #     # Width vs Height
+            #     ax2 = spike_width.twinx()  # instantiate a second axes that shares the same x-axis
+            #     ax2.plot(spike_size[:, 3] * 1000, spike_size[:, 1], 'gx')
+            #     ax2.plot([np.min(spike_size[:, 3] * 1000), np.max(spike_size[:, 3] * 1000)],
+            #              [np.max(spike_size[:, 1]) * mph_percent, np.max(spike_size[:, 1]) * mph_percent], 'g--')
+            #     ax2.set_ylabel('Spike Height[uV]', color='g')
+            #     ax2.tick_params(axis='y', labelcolor='g')
+            #
+            #     sound_file = wav.read('/media/brehm/Data/MasterMoth/stimuli_backup/' + connections[tag_list[i]])
+            #     t_sound = np.arange(0, len(sound_file[1])/sound_file[0], 1/sound_file[0])
+            #
+            #     plot_detected_spikes(x, spike_times[k], spike_times_valley[k], marked, th, window, connections[tag_list[i]], volt_trace)
+            #     volt_trace.set_xticks([])
+            #
+            #     stim_trace.plot(t_sound*1000, sound_file[1], 'k')
+            #     stim_trace.set_xlabel('Time [ms]')
+            #     stim_trace.set_yticks([])
+            #     fig.tight_layout()
+            #     plt.show()
 
             spike_times[k] = spike_times[k] / fs  # in seconds
+            spike_times_valley[k] = spike_times_valley[k] / fs
         spikes.update({tag_list[i]: spike_times})
-        if False:
-            if connections[tag_list[i]].startswith('nat'):
-                x_limit = 0.4
-            if connections[tag_list[i]].startswith('batcall'):
-                x_limit = 0.4
-            if connections[tag_list[i]].startswith('calls'):
-                x_limit = 3
+        valleys.update({tag_list[i]: spike_times_valley})
 
-            sound_file = wav.read('/media/brehm/Data/MasterMoth/stimuli/' + connections[tag_list[i]])
-            t_sound = np.arange(0, len(sound_file[1]) / sound_file[0], 1 / sound_file[0])
-            bin_size = 0.002
-            f_rate, bin_edges = psth(spike_times, bin_size, plot=False, return_values=True, tmax=1, tmin=0)
-            # f_rate, bin_edges = psth(spike_times, len(spike_times), bin_size, plot=False, return_values=True, separate_trials=True)
-            plt.figure()
-            tr = 3
-            for w in range(tr):
-                plt.subplot(tr+3, 1, w+1)
-                if w == 0:
-                    plt.title(connections[tag_list[i]])
-                x = voltage[tag_list[i]][w+1]
-                t = np.arange(0, len(x) / fs, 1 / fs)
-                plt.plot(t, x)
-                idx = spike_times[w+1] * fs
-                plt.plot(spike_times[w+1], x[idx.astype(int)], 'ro')
-                plt.ylabel('Volt [uV]')
-                plt.xticks([])
-                plt.xlim(0, x_limit)
-
-            plt.subplot(tr+3, 1, tr+1)
-            plt.plot(bin_edges[:-1], f_rate, 'k')
-            plt.ylabel('Firing Rate [Hz]')
-            plt.xticks([])
-            plt.xlim(0, x_limit)
-
-            plt.subplot(tr+3, 1, tr+2)
-            for kk in range(len(spike_times)):
-                plt.plot(spike_times[kk], np.ones(len(spike_times[kk])) + kk, 'k|', 'LineWidth', 4)
-            plt.xticks([])
-            plt.ylabel('Trials')
-            plt.xlim(0, x_limit)
-
-            plt.subplot(tr+3, 1, tr+3)
-            plt.plot(t_sound, sound_file[1], 'k')
-            plt.xlabel('Time [s]')
-            plt.yticks([])
-            plt.xticks(np.arange(0, x_limit, 0.1))
-            plt.xlim(0, x_limit)
-
-            if save_fig:
-                # Save Plot to HDD
-                sp = path_names[2] + 'SpikeDetection/'
-                fig = plt.gcf()
-                fig.set_size_inches(15, 10)
-                fig.savefig(sp + connections[tag_list[i]] + '_SpikeDetection.png', bbox_inches='tight', dpi=150)
-                plt.close(fig)
-            else:
-                plt.show()
+        # if False:
+        #     if connections[tag_list[i]].startswith('nat'):
+        #         x_limit = 0.4
+        #     if connections[tag_list[i]].startswith('batcall'):
+        #         x_limit = 0.4
+        #     if connections[tag_list[i]].startswith('calls'):
+        #         x_limit = 3
+        #
+        #     sound_file = wav.read('/media/brehm/Data/MasterMoth/stimuli/' + connections[tag_list[i]])
+        #     t_sound = np.arange(0, len(sound_file[1]) / sound_file[0], 1 / sound_file[0])
+        #     bin_size = 0.002
+        #     f_rate, bin_edges = psth(spike_times, bin_size, plot=False, return_values=True, tmax=1, tmin=0)
+        #     # f_rate, bin_edges = psth(spike_times, len(spike_times), bin_size, plot=False, return_values=True, separate_trials=True)
+        #     plt.figure()
+        #     tr = 3
+        #     for w in range(tr):
+        #         plt.subplot(tr+3, 1, w+1)
+        #         if w == 0:
+        #             plt.title(connections[tag_list[i]])
+        #         x = voltage[tag_list[i]][w+1]
+        #         t = np.arange(0, len(x) / fs, 1 / fs)
+        #         plt.plot(t, x)
+        #         idx = spike_times[w+1] * fs
+        #         plt.plot(spike_times[w+1], x[idx.astype(int)], 'ro')
+        #         plt.ylabel('Volt [uV]')
+        #         plt.xticks([])
+        #         plt.xlim(0, x_limit)
+        #
+        #     plt.subplot(tr+3, 1, tr+1)
+        #     plt.plot(bin_edges[:-1], f_rate, 'k')
+        #     plt.ylabel('Firing Rate [Hz]')
+        #     plt.xticks([])
+        #     plt.xlim(0, x_limit)
+        #
+        #     plt.subplot(tr+3, 1, tr+2)
+        #     for kk in range(len(spike_times)):
+        #         plt.plot(spike_times[kk], np.ones(len(spike_times[kk])) + kk, 'k|', 'LineWidth', 4)
+        #     plt.xticks([])
+        #     plt.ylabel('Trials')
+        #     plt.xlim(0, x_limit)
+        #
+        #     plt.subplot(tr+3, 1, tr+3)
+        #     plt.plot(t_sound, sound_file[1], 'k')
+        #     plt.xlabel('Time [s]')
+        #     plt.yticks([])
+        #     plt.xticks(np.arange(0, x_limit, 0.1))
+        #     plt.xlim(0, x_limit)
+        #
+        #     if save_fig:
+        #         # Save Plot to HDD
+        #         sp = path_names[2] + 'SpikeDetection/'
+        #         fig = plt.gcf()
+        #         fig.set_size_inches(15, 10)
+        #         fig.savefig(sp + connections[tag_list[i]] + '_SpikeDetection.png', bbox_inches='tight', dpi=150)
+        #         plt.close(fig)
+        #     else:
+        #         plt.show()
 
     # Save to HDD
     if save_data:
         file_name = file_pathname + protocol_name + '_spikes.npy'
         np.save(file_name, spikes)
+        np.save(file_pathname + protocol_name + '_valleys.npy', valleys)
         print('Spike Times saved (protocol: ' + protocol_name + ')')
 
     return spikes
