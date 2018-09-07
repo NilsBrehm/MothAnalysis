@@ -2907,12 +2907,167 @@ def get_soundfilestimuli_data(datasets, tag, plot):
 # ----------------------------------------------------------------------------------------------------------------------
 # SPIKE TRAIN DISTANCE
 
+
+def extend_spike_train(sp, gap, extension_time, mode, path_names):
+    if mode is 'both':
+        s_types = ['series', 'single']
+        pp = ['callseries/moths/', 'naturalmothcalls/']
+        extended_spikes = {}
+        for st in range(len(s_types)):
+            stim_type = s_types[st]
+            if stim_type is 'series':
+                stims = ['A7838.wav',
+                     'BCI1348.wav',
+                     'Chrostosoma_thoracicum.wav',
+                     'Creatonotos.wav',
+                     'Eucereon_appunctata.wav',
+                     'Eucereon_hampsoni.wav',
+                     'Eucereon_maia.wav',
+                     'GL005.wav',
+                     'Hyaleucera_erythrotelus.wav',
+                     'Hypocladia_militaris.wav',
+                     'PP241.wav',
+                     'PP612.wav',
+                     'PP643.wav',
+                     'Saurita.wav',
+                     'Uranophora_leucotelus.wav',
+                     'carales_PK1275.wav',
+                     'melese_PK1300_01.wav']
+            elif stim_type is 'single':
+                stims = ['BCI1062_07x07.wav',
+                         'aclytia_gynamorpha_24x24.wav',
+                         'agaraea_semivitrea_07x07.wav',
+                         'carales_12x12_01.wav',
+                         'chrostosoma_thoracicum_05x05.wav',
+                         'creatonotos_01x01.wav',
+                         'elysius_conspersus_11x11.wav',
+                         'epidesma_oceola_06x06.wav',
+                         'eucereon_appunctata_13x13.wav',
+                         'eucereon_hampsoni_11x11.wav',
+                         'eucereon_obscurum_14x14.wav',
+                         'gl005_11x11.wav',
+                         'gl116_05x05.wav',
+                         'hypocladia_militaris_09x09.wav',
+                         'idalu_fasciipuncta_05x05.wav',
+                         'idalus_daga_18x18.wav',
+                         'melese_12x12_01_PK1297.wav',
+                         'neritos_cotes_10x10.wav',
+                         'ormetica_contraria_peruviana_09x09.wav',
+                         'syntrichura_12x12.wav']
+            else:
+                print('Error. Wrong stim type')
+                return 0
+            c1, c2 = tagtostimulus(path_names)
+            tags = [[]] * len(stims)
+            spikes = {}
+            abc = 0
+            for j in range(len(stims)):
+                tags[j] = c1[pp[st] + stims[j]]
+                spikes.update({tags[j]: sp[tags[j]]})
+            for key in spikes:
+                a = spikes[key]
+                dummy = [[]] * len(a)
+                for i in range(len(a)):
+                    b = a[i]
+                    if len(b) == 0:
+                        print(c2[key] + ': Found empty spike train')
+                        b = np.nan
+                        idx_remove = i
+                        abc = 1
+                    else:
+                        while np.max(b) <= extension_time[st]:
+                            b = np.append(b, b + np.max(b) + gap[st])
+                    dummy[i] = b
+                if abc == 1:
+                    del dummy[idx_remove]  # remove empty spike trains
+                abc = 0
+                extended_spikes.update({key: dummy})
+        file_name = path_names[1] + 'Calls' + '_spikes_extended.npy'
+        np.save(file_name, extended_spikes)
+    else:
+        if mode is 'series':
+            stims = ['A7838.wav',
+                 'BCI1348.wav',
+                 'Chrostosoma_thoracicum.wav',
+                 'Creatonotos.wav',
+                 'Eucereon_appunctata.wav',
+                 'Eucereon_hampsoni.wav',
+                 'Eucereon_maia.wav',
+                 'GL005.wav',
+                 'Hyaleucera_erythrotelus.wav',
+                 'Hypocladia_militaris.wav',
+                 'PP241.wav',
+                 'PP612.wav',
+                 'PP643.wav',
+                 'Saurita.wav',
+                 'Uranophora_leucotelus.wav',
+                 'carales_PK1275.wav',
+                 'melese_PK1300_01.wav']
+        elif mode is 'single':
+            stims = ['BCI1062_07x07.wav',
+                     'aclytia_gynamorpha_24x24.wav',
+                     'agaraea_semivitrea_07x07.wav',
+                     'carales_12x12_01.wav',
+                     'chrostosoma_thoracicum_05x05.wav',
+                     'creatonotos_01x01.wav',
+                     'elysius_conspersus_11x11.wav',
+                     'epidesma_oceola_06x06.wav',
+                     'eucereon_appunctata_13x13.wav',
+                     'eucereon_hampsoni_11x11.wav',
+                     'eucereon_obscurum_14x14.wav',
+                     'gl005_11x11.wav',
+                     'gl116_05x05.wav',
+                     'hypocladia_militaris_09x09.wav',
+                     'idalu_fasciipuncta_05x05.wav',
+                     'idalus_daga_18x18.wav',
+                     'melese_12x12_01_PK1297.wav',
+                     'neritos_cotes_10x10.wav',
+                     'ormetica_contraria_peruviana_09x09.wav',
+                     'syntrichura_12x12.wav']
+        else:
+            print('Error. Wrong stim type')
+            return 0
+        c1, c2 = tagtostimulus(path_names)
+        tags = [[]] * len(stims)
+        spikes = {}
+        abc = 0
+        extended_spikes = {}
+        for j in range(len(stims)):
+            tags[j] = c1['callseries/moths/' + stims[j]]
+            spikes.update({tags[j]: sp[tags[j]]})
+        for key in spikes:
+            a = spikes[key]
+            dummy = [[]] * len(a)
+            for i in range(len(a)):
+                b = a[i]
+                if len(b) == 0:
+                    print(c2[key] + ': Found empty spike train')
+                    b = np.nan
+                    idx_remove = i
+                    abc = 1
+                else:
+                    while np.max(b) <= extension_time:
+                        b = np.append(b, b + np.max(b) + gap)
+                dummy[i] = b
+            if abc == 1:
+                del dummy[idx_remove]  # remove empty spike trains
+            abc = 0
+            extended_spikes.update({key: dummy})
+        file_name = path_names[1] + 'Calls' + '_spikes_extended.npy'
+        np.save(file_name, extended_spikes)
+    return extended_spikes
+
+
 def fast_e_pulses(spikes, tau, dt):
     # This is the new and much faster method
     def exp_kernel(ta, step):
         x = np.arange(0, tau*5, step)
         y = np.exp(-x/ta)
         return y
+    if len(spikes) == 0:
+        a = (5 * tau) / dt
+        pulses = np.zeros(int(a))
+        return pulses
     # dt = 0.001
     t_max = spikes[-1] + 5 * tau
 
@@ -2943,10 +3098,13 @@ def vanrossum_distance(f, g, dt, tau):
     return d
 
 
-def trains_to_e_pulses(path_names, tau, dt, stim_type, method):
+def trains_to_e_pulses(path_names, tau, dt, stim_type, method, extended=False):
     dataset = path_names[0]
     pathname = path_names[1]
-    spikes = np.load(pathname + 'Calls_spikes.npy').item()
+    if extended:
+        spikes = np.load(pathname + 'Calls_spikes_extended.npy').item()
+    else:
+        spikes = np.load(pathname + 'Calls_spikes.npy').item()
 
     if stim_type == 'selected':
         stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
@@ -3298,11 +3456,14 @@ def trains_to_e_pulses(path_names, tau, dt, stim_type, method):
 
     # Save to HDD
     if method == 'rect':
-        file_name = pathname + 'rect_trains_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
-        file_name2 = pathname + 'rect_stimulus_tags_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
+        file_name = pathname + 'epulses/' + 'rect_trains_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
+        file_name2 = pathname + 'epulses/' + 'rect_stimulus_tags_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
     else:
-        file_name = pathname + 'e_trains_' + str(int(tau*1000)) + '_' + stim_type + '.npy'
-        file_name2 = pathname + 'stimulus_tags_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
+        file_name = pathname + 'epulses/' + 'e_trains_' + str(int(tau*1000)) + '_' + stim_type + '.npy'
+        file_name2 = pathname + 'epulses/' + 'stimulus_tags_' + str(int(tau * 1000)) + '_' + stim_type + '.npy'
+    if extended:
+        file_name = pathname + 'epulses/' + 'e_trains_' + str(int(tau*1000)) + '_' + stim_type + '_extended.npy'
+        file_name2 = pathname + 'epulses/' + 'stimulus_tags_' + str(int(tau * 1000)) + '_' + stim_type + '_extended.npy'
 
     np.save(file_name, trains)
     np.save(file_name2, stimulus_tags)
@@ -3416,10 +3577,14 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt, tau, boot_sam
     return mm_mean, correct_matches, distances_per_boot, gg_mean
 
 
-def isi_matrix(path_names, duration, boot_sample, stim_type, profile, save_fig):
+def isi_matrix(path_names, duration, boot_sample, stim_type, profile, save_fig, extended):
     dataset = path_names[0]
     pathname = path_names[1]
-    spikes = np.load(pathname + 'Calls_spikes.npy').item()
+    if extended:
+        spikes = np.load(pathname + 'Calls_spikes_extended.npy').item()
+    else:
+        spikes = np.load(pathname + 'Calls_spikes.npy').item()
+
     # tag_list = np.load(pathname + 'Calls_tag_list.npy')
     '''
     stims = ['naturalmothcalls/BCI1062_07x07.wav', 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',

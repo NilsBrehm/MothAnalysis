@@ -73,7 +73,7 @@ PLOT_CALLS = False
 CUMHIST = False
 
 # VanRossum Tau vs Duration
-PLOT_VR_TAUVSDUR = True
+PLOT_VR_TAUVSDUR = False
 PLOT_VR_TAUVSDUR_OVERALL = False
 
 # VanRossum Matched Spike Trains with different taus and durations
@@ -83,7 +83,7 @@ PLOT_VR = False
 PLOT_MvsB = False
 
 # Other Distances Correct Matches
-PLOT_CORRECT = False
+PLOT_CORRECT = True
 PLOT_CORRECT_OVERALL = False
 
 # Other Distances Matched Spike Trains with different durations
@@ -118,6 +118,9 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
+save_extended_spikes = False
+extended = True
+
 stim_type = 'moth_single_selected'
 # stim_type = 'all_single'
 stim_length = 'single'
@@ -668,6 +671,12 @@ if GAP:
     mf.interval_analysis(path_names, protocol_name, bin_size, save_fig=True, show=[True, True], save_data=False,
                          old=old, vs_order=vs_order)
 
+if save_extended_spikes:
+    path_names = mf.get_directories('2018-02-16-aa')
+    sp = np.load(path_names[1] + 'Calls_spikes.npy').item()
+    mf.extend_spike_train(sp, gap=[0.05, 0.01], extension_time=[4, 0.18], mode='both', path_names=path_names)
+    print('Spike trains extended and saved')
+
 
 # Rect Intervals
 if INTERVAL_REC_SPONT:
@@ -1113,7 +1122,7 @@ if EPULSES:
         print(data_name)
         method = 'exp'
         r = Parallel(n_jobs=-2)(delayed(mf.trains_to_e_pulses)(path_names, taus[k] / 1000, dt, stim_type=stim_type
-                                                               , method=method) for k in range(len(taus)))
+                                                               , method=method, extended=extended) for k in range(len(taus)))
         print('Converting done')
 
 if VANROSSUM:
@@ -1121,7 +1130,6 @@ if VANROSSUM:
     # data_name = '2018-02-09-aa'
     # data_name = datasets[-1]
     data_name = '2018-02-16-aa'
-
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     method = 'exp'
@@ -1135,12 +1143,17 @@ if VANROSSUM:
     for tt in tqdm(range(len(taus)), desc='taus', leave=False):
         try:
             # Load e-pulses if available:
-            trains = np.load(p + 'e_trains_' + str(taus[tt]) + '_' + stim_type + '.npy').item()
-            stimulus_tags = np.load(p + 'stimulus_tags_' + str(taus[tt]) + '_' + stim_type + '.npy')
+            if extended:
+                trains = np.load(p + 'epulses/' + 'e_trains_' + str(taus[tt]) + '_' + stim_type + '_extended.npy').item()
+                stimulus_tags = np.load(p + 'epulses/' + 'stimulus_tags_' + str(taus[tt]) + '_' + stim_type + '_extended.npy')
+            else:
+                trains = np.load(p + 'epulses/' + 'e_trains_' + str(taus[tt]) + '_' + stim_type + '.npy').item()
+                stimulus_tags = np.load(p + 'epulses/' + 'stimulus_tags_' + str(taus[tt]) + '_' + stim_type + '.npy')
+
             # print('Loading e-pulses from HDD done')
         except FileNotFoundError:
             # Compute e pulses if not available
-            print('Could not find e-pulses, will try to compute it on the fly')
+            print('Could not find e-pulses!')
 
         distances = [[]] * len(duration)
         mm = [[]] * len(duration)
@@ -1160,10 +1173,16 @@ if VANROSSUM:
         matches.update({taus[tt]: mm})
         groups.update({taus[tt]: gg})
     # Save to HDD
-    np.save(p + 'VanRossum_' + stim_type + '.npy', dist_profs)
-    np.save(p + 'VanRossum_correct_' + stim_type + '.npy', correct)
-    np.save(p + 'VanRossum_matches_' + stim_type + '.npy', matches)
-    np.save(p + 'VanRossum_groups_' + stim_type + '.npy', groups)
+    if extended:
+        np.save(p + 'VanRossum_' + stim_type + '_extended.npy', dist_profs)
+        np.save(p + 'VanRossum_correct_' + stim_type + '_extended.npy', correct)
+        np.save(p + 'VanRossum_matches_' + stim_type + '_extended.npy', matches)
+        np.save(p + 'VanRossum_groups_' + stim_type + '_extended.npy', groups)
+    else:
+        np.save(p + 'VanRossum_' + stim_type + '.npy', dist_profs)
+        np.save(p + 'VanRossum_correct_' + stim_type + '.npy', correct)
+        np.save(p + 'VanRossum_matches_' + stim_type + '.npy', matches)
+        np.save(p + 'VanRossum_groups_' + stim_type + '.npy', groups)
     print('VanRossum Distances done')
 
 if PLOT_MvsB:
@@ -1357,7 +1376,7 @@ if PLOT_MvsB:
 
 if PLOT_VR:
     # data_name = '2018-02-09-aa'
-    data_name = '2018-02-15-aa'
+    data_name = '2018-02-16-aa'
     # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
@@ -1421,7 +1440,7 @@ if PLOT_VR:
     fig.text(0.96, 0.55, 'Spike trains', ha='center', fontdict=None, rotation=270)
     # Save Plot to HDD
     # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.4)
-    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/VanRossum_Matrix_' + stim_type + '.pdf'
+    figname = path_names[2] + 'VanRossum_Matrix_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
     print('VanRossum Matrix Plot saved')
@@ -1500,9 +1519,14 @@ if PLOT_CORRECT:
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
-    matches = np.load(p + 'distances_correct_' + stim_type + '.npy')
-    rand_machtes = np.load(p + 'distances_rand_correct_' + stim_type + '.npy')
-
+    if extended:
+        figname = path_names[2] + 'Distances_Correct_new_' + stim_type + '_extended.pdf'
+        matches = np.load(p + 'distances_correct_' + stim_type + '_extended.npy')
+        rand_machtes = np.load(p + 'distances_rand_correct_' + stim_type + '_extended.npy')
+    else:
+        figname = path_names[2] + 'Distances_Correct_new_' + stim_type + '.pdf'
+        matches = np.load(p + 'distances_correct_' + stim_type + '.npy')
+        rand_machtes = np.load(p + 'distances_rand_correct_' + stim_type + '.npy')
     # Plot
     mf.plot_settings()
     # fig = plt.figure(figsize=(5.9, 3.9))
@@ -1535,7 +1559,6 @@ if PLOT_CORRECT:
     # Save Plot to HDD
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.4, hspace=0.4)
     fig.set_size_inches(5.9, 2.9)
-    figname = path_names[2] + 'Distances_Correct_new_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
     print('Distances Matrix Plot saved')
@@ -1548,9 +1571,21 @@ if PLOT_VR_TAUVSDUR:
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
-
-    vr_series = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '.npy')
-    vr_single = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '.npy')
+    diff_extended = True
+    if extended:
+        vr_series = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '_extended.npy')
+        vr_series_dur = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '.npy')
+        vr_single = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '_extended.npy')
+        vr_single_dur = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '.npy')
+        figname = path_names[2] + 'VanRossum_TauVSDur_extended.pdf'
+        if diff_extended:
+            vr_series = vr_series_dur - vr_series
+            vr_single = vr_single_dur - vr_single
+            figname = path_names[2] + 'VanRossum_TauVSDur_extended_diff.pdf'
+    else:
+        vr_series = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '.npy')
+        vr_single = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '.npy')
+        figname = path_names[2] + 'VanRossum_TauVSDur.pdf'
 
     mf.plot_settings()
     # Create Grid
@@ -1577,12 +1612,14 @@ if PLOT_VR_TAUVSDUR:
 
     im1 = ax1.pcolormesh(X_series, Y_series, vr_series.T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
     im2 = ax2.pcolormesh(X_single, Y_single, vr_single.T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
+    # im1 = ax1.pcolormesh(X_series, Y_series, vr_series.T, cmap='jet', vmin=0, vmax=1, shading='flat')
+    # im2 = ax2.pcolormesh(X_single, Y_single, vr_single.T, cmap='jet', vmin=0, vmax=1, shading='flat')
 
     # grid[0].axhline(200, color='black', linestyle=':', linewidth=0.5)
 
-    ax1.set_xscale('log')
+    # ax1.set_xscale('log')
     ax1.set_yscale('log')
-    ax2.set_xscale('log')
+    # ax2.set_xscale('log')
     ax2.set_yscale('log')
 
     # Axes Limits
@@ -1608,7 +1645,6 @@ if PLOT_VR_TAUVSDUR:
 
     # fig.set_size_inches(5.9, 1.9)
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
-    figname = path_names[2] + 'VanRossum_TauVSDur.pdf'
     fig.savefig(figname)
     plt.close(fig)
 
@@ -1632,7 +1668,8 @@ if ISI:
         mm = [[]] * len(duration)
         # Parallel loop through all durations
         r = Parallel(n_jobs=3)(delayed(mf.isi_matrix)(path_names, duration[i]/1000, boot_sample=nsamples,
-                                                       stim_type=stim_type, profile=profs[p], save_fig=save_fig) for i in range(len(duration)))
+                                                      stim_type=stim_type, profile=profs[p], save_fig=save_fig,
+                                                      extended=extended) for i in range(len(duration)))
 
         # mm_mean, correct_matches, distances_per_boot, rand_correct_matches = mf.isi_matrix(path_names, duration[5]/1000, boot_sample=nsamples,stim_type=stim_type, profile=profs[p], save_fig=save_fig)
 
@@ -1646,10 +1683,16 @@ if ISI:
         matches.update({profs[p]: mm})
 
     # Save to HDD
-    np.save(path_save + 'distances_' + stim_type + '.npy', dist_profs)
-    np.save(path_save + 'distances_correct_' + stim_type + '.npy', correct)
-    np.save(path_save + 'distances_rand_correct_' + stim_type + '.npy', rand_correct)
-    np.save(path_save + 'distances_matches_' + stim_type + '.npy', matches)
+    if extended:
+        np.save(path_save + 'distances_' + stim_type + '_extended.npy', dist_profs)
+        np.save(path_save + 'distances_correct_' + stim_type + '_extended.npy', correct)
+        np.save(path_save + 'distances_rand_correct_' + stim_type + '_extended.npy', rand_correct)
+        np.save(path_save + 'distances_matches_' + stim_type + '_extended.npy', matches)
+    else:
+        np.save(path_save + 'distances_' + stim_type + '.npy', dist_profs)
+        np.save(path_save + 'distances_correct_' + stim_type + '.npy', correct)
+        np.save(path_save + 'distances_rand_correct_' + stim_type + '.npy', rand_correct)
+        np.save(path_save + 'distances_matches_' + stim_type + '.npy', matches)
 
     #
     # if plot_correct:
