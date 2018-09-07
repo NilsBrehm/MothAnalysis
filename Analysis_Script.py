@@ -73,7 +73,7 @@ PLOT_CALLS = False
 CUMHIST = False
 
 # VanRossum Tau vs Duration
-PLOT_VR_TAUVSDUR = False
+PLOT_VR_TAUVSDUR = True
 PLOT_VR_TAUVSDUR_OVERALL = False
 
 # VanRossum Matched Spike Trains with different taus and durations
@@ -83,7 +83,7 @@ PLOT_VR = False
 PLOT_MvsB = False
 
 # Other Distances Correct Matches
-PLOT_CORRECT = True
+PLOT_CORRECT = False
 PLOT_CORRECT_OVERALL = False
 
 # Other Distances Matched Spike Trains with different durations
@@ -119,11 +119,13 @@ show = False
 # Settings for Call Analysis ===========================================================================================
 # General Settings
 save_extended_spikes = False
-extended = True
+extended = False
+POISSON_TRAINS = False
 
-stim_type = 'moth_single_selected'
+# stim_type = 'moth_single_selected'
+stim_type = 'poisson'
 # stim_type = 'all_single'
-stim_length = 'single'
+stim_length = 'series'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -677,6 +679,28 @@ if save_extended_spikes:
     mf.extend_spike_train(sp, gap=[0.05, 0.01], extension_time=[4, 0.18], mode='both', path_names=path_names)
     print('Spike trains extended and saved')
 
+if POISSON_TRAINS:
+    rec = '2018-02-16-aa'
+    path_names = mf.get_directories(rec)
+    trials = 10
+    rate = 100
+    tmax_range = [0.5, 0.5, 1, 1., 1.5, 1.5, 2, 2, 2.5, 2.5, 3, 3]
+    spikes = {}
+    spike_trains = {}
+    ps = [[]] * len(tmax_range)
+    ps_tag = [[]] * len(tmax_range)
+    for k in range(len(tmax_range)):
+        ps[k], _ = mf.poission_spikes(trials, rate, tmax_range[k])
+        ps_tag[k] = 'p' + str(k)
+        poisson_spike_trains = [[]] * len(ps[k])
+        for i in range(len(ps[k])):
+            poisson_spike_trains[i] = spk.SpikeTrain(ps[k][i], [0, tmax_range[k]])
+        spike_trains.update({'p' + str(k): poisson_spike_trains})
+        spikes.update({'p' + str(k): ps[k]})
+    np.save(path_names[1] + 'Poisson_spikes.npy', spikes)
+    np.save(path_names[1] + 'Poisson_spk_spike_trains.npy', spikes)
+    np.save(path_names[1] + 'Poisson_tags.npy', ps_tag)
+    print('Poisson Spike trains saved')
 
 # Rect Intervals
 if INTERVAL_REC_SPONT:
@@ -1582,6 +1606,10 @@ if PLOT_VR_TAUVSDUR:
             vr_series = vr_series_dur - vr_series
             vr_single = vr_single_dur - vr_single
             figname = path_names[2] + 'VanRossum_TauVSDur_extended_diff.pdf'
+    elif stim_type == 'poisson':
+        vr_series = np.load(p + 'VanRossum_correct_' + 'poisson' + '.npy')
+        vr_single = np.load(p + 'VanRossum_correct_' + 'poisson' + '.npy')
+        figname = path_names[2] + 'VanRossum_TauVSDur_poisson.pdf'
     else:
         vr_series = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '.npy')
         vr_single = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '.npy')

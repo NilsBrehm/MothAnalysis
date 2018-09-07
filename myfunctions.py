@@ -3437,11 +3437,15 @@ def trains_to_e_pulses(path_names, tau, dt, stim_type, method, extended=False):
                  'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
                  'callseries/bats/Vespertilio_murinus_1_s.wav']
 
-    # Tags and Stimulus names
-    connection, _ = tagtostimulus(path_names)
-    stimulus_tags = [''] * len(stims)
-    for p in range(len(stims)):
-        stimulus_tags[p] = connection[stims[p]]
+    if stim_type == 'poisson':
+        stimulus_tags = np.load(path_names[1] + 'Poisson_tags.npy')
+        spikes = np.load(path_names[1] + 'Poisson_spikes.npy').item()
+    else:
+        # Tags and Stimulus names
+        connection, _ = tagtostimulus(path_names)
+        stimulus_tags = [''] * len(stims)
+        for p in range(len(stims)):
+            stimulus_tags[p] = connection[stims[p]]
 
     # Convert all Spike Trains to e-pulses
     trains = {}
@@ -3527,9 +3531,12 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt, tau, boot_sam
             call_ids[pr] = probes[pr][1]
 
             # 0: Moths, 1: Bats
-            probe_group = int(float(stimulus_tags[song_id][20:]) >= 82)
-            template_group = int(float(stimulus_tags[template_match][20:]) >= 82)
-            group_matrix[template_group, song_id] += 1
+            if stimulus_tags[0] == 'p0':
+                group_matrix = 1
+            else:
+                probe_group = int(float(stimulus_tags[song_id][20:]) >= 82)
+                template_group = int(float(stimulus_tags[template_match][20:]) >= 82)
+                group_matrix[template_group, song_id] += 1
 
         mm.update({boot: match_matrix})
         gg.update({boot: group_matrix})
