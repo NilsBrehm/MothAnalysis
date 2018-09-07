@@ -1,3 +1,5 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 from IPython import embed
 import myfunctions as mf
 import numpy as np
@@ -6,7 +8,7 @@ import pandas as pd
 from collections import OrderedDict
 import time
 from tqdm import tqdm
-# from joblib import Parallel,delayed
+from joblib import Parallel,delayed
 import os
 import seaborn as sns
 import pickle
@@ -18,6 +20,7 @@ import matplotlib.patheffects as path_effects
 from scipy import signal
 import scipy
 import scipy.io as sio
+import pyspike as spk
 
 start_time = time.time()
 # Data File Name
@@ -70,7 +73,7 @@ PLOT_CALLS = False
 CUMHIST = False
 
 # VanRossum Tau vs Duration
-PLOT_VR_TAUVSDUR = False
+PLOT_VR_TAUVSDUR = True
 PLOT_VR_TAUVSDUR_OVERALL = False
 
 # VanRossum Matched Spike Trains with different taus and durations
@@ -92,7 +95,7 @@ PLOT_D_RATIOS_OVERALL = False
 
 
 # Pulse Train Stuff
-PULSE_TRAIN_VANROSSUM = True
+PULSE_TRAIN_VANROSSUM = False
 PULSE_TRAIN_ISI = False
 
 # FI Stuff
@@ -115,9 +118,9 @@ show = False
 
 # Settings for Call Analysis ===========================================================================================
 # General Settings
-stim_type = 'moth_series_selected'
+stim_type = 'moth_single_selected'
 # stim_type = 'all_single'
-stim_length = 'series'
+stim_length = 'single'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -226,12 +229,16 @@ if PLOT_CALLS:
 if DISTANCE_RATIOS:
     # Try to load e pulses from HDD
     datasets = ['2018-02-20-aa', '2018-02-16-aa', '2018-02-09-aa']
-    data_name = datasets[2]
+    data_name = datasets[1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
-    method = 'exp'
+    # method = 'exp'
     p = path_names[1]
-    spikes = np.load(p + 'Calls_spikes.npy').item()
+    if stim_length is 'series':
+        spikes = np.load(p + 'Calls_spikes.npy').item()
+    elif stim_length is 'single':
+        spikes = np.load(p + 'Calls_spikes.npy').item()
+
     tag_list = np.load(p + 'Calls_tag_list.npy')
 
     # Convert matlab files to pyhton
@@ -244,8 +251,6 @@ if DISTANCE_RATIOS:
     for pp in range(len(calls_names)):
         s = calls_names[pp] + '.wav'
         stimulus_tags[pp] = connection[s]
-
-    import pyspike as spk
 
     dur = np.array(duration) / 1000
     # if stim_length == 'single':
@@ -268,7 +273,8 @@ if DISTANCE_RATIOS:
         for k in range(len(calls)):
             spike_times = [[]] * len(spikes[stimulus_tags[k]])
             for i in range(len(spikes[stimulus_tags[k]])):
-                spike_times[i] = spk.SpikeTrain(list(spikes[stimulus_tags[k]][i]), edges)
+                spike_times[i] = spk.SpikeTrain(np.sort(spikes[stimulus_tags[k]][i]), edges)
+                # spike_times[i] = spk.SpikeTrain(list(spikes[stimulus_tags[k]][i]), edges)
             sp[k] = spike_times
             d[k] = abs(spk.isi_distance(spike_times, interval=[0, dur[j]]))
             d_sync[k] = spk.spike_sync(spike_times, interval=[0, dur[j]])
@@ -290,7 +296,6 @@ if DISTANCE_RATIOS:
         sp = np.concatenate(sp)
         over_all = abs(spk.isi_distance(sp, interval=[0, dur[j]]))
         over_all_sync = spk.spike_sync(sp, interval=[0, dur[j]])
-        # over_all = abs(spk.spike_distance(sp, interval=[0, dur[j]]))
         last_spike = [[]] * len(sp)
         count = [[]] * len(sp)
         for kk in range(len(sp)):
@@ -327,13 +332,107 @@ if DISTANCE_RATIOS:
     print('Ratios saved')
 
 if PLOT_D_RATIOS:
-    data_name = '2018-02-09-aa'
+    data_name = '2018-02-16-aa'
     # data_name = '2018-02-15-aa'
     # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     method = 'exp'
     p = path_names[1]
+    # ==================================================================================================================
+    # ISI and SYNC
+    ratios_isi = np.load(p + 'ISI_Ratios_' + stim_type + '.npy')
+    ratios_sync = np.load(p + 'SYNC_Ratios_' + stim_type + '.npy')
+
+    # max_norm = np.max(ratios_isi[:, 2] * 1000)
+    # ratios_isi[:, 0] = (ratios_isi[:, 0] * 1000) / max_norm
+    # ratios_isi[:, 1] = (ratios_isi[:, 1] * 1000) / max_norm
+    # ratios_isi[:, 2] = (ratios_isi[:, 2] * 1000) / max_norm
+    #
+    # max_norm = np.max(ratios_sync[:, 2] * 1000)
+    # ratios_sync[:, 0] = (ratios_sync[:, 0] * 1000) / max_norm
+    # ratios_sync[:, 1] = (ratios_sync[:, 1] * 1000) / max_norm
+    # ratios_sync[:, 2] = (ratios_sync[:, 2] * 1000) / max_norm
+
+    # Plot
+    mf.plot_settings()
+    if stim_length == 'series':
+        x_end = 2500 + 100
+        x_step = 500
+    if stim_length == 'single':
+        x_end = 250 + 10
+        x_step = 50
+
+    # Create Grid
+    grid = matplotlib.gridspec.GridSpec(nrows=2, ncols=2)
+    fig = plt.figure(figsize=(5.9, 2.9))
+    ax1 = plt.subplot(grid[0])
+    ax2 = plt.subplot(grid[1])
+    ax3 = plt.subplot(grid[2])
+    ax4 = plt.subplot(grid[3])
+
+    ax1.errorbar(duration, ratios_isi[:, 0], yerr=ratios_isi[:, 1], color='k', marker='o', label='within')
+    ax1.plot(duration, ratios_isi[:, 2], '-', label='between', color='blue')
+    ax1.plot(duration, ratios_isi[:, 4], 'g-', label='diff')
+    ax1.set_ylim(0, 1)
+    ax1.set_yticks(np.arange(0, 1.1, 0.2))
+    ax1.set_xticklabels([])
+    ax1.set_ylabel('ISI')
+    ax1.set_xlim(0, x_end)
+    ax1.set_xticks(np.arange(0, x_end, x_step))
+
+    ax3.plot(duration, ratios_isi[:, 3], 'r-', label='ratio')
+
+    ax3.set_ylim(1, 3)
+    ax3.set_yticks(np.arange(1, 3.1, 0.5))
+    ax3.set_ylabel('Ratio')
+    ax3.set_xlim(0, x_end)
+    ax3.set_xticks(np.arange(0, x_end, x_step))
+
+    ax2.errorbar(duration, ratios_sync[:, 0], yerr=ratios_sync[:, 1], color='k', marker='o', label='within')
+    ax2.plot(duration, ratios_sync[:, 2], '-', label='between', color='blue')
+    ax2.plot(duration, abs(ratios_sync[:, 4]), 'g-', label='diff')
+    ax2.set_ylim(0, 1)
+    ax2.set_yticks(np.arange(1, 1.1, 0.2))
+    ax2.set_xticklabels([])
+    ax2.set_yticklabels([])
+    ax2.set_ylabel('SYNC')
+    ax2.set_xlim(0, x_end)
+    ax2.set_xticks(np.arange(0, x_end, x_step))
+
+    ax4.plot(duration, 1/ratios_sync[:, 3], 'r-', label='ratio')
+    ax4.set_ylim(1, 3)
+    ax4.set_yticks(np.arange(1, 3.1, 0.5))
+    ax4.set_yticklabels([])
+    ax4.set_xlim(0, x_end)
+    ax4.set_xticks(np.arange(0, x_end, x_step))
+
+    # Axes Labels
+    fig.text(0.5, 0.055, 'Spike train duration [ms]', ha='center', fontdict=None)
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.05
+    label_y_pos = 0.90
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+                 color='black')
+    ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+                 color='black')
+    ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
+             color='black')
+    ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
+             color='black')
+    sns.despine()
+
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
+    # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
+    figname = path_names[2] + 'Distance_Ratios_ISI_SYNC_new_' + stim_type + '.pdf'
+    fig.savefig(figname)
+    plt.close(fig)
+
+    # ==================================================================================================================
+    # DUR and COUNT
     ratios_isi = np.load(p + 'DUR_Ratios_' + stim_type + '.npy')
     ratios_sync = np.load(p + 'COUNT_Ratios_' + stim_type + '.npy')
 
@@ -366,14 +465,16 @@ if PLOT_D_RATIOS:
 
     ax1.errorbar(duration, ratios_isi[:, 0], yerr=ratios_isi[:, 1], color='k', marker='o', label='within')
     ax1.plot(duration, ratios_isi[:, 2], '-', label='between', color='blue')
+    ax1.plot(duration, abs(ratios_isi[:, 0]-ratios_isi[:, 2]), 'g-', label='diff')
     ax1.set_ylim(0, 1)
     ax1.set_yticks(np.arange(0, 1.1, 0.2))
     ax1.set_xticklabels([])
-    ax1.set_ylabel('Norm. DUR')
+    ax1.set_ylabel('DUR')
     ax1.set_xlim(0, x_end)
     ax1.set_xticks(np.arange(0, x_end, x_step))
 
     ax3.plot(duration, ratios_isi[:, 3], 'r-', label='ratio')
+
     ax3.set_ylim(1, 3)
     ax3.set_yticks(np.arange(1, 3.1, 0.5))
     ax3.set_ylabel('Ratio')
@@ -382,11 +483,12 @@ if PLOT_D_RATIOS:
 
     ax2.errorbar(duration, ratios_sync[:, 0], yerr=ratios_sync[:, 1], color='k', marker='o', label='within')
     ax2.plot(duration, ratios_sync[:, 2], '-', label='between', color='blue')
+    ax2.plot(duration, abs(ratios_sync[:, 0]-ratios_sync[:, 2]), 'g-', label='diff')
     ax2.set_ylim(0, 1)
-    ax2.set_yticks(np.arange(0, 1.1, 0.2))
+    ax2.set_yticks(np.arange(1, 1.1, 0.2))
     ax2.set_xticklabels([])
     ax2.set_yticklabels([])
-    ax2.set_ylabel('Norm. COUNT')
+    ax2.set_ylabel('COUNT')
     ax2.set_xlim(0, x_end)
     ax2.set_xticks(np.arange(0, x_end, x_step))
 
@@ -406,9 +508,9 @@ if PLOT_D_RATIOS:
     label_y_pos = 0.90
     subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
     ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
-                 color='black')
+             color='black')
     ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
-                 color='black')
+             color='black')
     ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
              color='black')
     ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
@@ -417,7 +519,7 @@ if PLOT_D_RATIOS:
 
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
     # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
-    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_DUR_COUNT_' + stim_type + '.pdf'
+    figname = path_names[2] + 'Distance_Ratios_DUR_COUNT_new_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
 
@@ -1003,8 +1105,8 @@ if SOUND:  # Stimuli = Calls
                                   window=None)
 
 if EPULSES:
-    # datasets = ['2018-02-09-aa']
-    datasets = [datasets[-1]]
+    datasets = ['2018-02-16-aa']
+    # datasets = [datasets[-1]]
     for i in range(len(datasets)):
         data_name = datasets[i]
         path_names = mf.get_directories(data_name=data_name)
@@ -1017,7 +1119,9 @@ if EPULSES:
 if VANROSSUM:
     # Try to load e pulses from HDD
     # data_name = '2018-02-09-aa'
-    data_name = datasets[-1]
+    # data_name = datasets[-1]
+    data_name = '2018-02-16-aa'
+
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     method = 'exp'
@@ -1033,7 +1137,7 @@ if VANROSSUM:
             # Load e-pulses if available:
             trains = np.load(p + 'e_trains_' + str(taus[tt]) + '_' + stim_type + '.npy').item()
             stimulus_tags = np.load(p + 'stimulus_tags_' + str(taus[tt]) + '_' + stim_type + '.npy')
-            print('Loading e-pulses from HDD done')
+            # print('Loading e-pulses from HDD done')
         except FileNotFoundError:
             # Compute e pulses if not available
             print('Could not find e-pulses, will try to compute it on the fly')
@@ -1323,8 +1427,8 @@ if PLOT_VR:
     print('VanRossum Matrix Plot saved')
 
 if PLOT_DISTANCES:
-    # data_name = '2018-02-09-aa'
-    data_name = datasets[-1]
+    data_name = '2018-02-16-aa'
+    # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
@@ -1385,14 +1489,13 @@ if PLOT_DISTANCES:
     fig.text(0.96, 0.55, 'Spike trains', ha='center', fontdict=None, rotation=270)
     # Save Plot to HDD
     # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.4)
-    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distances_Matrix_' + stim_type + '.pdf'
+    figname = path_names[2] + '/Distances_Matrix_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
     print('Distances Matrix Plot saved')
 
 if PLOT_CORRECT:
-    # data_name = '2018-02-09-aa'
-    data_name = '2018-02-15-aa'
+    data_name = '2018-02-16-aa'
     # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
@@ -1432,7 +1535,7 @@ if PLOT_CORRECT:
     # Save Plot to HDD
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.4, hspace=0.4)
     fig.set_size_inches(5.9, 2.9)
-    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distances_Correct_' + stim_type + '.pdf'
+    figname = path_names[2] + 'Distances_Correct_new_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
     print('Distances Matrix Plot saved')
@@ -1505,19 +1608,20 @@ if PLOT_VR_TAUVSDUR:
 
     # fig.set_size_inches(5.9, 1.9)
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
-    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/VanRossum_TauVSDur.pdf'
+    figname = path_names[2] + 'VanRossum_TauVSDur.pdf'
     fig.savefig(figname)
     plt.close(fig)
 
 if ISI:
-    # data_name = '2018-02-09-aa'
-    data_name = datasets[-1]
+    data_name = '2018-02-16-aa'
+    # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
+    print(stim_type)
     method = 'exp'
     path_save = path_names[1]
     # plot_correct = False
-    save_fig = False
+    save_fig = True
     dist_profs = {}
     matches = {}
 
@@ -1527,7 +1631,7 @@ if ISI:
         distances_all = [[]] * len(duration)
         mm = [[]] * len(duration)
         # Parallel loop through all durations
-        r = Parallel(n_jobs=-2)(delayed(mf.isi_matrix)(path_names, duration[i]/1000, boot_sample=nsamples,
+        r = Parallel(n_jobs=3)(delayed(mf.isi_matrix)(path_names, duration[i]/1000, boot_sample=nsamples,
                                                        stim_type=stim_type, profile=profs[p], save_fig=save_fig) for i in range(len(duration)))
 
         # mm_mean, correct_matches, distances_per_boot, rand_correct_matches = mf.isi_matrix(path_names, duration[5]/1000, boot_sample=nsamples,stim_type=stim_type, profile=profs[p], save_fig=save_fig)

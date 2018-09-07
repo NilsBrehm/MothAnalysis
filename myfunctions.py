@@ -1,3 +1,5 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import matplotlib.pyplot as plt
 import nixio as nix
 import numpy as np
@@ -25,6 +27,9 @@ import matplotlib.patheffects as pe
 import matplotlib.font_manager
 from scipy.stats import norm
 from math import exp, sqrt
+import scipy.io as sio
+
+
 # import pymuvr
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -1428,7 +1433,7 @@ def plot_detected_spikes(x, spike_times, spike_times_valley, marked, th, window,
     return 0
 
 
-def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1, mph_percent=0.8):
+def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1, mph_percent=0.8, selection=True):
     """Get Spike Times using the thunderfish peak detection functions.
 
     Notes
@@ -1450,6 +1455,44 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
     spikes: Saves spike times (in seconds) to HDD in a .npy file (dict).
 
     """
+    if selection:
+        stims = ['naturalmothcalls/BCI1062_07x07.wav',
+                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+                 'naturalmothcalls/carales_12x12_01.wav',
+                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+                 'naturalmothcalls/creatonotos_01x01.wav',
+                 'naturalmothcalls/elysius_conspersus_11x11.wav',
+                 'naturalmothcalls/epidesma_oceola_06x06.wav',
+                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
+                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
+                 'naturalmothcalls/gl005_11x11.wav',
+                 'naturalmothcalls/gl116_05x05.wav',
+                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+                 'naturalmothcalls/idalus_daga_18x18.wav',
+                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
+                 'naturalmothcalls/neritos_cotes_10x10.wav',
+                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+                 'naturalmothcalls/syntrichura_12x12.wav',
+                 'callseries/moths/A7838.wav',
+                 'callseries/moths/BCI1348.wav',
+                 'callseries/moths/Chrostosoma_thoracicum.wav',
+                 'callseries/moths/Creatonotos.wav',
+                 'callseries/moths/Eucereon_appunctata.wav',
+                 'callseries/moths/Eucereon_hampsoni.wav',
+                 'callseries/moths/Eucereon_maia.wav',
+                 'callseries/moths/GL005.wav',
+                 'callseries/moths/Hyaleucera_erythrotelus.wav',
+                 'callseries/moths/Hypocladia_militaris.wav',
+                 'callseries/moths/PP241.wav',
+                 'callseries/moths/PP612.wav',
+                 'callseries/moths/PP643.wav',
+                 'callseries/moths/Saurita.wav',
+                 'callseries/moths/Uranophora_leucotelus.wav',
+                 'callseries/moths/carales_PK1275.wav',
+                 'callseries/moths/melese_PK1300_01.wav']
 
     # Load Voltage Traces
     save_fig = False
@@ -1460,16 +1503,33 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
     voltage = np.load(file_name).item()
     tag_list = np.load(tag_list_path)
     spikes = {}
+    spikes_raw = {}
     valleys = {}
     fs = 100*1000  # Sampling Rate of Ephys Recording
 
-    _, connections = tagtostimulus(path_names)
+    cc1, connections = tagtostimulus(path_names)
+    if selection:
+        pulsetrains_series = sio.loadmat('/media/nils/Data/Moth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
+        pulsetrains_single = sio.loadmat('/media/nils/Data/Moth/CallStats/samples.mat')['samples'][0]
+        series_iterator = 0
+        single_iterator = 0
+        tag_list = [[]] * len(stims)
+        for q in range(len(stims)):
+            tag_list[q] = cc1[stims[q]]
 
     # Loop trough all tags in tag_list
     for i in tqdm(range(len(tag_list)), desc='Spike Detection'):
         trials = len(voltage[tag_list[i]])
         spike_times = [list()] * trials
+        spike_times_raw = [list()] * trials
         spike_times_valley = [list()] * trials
+        if selection:
+            if stims[i].startswith('callseries'):
+                call_pulsetrain = pulsetrains_series[series_iterator][0]
+                series_iterator += 1
+            if stims[i].startswith('natural'):
+                call_pulsetrain = pulsetrains_single[single_iterator][0]
+                single_iterator += 1
         for k in range(trials):  # loop trough all trials
             # Filter Voltage Trace
             x = voltage[tag_list[i]][k]
@@ -1491,41 +1551,51 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
             spike_times[k], spike_times_valley[k] = pk.detect_peaks(x, th)
             t = np.arange(0, len(x) / fs, 1 / fs)
 
-            # Remove large spikes
-            # spike_size = [idx][time, height, size, width, count]
-            # spike_size = pk.peak_size_width(t, x, spike_times[k], spike_times_valley[k], pfac=0.75)
-            #
-            # th_size = (np.mean(spike_size[:, 2]) + np.std(spike_size[:, 2])) * mph_percent
-            # spike_times[k] = spike_times[k][spike_size[:, 2] <= th_size]
+            if connections[tag_list[i]] == 'callseries/moths/A7838.wav' or connections[tag_list[i]] == 'callseries/moths/BCI1348.wav':
+                # Remove large spikes (B-cell spikes)
+                # spike_size = [idx][time, height, size, width, count]
+                spike_times_raw[k] = np.copy(spike_times[k])
+                spike_size = pk.peak_size_width(t, x, spike_times[k], spike_times_valley[k], pfac=0.75)
+                th_size = (np.mean(spike_size[:, 2]) + np.std(spike_size[:, 2])) * mph_percent
+                spike_times[k] = spike_times[k][spike_size[:, 2] <= th_size]
 
-            # if connections[tag_list[i]] == 'callseries/moths/melese_PK1300_01.wav':
-            #     embed()
-            #     exit()
+                # Trim peaks
+                spike_times[k], spike_times_valley[k] = pk.trim_to_peak(spike_times[k], spike_times_valley[k])
+                # spike_times_raw[k], _ = pk.trim_to_peak(spike_times_raw[k], spike_times_valley[k])
 
-            # Trim peaks
-            spike_times[k], spike_times_valley[k] = pk.trim_to_peak(spike_times[k], spike_times_valley[k])
+                # Remove peaks with a too high distance to the next valley (avoid double detection)
+                spike_times[k] = spike_times[k][spike_times_valley[k] - spike_times[k] < 200]
+                # spike_times_raw[k] = spike_times_raw[k][spike_times_valley[k] - spike_times_raw[k] < 200]
+                if k == trials-1:
+                    print('Did remove large B spikes')
+            else:
+                # Trim peaks
+                spike_times[k], spike_times_valley[k] = pk.trim_to_peak(spike_times[k], spike_times_valley[k])
+                # Remove peaks with a too high distance to the next valley (avoid double detection)
+                spike_times[k] = spike_times[k][spike_times_valley[k] - spike_times[k] < 200]
 
-            # Remove peaks with a too high distance to the next valley
-            spike_times[k] = spike_times[k][spike_times_valley[k] - spike_times[k] < 200]
+                spike_times_raw[k] = np.copy(spike_times[k])
 
-            # Remove spikes with to high intervals
-            diff_times = abs(np.diff(spike_times[k]))
-            th_time03 = 0.1 * fs
-            idx_times03 = diff_times < th_time03
-            idx_times03 = np.append(idx_times03, True)
-            spike_times[k] = spike_times[k][idx_times03]
+                # Remove spikes with too high intervals (remove B-cell spikes)
+                # diff_times = abs(np.diff(spike_times[k]))
+                # th_time03 = 0.1 * fs
+                # idx_times03 = diff_times < th_time03
+                # idx_times03 = np.append(idx_times03, True)
+                # spike_times[k] = spike_times[k][idx_times03]
 
-            diff_times = abs(np.diff(spike_times[k]))
-            th_time01 = 0.01 * fs
-            th_time02 = 0.05 * fs
-            idx_times01 = diff_times < th_time01
-            idx_times02 = diff_times > th_time02
+                diff_times = abs(np.diff(spike_times[k]))
+                th_time01 = 0.01 * fs
+                th_time02 = 0.3 * fs
+                idx_times01 = diff_times < th_time01
+                idx_times02 = diff_times > th_time02
 
-            idx_times = idx_times01 + idx_times02
-            idx_times = np.append(idx_times, True)
-            spike_times[k] = spike_times[k][idx_times]
-
-
+                idx_times = idx_times01 + idx_times02
+                idx_times_after = np.append(idx_times, True)
+                idx_times_before = list(idx_times)
+                idx_times_before.insert(0, True)
+                idx_times_before = np.array(idx_times_before)
+                idx_remove = idx_times_before + idx_times_after
+                spike_times[k] = spike_times[k][idx_remove]
 
             # spike_times[k], spike_times_valley[k], marked, marked_valley = \
             #     remove_large_spikes(x, spike_times[k], spike_times_valley[k], mph_percent=mph_percent, method='std')
@@ -1578,10 +1648,23 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
             #     stim_trace.set_yticks([])
             #     fig.tight_layout()
             #     plt.show()
-
+            # Convert samples to time
             spike_times[k] = spike_times[k] / fs  # in seconds
+            spike_times_raw[k] = spike_times_raw[k] / fs  # in seconds
             spike_times_valley[k] = spike_times_valley[k] / fs
+
+            # Load respective pulse train (call)
+            if selection:
+                pulse_distance = np.zeros(len(spike_times[k]))
+                for n_spikes in range(len(spike_times[k])):
+                    abs_diff = abs(call_pulsetrain - spike_times[k][n_spikes])
+                    pulse_distance[n_spikes] = np.min(abs_diff)
+                    # idx_pulse = np.where(abs_diff == np.min(abs_diff))
+                idx_pulse = pulse_distance <= 0.02
+                spike_times[k] = spike_times[k][idx_pulse]
+
         spikes.update({tag_list[i]: spike_times})
+        spikes_raw.update({tag_list[i]: spike_times_raw})
         valleys.update({tag_list[i]: spike_times_valley})
 
         # if False:
@@ -1647,6 +1730,7 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
         file_name = file_pathname + protocol_name + '_spikes.npy'
         np.save(file_name, spikes)
         np.save(file_pathname + protocol_name + '_valleys.npy', valleys)
+        np.save(file_pathname + protocol_name + '_spikes_raw.npy', spikes_raw)
         print('Spike Times saved (protocol: ' + protocol_name + ')')
 
     return spikes
@@ -3334,7 +3418,7 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt, tau, boot_sam
 
 def isi_matrix(path_names, duration, boot_sample, stim_type, profile, save_fig):
     dataset = path_names[0]
-    pathname = "/media/brehm/Data/MasterMoth/figs/" + dataset + "/DataFiles/"
+    pathname = path_names[1]
     spikes = np.load(pathname + 'Calls_spikes.npy').item()
     # tag_list = np.load(pathname + 'Calls_tag_list.npy')
     '''
@@ -3880,7 +3964,7 @@ def isi_matrix(path_names, duration, boot_sample, stim_type, profile, save_fig):
         plt.title('T = ' + str(duration * 1000) + ' ms')
 
         # Save Plot to HDD
-        figname = "/media/brehm/Data/MasterMoth/figs/" + dataset + profile_name + str(duration * 1000) + '.png'
+        figname = path_names[2] + profile_name + str(duration * 1000) + '.png'
         fig = plt.gcf()
         fig.set_size_inches(5, 5)
         fig.savefig(figname, bbox_inches='tight', dpi=100)
