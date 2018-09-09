@@ -59,10 +59,15 @@ POISSON = False
 # Compute Van Rossum Distance
 EPULSES = False
 VANROSSUM = False
+MVSB = True
 
 # Compute other Distances
 ISI = False
 DISTANCE_RATIOS = False
+
+# Other Distances Correct Matches
+PLOT_CORRECT = False
+PLOT_CORRECT_OVERALL = False
 
 # -------------
 # PLOTs
@@ -73,7 +78,7 @@ PLOT_CALLS = False
 CUMHIST = False
 
 # VanRossum Tau vs Duration
-PLOT_VR_TAUVSDUR = True
+PLOT_VR_TAUVSDUR = False
 PLOT_VR_TAUVSDUR_OVERALL = False
 
 # VanRossum Matched Spike Trains with different taus and durations
@@ -81,10 +86,6 @@ PLOT_VR = False
 
 # Moth vs Bat: d prime and percentage
 PLOT_MvsB = False
-
-# Other Distances Correct Matches
-PLOT_CORRECT = False
-PLOT_CORRECT_OVERALL = False
 
 # Other Distances Matched Spike Trains with different durations
 PLOT_DISTANCES = False
@@ -123,9 +124,9 @@ extended = False
 POISSON_TRAINS = False
 
 # stim_type = 'moth_single_selected'
-stim_type = 'poisson'
+stim_type = 'all_single'
 # stim_type = 'all_single'
-stim_length = 'series'
+stim_length = 'single'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -684,7 +685,7 @@ if POISSON_TRAINS:
     path_names = mf.get_directories(rec)
     trials = 10
     rate = 100
-    tmax_range = [0.5, 0.5, 1, 1., 1.5, 1.5, 2, 2, 2.5, 2.5, 3, 3]
+    tmax_range = [0.1, 0.1, 0.5, 0.5, 1, 1., 1.5, 1.5, 2, 2, 2.5, 2.5, 3, 3]
     spikes = {}
     spike_trains = {}
     ps = [[]] * len(tmax_range)
@@ -1209,6 +1210,60 @@ if VANROSSUM:
         np.save(p + 'VanRossum_groups_' + stim_type + '.npy', groups)
     print('VanRossum Distances done')
 
+
+if MVSB:
+    stim_length = 'series'
+    stim_type = 'all_series'
+    if stim_length == 'single':
+        boarder = 19
+    if stim_length == 'series':
+        boarder = 16
+    data_name = '2018-02-16-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    p = path_names[1]
+    matches = np.load(p + 'VanRossum_matches_' + stim_type + '.npy').item()
+    percent_moths = [[]] * len(duration)
+    d_prime = np.zeros(shape=(len(taus), len(duration)))
+    p_correct = np.zeros(shape=(len(taus), len(duration)))
+    hit_rate = np.zeros(shape=(len(taus), len(duration)))
+    fa_rate = np.zeros(shape=(len(taus), len(duration)))
+    criterion_c = np.zeros(shape=(len(taus), len(duration)))
+
+    for t in range(len(taus)):
+        for i in range(len(duration)):
+            pm = np.zeros(len(matches[taus[9]][i]))
+            hit = 0
+            misses = 0
+            false_alarms = 0
+            correct_rejection = 0
+            for k in range(len(matches[taus[t]][i])):
+                m = sum(matches[taus[t]][i][:, k][0:19])
+                b = sum(matches[taus[t]][i][:, k][19:])
+
+                if k <= boarder:
+                    a = 'noise'  # Stim is truely Moth
+                    false_alarms += b
+                    correct_rejection += m
+                else:
+                    a = 'signal'  # Stim is truely Bat
+                    hit += b
+                    misses += m
+                # pm[k] = m / (b+m)
+            # percent_moths[i] = pm
+            p_hit = hit / (hit+misses)
+            p_false = false_alarms / (false_alarms+correct_rejection)
+            p_correct[t, i] = 0.5 + (p_hit - p_false)/2
+            out = mf.dPrime(hit, misses, false_alarms, correct_rejection)
+            d_prime[t, i] = out['d']
+            criterion_c[t, i] = out['c']
+            hit_rate[t, i] = out['hit_rate']
+            fa_rate[t, i] = out['fa_rate']
+
+    embed()
+    exit()
+
+
 if PLOT_MvsB:
     # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
     data_name = '2018-02-16-aa'
@@ -1298,20 +1353,23 @@ if PLOT_MvsB:
         x = duration
         y = taus
         X, Y = np.meshgrid(x, y)
-        im1 = grid[0].pcolormesh(X, Y, d_prime, cmap='jet', vmin=np.min(d_prime)-0.5, vmax=3, shading='gouraud')
-        im2 = grid[1].pcolormesh(X, Y, crit, cmap='seismic', vmin=-1, vmax=1, shading='gouraud')
+        # im1 = grid[0].pcolormesh(X, Y, d_prime, cmap='jet', vmin=np.min(d_prime)-0.5, vmax=3, shading='gouraud')
+        # im2 = grid[1].pcolormesh(X, Y, crit, cmap='seismic', vmin=-1, vmax=1, shading='gouraud')
+        im1 = grid[0].pcolormesh(X, Y, d_prime, cmap='jet', vmin=np.min(d_prime) - 0.5, vmax=2, shading='flat')
+        im2 = grid[1].pcolormesh(X, Y, crit, cmap='seismic', vmin=-1, vmax=1, shading='flat')
+
         # grid[1].axvline(15, color='black', linestyle=':', linewidth=0.5)
         # grid[0].axvline(15, color='black', linestyle=':', linewidth=0.5)
         # grid[0].axhline(30, color='black', linestyle=':', linewidth=0.5)
         # grid[1].axhline(30, color='black', linestyle=':', linewidth=0.5)
 
-        grid[0].set_xscale('log')
+        # grid[0].set_xscale('log')
         grid[0].set_yscale('log')
-        grid[1].set_xscale('log')
+        # grid[1].set_xscale('log')
         grid[1].set_yscale('log')
 
         # Colorbar
-        cbar1 = grid[0].cax.colorbar(im1, ticks=np.arange(0, 3.1, 1))
+        cbar1 = grid[0].cax.colorbar(im1, ticks=np.arange(0, 2.1, 1))
         cbar2 = grid[1].cax.colorbar(im2, ticks=[-1, -0.5, 0, 0.5, 1])
         cbar1.ax.set_ylabel('d prime', rotation=270, labelpad=15)
         cbar2.ax.set_ylabel('criterion', rotation=270, labelpad=10)
@@ -1324,7 +1382,7 @@ if PLOT_MvsB:
 
         # fig.set_size_inches(5.9, 1.9)
         fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
-        figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/dprime_MothsvsBats_' + stim_type + '.pdf'
+        figname = path_names[2] + 'dprime_MothsvsBats_' + stim_type + '_new.pdf'
         fig.savefig(figname)
         plt.close(fig)
         print('d prime plot saved')
@@ -1360,22 +1418,18 @@ if PLOT_MvsB:
         y = duration
         x = np.linspace(1, p_moths[i].shape[1], p_moths[i].shape[1])
         X, Y = np.meshgrid(x, y)
-        im = ax.pcolormesh(X, Y, p_moths[i], cmap='gray', vmin=0, vmax=1, shading='gouraud')
-        # im = ax.imshow(p_moths[i], vmin=0, vmax=1, cmap='gray', aspect=2)
-        # ax.plot([16.5, 16.5], [-0.5, len(duration) - 0.5], 'k', linewidth=3)
-        # ax.plot([16.5, 16.5], [-0.5, len(duration)-0.5], '--', linewidth=1, color='white')
+        im = ax.pcolormesh(X, Y, p_moths[i], cmap='jet', vmin=0, vmax=1, shading='flat', rasterized=True)
+
         grid[i].axvline(bats_region, color='black', linestyle='-', linewidth=3)
         grid[i].axvline(bats_region, color='white', linestyle='--', linewidth=1)
 
         ax.set_xticks(np.arange(0, 30, 5))
-        # ax.set_yticks(np.arange(0, 10, 1))
-        # ax.set_yticklabels(duration)
 
         grid[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=grid[i].transAxes, size=subfig_caps,
                      color='black')
         grid[i].text(0.7, 0.05, r'$\tau$ = ' + str(taus2[i]) + ' ms', transform=grid[i].transAxes, size=6,
                      color='black')
-        grid[i].set_yscale('log')
+        # grid[i].set_yscale('log')
 
         i += 1
 
@@ -1384,7 +1438,6 @@ if PLOT_MvsB:
                      color='white')
     # Colorbar
     cbar = ax.cax.colorbar(im)
-    # cbar.ax.set_ylabel('Spike trains', rotation=270)
     cbar.solids.set_rasterized(True)  # Removes white lines
 
     # Axes Labels
@@ -1394,7 +1447,7 @@ if PLOT_MvsB:
 
     # fig.set_size_inches(5.9, 1.9)
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.15, right=0.9, wspace=0.1, hspace=0.1)
-    figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/VanRossum_MothsvsBats_' + stim_type + '.pdf'
+    figname = path_names[2] + 'VanRossum_MothsvsBats_' + stim_type + '_new.pdf'
     fig.savefig(figname)
     plt.close(fig)
 

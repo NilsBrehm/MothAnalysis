@@ -1433,7 +1433,7 @@ def plot_detected_spikes(x, spike_times, spike_times_valley, marked, th, window,
     return 0
 
 
-def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1, mph_percent=0.8, selection=True):
+def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, filter_on=True, window=0.1, mph_percent=0.8, selection=[True, 'moths', True]):
     """Get Spike Times using the thunderfish peak detection functions.
 
     Notes
@@ -1455,44 +1455,69 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
     spikes: Saves spike times (in seconds) to HDD in a .npy file (dict).
 
     """
-    if selection:
-        stims = ['naturalmothcalls/BCI1062_07x07.wav',
-                 'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-                 'naturalmothcalls/agaraea_semivitrea_07x07.wav',
-                 'naturalmothcalls/carales_12x12_01.wav',
-                 'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
-                 'naturalmothcalls/creatonotos_01x01.wav',
-                 'naturalmothcalls/elysius_conspersus_11x11.wav',
-                 'naturalmothcalls/epidesma_oceola_06x06.wav',
-                 'naturalmothcalls/eucereon_appunctata_13x13.wav',
-                 'naturalmothcalls/eucereon_hampsoni_11x11.wav',
-                 'naturalmothcalls/eucereon_obscurum_14x14.wav',
-                 'naturalmothcalls/gl005_11x11.wav',
-                 'naturalmothcalls/gl116_05x05.wav',
-                 'naturalmothcalls/hypocladia_militaris_09x09.wav',
-                 'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
-                 'naturalmothcalls/idalus_daga_18x18.wav',
-                 'naturalmothcalls/melese_12x12_01_PK1297.wav',
-                 'naturalmothcalls/neritos_cotes_10x10.wav',
-                 'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
-                 'naturalmothcalls/syntrichura_12x12.wav',
-                 'callseries/moths/A7838.wav',
-                 'callseries/moths/BCI1348.wav',
-                 'callseries/moths/Chrostosoma_thoracicum.wav',
-                 'callseries/moths/Creatonotos.wav',
-                 'callseries/moths/Eucereon_appunctata.wav',
-                 'callseries/moths/Eucereon_hampsoni.wav',
-                 'callseries/moths/Eucereon_maia.wav',
-                 'callseries/moths/GL005.wav',
-                 'callseries/moths/Hyaleucera_erythrotelus.wav',
-                 'callseries/moths/Hypocladia_militaris.wav',
-                 'callseries/moths/PP241.wav',
-                 'callseries/moths/PP612.wav',
-                 'callseries/moths/PP643.wav',
-                 'callseries/moths/Saurita.wav',
-                 'callseries/moths/Uranophora_leucotelus.wav',
-                 'callseries/moths/carales_PK1275.wav',
-                 'callseries/moths/melese_PK1300_01.wav']
+    if selection[0]:
+        if selection[1] == 'moths':
+            stims = ['naturalmothcalls/BCI1062_07x07.wav',
+                     'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+                     'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+                     'naturalmothcalls/carales_12x12_01.wav',
+                     'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+                     'naturalmothcalls/creatonotos_01x01.wav',
+                     'naturalmothcalls/elysius_conspersus_11x11.wav',
+                     'naturalmothcalls/epidesma_oceola_06x06.wav',
+                     'naturalmothcalls/eucereon_appunctata_13x13.wav',
+                     'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+                     'naturalmothcalls/eucereon_obscurum_14x14.wav',
+                     'naturalmothcalls/gl005_11x11.wav',
+                     'naturalmothcalls/gl116_05x05.wav',
+                     'naturalmothcalls/hypocladia_militaris_09x09.wav',
+                     'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+                     'naturalmothcalls/idalus_daga_18x18.wav',
+                     'naturalmothcalls/melese_12x12_01_PK1297.wav',
+                     'naturalmothcalls/neritos_cotes_10x10.wav',
+                     'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+                     'naturalmothcalls/syntrichura_12x12.wav',
+                     'callseries/moths/A7838.wav',
+                     'callseries/moths/BCI1348.wav',
+                     'callseries/moths/Chrostosoma_thoracicum.wav',
+                     'callseries/moths/Creatonotos.wav',
+                     'callseries/moths/Eucereon_appunctata.wav',
+                     'callseries/moths/Eucereon_hampsoni.wav',
+                     'callseries/moths/Eucereon_maia.wav',
+                     'callseries/moths/GL005.wav',
+                     'callseries/moths/Hyaleucera_erythrotelus.wav',
+                     'callseries/moths/Hypocladia_militaris.wav',
+                     'callseries/moths/PP241.wav',
+                     'callseries/moths/PP612.wav',
+                     'callseries/moths/PP643.wav',
+                     'callseries/moths/Saurita.wav',
+                     'callseries/moths/Uranophora_leucotelus.wav',
+                     'callseries/moths/carales_PK1275.wav',
+                     'callseries/moths/melese_PK1300_01.wav']
+        if selection[1] == 'bats_single':
+            stims = ['batcalls/Barbastella_barbastellus_1_n.wav',
+                     'batcalls/Eptesicus_nilssonii_1_s.wav',
+                     'batcalls/Myotis_bechsteinii_1_n.wav',
+                     'batcalls/Myotis_brandtii_1_n.wav',
+                     'batcalls/Myotis_nattereri_1_n.wav',
+                     'batcalls/Nyctalus_leisleri_1_n.wav',
+                     'batcalls/Nyctalus_noctula_2_s.wav',
+                     'batcalls/Pipistrellus_pipistrellus_1_n.wav',
+                     'batcalls/Pipistrellus_pygmaeus_2_n.wav',
+                     'batcalls/Rhinolophus_ferrumequinum_1_n.wav',
+                     'batcalls/Vespertilio_murinus_1_s.wav']
+
+        if selection[1] == 'bats_series':
+            stims = ['callseries/bats/Barbastella_barbastellus_1_n.wav',
+                     'callseries/bats/Myotis_bechsteinii_1_n.wav',
+                     'callseries/bats/Myotis_brandtii_1_n.wav',
+                     'callseries/bats/Myotis_nattereri_1_n.wav',
+                     'callseries/bats/Nyctalus_leisleri_1_n.wav',
+                     'callseries/bats/Nyctalus_noctula_2_s.wav',
+                     'callseries/bats/Pipistrellus_pipistrellus_1_n.wav',
+                     'callseries/bats/Pipistrellus_pygmaeus_2_n.wav',
+                     'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
+                     'callseries/bats/Vespertilio_murinus_1_s.wav']
 
     # Load Voltage Traces
     save_fig = False
@@ -1508,11 +1533,12 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
     fs = 100*1000  # Sampling Rate of Ephys Recording
 
     cc1, connections = tagtostimulus(path_names)
-    if selection:
-        pulsetrains_series = sio.loadmat('/media/nils/Data/Moth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
-        pulsetrains_single = sio.loadmat('/media/nils/Data/Moth/CallStats/samples.mat')['samples'][0]
-        series_iterator = 0
-        single_iterator = 0
+    if selection[0]:
+        if selection[2]:
+            pulsetrains_series = sio.loadmat('/media/nils/Data/Moth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
+            pulsetrains_single = sio.loadmat('/media/nils/Data/Moth/CallStats/samples.mat')['samples'][0]
+            series_iterator = 0
+            single_iterator = 0
         tag_list = [[]] * len(stims)
         for q in range(len(stims)):
             tag_list[q] = cc1[stims[q]]
@@ -1523,8 +1549,8 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
         spike_times = [list()] * trials
         spike_times_raw = [list()] * trials
         spike_times_valley = [list()] * trials
-        if selection:
-            if stims[i].startswith('callseries'):
+        if selection[2]:
+            if stims[i].startswith('callseries/moth'):
                 call_pulsetrain = pulsetrains_series[series_iterator][0]
                 series_iterator += 1
             if stims[i].startswith('natural'):
@@ -1654,7 +1680,7 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
             spike_times_valley[k] = spike_times_valley[k] / fs
 
             # Load respective pulse train (call)
-            if selection:
+            if selection[2]:
                 pulse_distance = np.zeros(len(spike_times[k]))
                 for n_spikes in range(len(spike_times[k])):
                     abs_diff = abs(call_pulsetrain - spike_times[k][n_spikes])
@@ -1727,13 +1753,26 @@ def spike_times_calls(path_names, protocol_name, show, save_data, th_factor=1, f
 
     # Save to HDD
     if save_data:
-        file_name = file_pathname + protocol_name + '_spikes.npy'
+        file_name = file_pathname + protocol_name + '_spikes_' + selection[1] + '.npy'
         np.save(file_name, spikes)
-        np.save(file_pathname + protocol_name + '_valleys.npy', valleys)
-        np.save(file_pathname + protocol_name + '_spikes_raw.npy', spikes_raw)
+        np.save(file_pathname + protocol_name + '_valleys_' + selection[1] + '.npy', valleys)
+        np.save(file_pathname + protocol_name + '_spikes_raw_' + selection[1] + '.npy', spikes_raw)
         print('Spike Times saved (protocol: ' + protocol_name + ')')
 
     return spikes
+
+
+def combine_spike_files(path_names):
+    # This combines the spike dedection files of different stimulus types
+    a = ['spikes', 'valleys', 'spikes_raw']
+    for k in a:
+        spikes = np.load(path_names[1] + 'Calls_' + k + '_moths.npy').item()
+        sp02 = np.load(path_names[1] + 'Calls_' + k + '_bats_series.npy').item()
+        sp03 = np.load(path_names[1] + 'Calls_' + k + '_bats_single.npy').item()
+        spikes.update(sp02)
+        spikes.update(sp03)
+        np.save(path_names[1] + 'Calls_' + k + '.npy', spikes)
+    return print('Successfully combined spike time files into one single file.')
 
 # ----------------------------------------------------------------------------------------------------------------------
 # FILTER
@@ -3987,11 +4026,15 @@ def isi_matrix(path_names, duration, boot_sample, stim_type, profile, save_fig, 
                  'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
                  'callseries/bats/Vespertilio_murinus_1_s.wav']
 
-    # Tags and Stimulus names
-    connection, _ = tagtostimulus(path_names)
-    stimulus_tags = [''] * len(stims)
-    for p in range(len(stims)):
-        stimulus_tags[p] = connection[stims[p]]
+    if stim_type == 'poisson':
+        stimulus_tags = np.load(path_names[1] + 'Poisson_tags.npy')
+        spikes = np.load(path_names[1] + 'Poisson_spikes.npy').item()
+    else:
+        # Tags and Stimulus names
+        connection, _ = tagtostimulus(path_names)
+        stimulus_tags = [''] * len(stims)
+        for p in range(len(stims)):
+            stimulus_tags[p] = connection[stims[p]]
 
     # trial_nr = 20
     '''

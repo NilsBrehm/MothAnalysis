@@ -435,7 +435,7 @@ def plot_volt(rec, name, stim_type, volt, spikes, spikes_raw, valleys, spikes_ol
 
 # SCRIPT STARTS HERE ===================================================================================================
 # ss = ['single', 'series', 'bats_single', 'bats_series', 'bonus_series', 'bonus_single']
-ss = ['single', 'series']
+ss = ['single', 'series', 'bats_single', 'bats_series']
 
 rec = '2018-02-16-aa'
 path_names = get_directories(rec)
@@ -445,8 +445,9 @@ protocol_name = 'Calls'
 th_factor = 4
 window = None
 mph_percent = 0.8
-mf.spike_times_calls(path_names, protocol_name, show=False, save_data=True, th_factor=th_factor, filter_on=True,
-                     window=window, mph_percent=mph_percent, selection=True)
+# mf.spike_times_calls(path_names, protocol_name, show=False, save_data=True, th_factor=th_factor, filter_on=True,
+#                      window=window, mph_percent=mph_percent, selection=[True, 'moths', True])
+# mf.combine_spike_files(path_names)
 
 volt = np.load(path_names[1] + 'Calls_voltage.npy').item()
 spikes = np.load(path_names[1] + 'Calls_spikes.npy').item()
@@ -580,7 +581,6 @@ for q in range(len(ss)):  # Loop through stimulus types
                  'ormetica_contraria_peruviana_30++.wav',
                  'syntrichura_07x07.wav',
                  'syntrichura_09x09.wav']
-
 
     trials = [17, 5, 3, 19, 6, 2, 12, 3, 7, 2, 8, 2, 0, 4, 16, 8, 17, 10, 10, 18]  # good trials for single calls
     # for i in range(len(stims)):
