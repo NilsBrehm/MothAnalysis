@@ -2948,30 +2948,31 @@ def get_soundfilestimuli_data(datasets, tag, plot):
 
 
 def extend_spike_train(sp, gap, extension_time, mode, path_names):
-    if mode is 'both':
-        s_types = ['series', 'single']
-        pp = ['callseries/moths/', 'naturalmothcalls/']
+    if mode is 'all':
+        s_types = ['series', 'single', 'bats_series', 'bats_single']
+        pp = ['callseries/moths/', 'naturalmothcalls/', 'callseries/bats/', 'batcalls/']
         extended_spikes = {}
         for st in range(len(s_types)):
             stim_type = s_types[st]
             if stim_type is 'series':
                 stims = ['A7838.wav',
-                     'BCI1348.wav',
-                     'Chrostosoma_thoracicum.wav',
-                     'Creatonotos.wav',
-                     'Eucereon_appunctata.wav',
-                     'Eucereon_hampsoni.wav',
-                     'Eucereon_maia.wav',
-                     'GL005.wav',
-                     'Hyaleucera_erythrotelus.wav',
-                     'Hypocladia_militaris.wav',
-                     'PP241.wav',
-                     'PP612.wav',
-                     'PP643.wav',
-                     'Saurita.wav',
-                     'Uranophora_leucotelus.wav',
-                     'carales_PK1275.wav',
-                     'melese_PK1300_01.wav']
+                         'BCI1348.wav',
+                         'Chrostosoma_thoracicum.wav',
+                         'Creatonotos.wav',
+                         'Eucereon_appunctata.wav',
+                         'Eucereon_hampsoni.wav',
+                         'Eucereon_maia.wav',
+                         'GL005.wav',
+                         'Hyaleucera_erythrotelus.wav',
+                         'Hypocladia_militaris.wav',
+                         'PP241.wav',
+                         'PP612.wav',
+                         'PP643.wav',
+                         'Saurita.wav',
+                         'Uranophora_leucotelus.wav',
+                         'carales_PK1275.wav',
+                         'melese_PK1300_01.wav']
+
             elif stim_type is 'single':
                 stims = ['BCI1062_07x07.wav',
                          'aclytia_gynamorpha_24x24.wav',
@@ -2993,6 +2994,29 @@ def extend_spike_train(sp, gap, extension_time, mode, path_names):
                          'neritos_cotes_10x10.wav',
                          'ormetica_contraria_peruviana_09x09.wav',
                          'syntrichura_12x12.wav']
+            elif stim_type is 'bats_series':
+                stims = ['Barbastella_barbastellus_1_n.wav',
+                            'Myotis_bechsteinii_1_n.wav',
+                            'Myotis_brandtii_1_n.wav',
+                            'Myotis_nattereri_1_n.wav',
+                            'Nyctalus_leisleri_1_n.wav',
+                            'Nyctalus_noctula_2_s.wav',
+                            'Pipistrellus_pipistrellus_1_n.wav',
+                            'Pipistrellus_pygmaeus_2_n.wav',
+                            'Rhinolophus_ferrumequinum_1_n.wav',
+                            'Vespertilio_murinus_1_s.wav']
+            elif stim_type is 'bats_single':
+                stims = ['Barbastella_barbastellus_1_n.wav',
+                         'Eptesicus_nilssonii_1_s.wav',
+                         'Myotis_bechsteinii_1_n.wav',
+                         'Myotis_brandtii_1_n.wav',
+                         'Myotis_nattereri_1_n.wav',
+                         'Nyctalus_leisleri_1_n.wav',
+                         'Nyctalus_noctula_2_s.wav',
+                         'Pipistrellus_pipistrellus_1_n.wav',
+                         'Pipistrellus_pygmaeus_2_n.wav',
+                         'Rhinolophus_ferrumequinum_1_n.wav',
+                         'Vespertilio_murinus_1_s.wav']
             else:
                 print('Error. Wrong stim type')
                 return 0
@@ -3530,12 +3554,12 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt, tau, boot_sam
 
     # Select Template and Probes and bootstrap this process
     mm = {}
-    gg = {}
+    # gg = {}
     distances_per_boot = {}
     for boot in range(boot_sample):
         count = 0
         match_matrix = np.zeros((call_count, call_count))
-        group_matrix = np.zeros((2, call_count))
+        # group_matrix = np.zeros((2, call_count))
         templates = {}
         probes = {}
         # rand_ids = np.random.randint(trial_nr, size=call_count)
@@ -3569,16 +3593,16 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt, tau, boot_sam
             distances[pr] = d
             call_ids[pr] = probes[pr][1]
 
-            # 0: Moths, 1: Bats
-            if stimulus_tags[0] == 'p0':
-                group_matrix = 1
-            else:
-                probe_group = int(float(stimulus_tags[song_id][20:]) >= 82)
-                template_group = int(float(stimulus_tags[template_match][20:]) >= 82)
-                group_matrix[template_group, song_id] += 1
+            # # 0: Moths, 1: Bats
+            # if stimulus_tags[0] == 'p0':
+            #     group_matrix = 1
+            # else:
+            #     probe_group = int(float(stimulus_tags[song_id][20:]) >= 82)
+            #     template_group = int(float(stimulus_tags[template_match][20:]) >= 82)
+            #     group_matrix[template_group, song_id] += 1
 
         mm.update({boot: match_matrix})
-        gg.update({boot: group_matrix})
+        # gg.update({boot: group_matrix})
         md = [[]] * len(np.unique(call_ids))
         distances = np.array(distances)
         for qq in range(len(np.unique(call_ids))):
@@ -3588,7 +3612,7 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt, tau, boot_sam
         distances_per_boot.update({boot: [md, call_ids]})
 
     mm_mean = sum(mm.values()) / len(mm)
-    gg_mean = sum(gg.values()) / len(gg)
+    # gg_mean = sum(gg.values()) / len(gg)
 
     # Percent Correct
     percent_correct = np.zeros((len(mm_mean)))
@@ -3619,7 +3643,7 @@ def vanrossum_matrix(dataset, trains, stimulus_tags, duration, dt, tau, boot_sam
         plt.close(fig)
         # print(figname)
         # print('tau = ' + str(tau*1000) + ' ms' + ' T = ' + str(duration*1000) + ' ms done')
-
+    gg_mean = 0
     return mm_mean, correct_matches, distances_per_boot, gg_mean
 
 

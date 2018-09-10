@@ -59,7 +59,7 @@ POISSON = False
 # Compute Van Rossum Distance
 EPULSES = False
 VANROSSUM = False
-MVSB = True
+MVSB = False
 
 # Compute other Distances
 ISI = False
@@ -68,6 +68,11 @@ DISTANCE_RATIOS = False
 # Other Distances Correct Matches
 PLOT_CORRECT = False
 PLOT_CORRECT_OVERALL = False
+PLOT_DISTANCES_CORRECT = True
+
+# Ratio: within vs. between distances
+PLOT_D_RATIOS = False
+PLOT_D_RATIOS_OVERALL = False
 
 # -------------
 # PLOTs
@@ -78,6 +83,7 @@ PLOT_CALLS = False
 CUMHIST = False
 
 # VanRossum Tau vs Duration
+PLOT_VR_SPIKEMATCHING = False
 PLOT_VR_TAUVSDUR = False
 PLOT_VR_TAUVSDUR_OVERALL = False
 
@@ -89,11 +95,6 @@ PLOT_MvsB = False
 
 # Other Distances Matched Spike Trains with different durations
 PLOT_DISTANCES = False
-
-# Ratio: within vs. between distances
-PLOT_D_RATIOS = False
-PLOT_D_RATIOS_OVERALL = False
-
 
 # Pulse Train Stuff
 PULSE_TRAIN_VANROSSUM = False
@@ -120,12 +121,11 @@ show = False
 # Settings for Call Analysis ===========================================================================================
 # General Settings
 save_extended_spikes = False
-extended = False
+extended = True
 POISSON_TRAINS = False
 
 # stim_type = 'moth_single_selected'
 stim_type = 'all_single'
-# stim_type = 'all_single'
 stim_length = 'single'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
@@ -241,9 +241,16 @@ if DISTANCE_RATIOS:
     # method = 'exp'
     p = path_names[1]
     if stim_length is 'series':
-        spikes = np.load(p + 'Calls_spikes.npy').item()
+        if extended:
+            spikes = np.load(p + 'Calls_spikes_extended.npy').item()
+        else:
+            spikes = np.load(p + 'Calls_spikes.npy').item()
     elif stim_length is 'single':
-        spikes = np.load(p + 'Calls_spikes.npy').item()
+        if extended:
+            spikes = np.load(p + 'Calls_spikes_extended.npy').item()
+        else:
+            spikes = np.load(p + 'Calls_spikes.npy').item()
+
 
     tag_list = np.load(p + 'Calls_tag_list.npy')
 
@@ -330,14 +337,21 @@ if DISTANCE_RATIOS:
         results_count[j, :] = [np.mean(d_count), np.std(d_count), over_all_count, ratio_count, diff_count]
 
     # Save to HDD
-    np.save(p + 'ISI_Ratios_' + stim_type + '.npy', results)
-    np.save(p + 'SYNC_Ratios_' + stim_type + '.npy', results_sync)
-    np.save(p + 'DUR_Ratios_' + stim_type + '.npy', results_dur)
-    np.save(p + 'COUNT_Ratios_' + stim_type + '.npy', results_count)
+    if extended:
+        np.save(p + 'ISI_Ratios_' + stim_type + '_extended.npy', results)
+        np.save(p + 'SYNC_Ratios_' + stim_type + '_extended.npy', results_sync)
+        np.save(p + 'DUR_Ratios_' + stim_type + '_extended.npy', results_dur)
+        np.save(p + 'COUNT_Ratios_' + stim_type + '_extended.npy', results_count)
+    else:
+        np.save(p + 'ISI_Ratios_' + stim_type + '.npy', results)
+        np.save(p + 'SYNC_Ratios_' + stim_type + '.npy', results_sync)
+        np.save(p + 'DUR_Ratios_' + stim_type + '.npy', results_dur)
+        np.save(p + 'COUNT_Ratios_' + stim_type + '.npy', results_count)
 
     print('Ratios saved')
 
 if PLOT_D_RATIOS:
+    extended = False
     data_name = '2018-02-16-aa'
     # data_name = '2018-02-15-aa'
     # data_name = datasets[-1]
@@ -347,8 +361,14 @@ if PLOT_D_RATIOS:
     p = path_names[1]
     # ==================================================================================================================
     # ISI and SYNC
-    ratios_isi = np.load(p + 'ISI_Ratios_' + stim_type + '.npy')
-    ratios_sync = np.load(p + 'SYNC_Ratios_' + stim_type + '.npy')
+    if extended:
+        figname = path_names[2] + 'Distance_Ratios_ISI_SYNC_new_' + stim_type + '_extended.pdf'
+        ratios_isi = np.load(p + 'ISI_Ratios_' + stim_type + '_extended.npy')
+        ratios_sync = np.load(p + 'SYNC_Ratios_' + stim_type + '_extended.npy')
+    else:
+        figname = path_names[2] + 'Distance_Ratios_ISI_SYNC_new_' + stim_type + '.pdf'
+        ratios_isi = np.load(p + 'ISI_Ratios_' + stim_type + '.npy')
+        ratios_sync = np.load(p + 'SYNC_Ratios_' + stim_type + '.npy')
 
     # max_norm = np.max(ratios_isi[:, 2] * 1000)
     # ratios_isi[:, 0] = (ratios_isi[:, 0] * 1000) / max_norm
@@ -433,33 +453,46 @@ if PLOT_D_RATIOS:
 
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
     # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
-    figname = path_names[2] + 'Distance_Ratios_ISI_SYNC_new_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
 
     # ==================================================================================================================
     # DUR and COUNT
-    ratios_isi = np.load(p + 'DUR_Ratios_' + stim_type + '.npy')
-    ratios_sync = np.load(p + 'COUNT_Ratios_' + stim_type + '.npy')
+    if extended:
+        ratios_isi = np.load(p + 'DUR_Ratios_' + stim_type + '_extended.npy')
+        ratios_sync = np.load(p + 'COUNT_Ratios_' + stim_type + '_extended.npy')
+        figname = path_names[2] + 'Distance_Ratios_DUR_COUNT_new_' + stim_type + '_extended.pdf'
+    else:
+        figname = path_names[2] + 'Distance_Ratios_DUR_COUNT_new_' + stim_type + '.pdf'
+        ratios_isi = np.load(p + 'DUR_Ratios_' + stim_type + '.npy')
+        ratios_sync = np.load(p + 'COUNT_Ratios_' + stim_type + '.npy')
 
-    max_norm = np.max(ratios_isi[:, 2] * 1000)
-    ratios_isi[:, 0] = (ratios_isi[:, 0] * 1000) / max_norm
-    ratios_isi[:, 1] = (ratios_isi[:, 1] * 1000) / max_norm
-    ratios_isi[:, 2] = (ratios_isi[:, 2] * 1000) / max_norm
-
-    max_norm = np.max(ratios_sync[:, 2] * 1000)
-    ratios_sync[:, 0] = (ratios_sync[:, 0] * 1000) / max_norm
-    ratios_sync[:, 1] = (ratios_sync[:, 1] * 1000) / max_norm
-    ratios_sync[:, 2] = (ratios_sync[:, 2] * 1000) / max_norm
+    # max_norm = np.max(ratios_isi[:, 2] * 1000)
+    # ratios_isi[:, 0] = (ratios_isi[:, 0] * 1000) / max_norm
+    # ratios_isi[:, 1] = (ratios_isi[:, 1] * 1000) / max_norm
+    # ratios_isi[:, 2] = (ratios_isi[:, 2] * 1000) / max_norm
+    #
+    # max_norm = np.max(ratios_sync[:, 2] * 1000)
+    # ratios_sync[:, 0] = (ratios_sync[:, 0] * 1000) / max_norm
+    # ratios_sync[:, 1] = (ratios_sync[:, 1] * 1000) / max_norm
+    # ratios_sync[:, 2] = (ratios_sync[:, 2] * 1000) / max_norm
 
     # Plot
     mf.plot_settings()
     if stim_length == 'series':
         x_end = 2500 + 100
         x_step = 500
+        y_DUR_step = 0.05
+        y_COUNT_step = 10
+        y_COUNT = 40
+        y_DUR = np.max(ratios_isi[:, 0] + ratios_isi[:, 1])
     if stim_length == 'single':
         x_end = 250 + 10
         x_step = 50
+        y_DUR_step = 0.02
+        y_DUR = 0.1
+        y_COUNT_step = 5
+        y_COUNT = 20
 
     # Create Grid
     grid = matplotlib.gridspec.GridSpec(nrows=2, ncols=2)
@@ -472,8 +505,8 @@ if PLOT_D_RATIOS:
     ax1.errorbar(duration, ratios_isi[:, 0], yerr=ratios_isi[:, 1], color='k', marker='o', label='within')
     ax1.plot(duration, ratios_isi[:, 2], '-', label='between', color='blue')
     ax1.plot(duration, abs(ratios_isi[:, 0]-ratios_isi[:, 2]), 'g-', label='diff')
-    ax1.set_ylim(0, 1)
-    ax1.set_yticks(np.arange(0, 1.1, 0.2))
+    ax1.set_ylim(0, y_DUR)
+    ax1.set_yticks(np.arange(0, y_DUR+y_DUR_step, y_DUR_step))
     ax1.set_xticklabels([])
     ax1.set_ylabel('DUR')
     ax1.set_xlim(0, x_end)
@@ -490,10 +523,10 @@ if PLOT_D_RATIOS:
     ax2.errorbar(duration, ratios_sync[:, 0], yerr=ratios_sync[:, 1], color='k', marker='o', label='within')
     ax2.plot(duration, ratios_sync[:, 2], '-', label='between', color='blue')
     ax2.plot(duration, abs(ratios_sync[:, 0]-ratios_sync[:, 2]), 'g-', label='diff')
-    ax2.set_ylim(0, 1)
-    ax2.set_yticks(np.arange(1, 1.1, 0.2))
-    ax2.set_xticklabels([])
-    ax2.set_yticklabels([])
+    ax2.set_ylim(0, y_COUNT)
+    ax2.set_yticks(np.arange(0, y_COUNT+y_COUNT_step, y_COUNT_step))
+    # ax2.set_xticklabels([])
+    # ax2.set_yticklabels([])
     ax2.set_ylabel('COUNT')
     ax2.set_xlim(0, x_end)
     ax2.set_xticks(np.arange(0, x_end, x_step))
@@ -525,7 +558,6 @@ if PLOT_D_RATIOS:
 
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
     # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
-    figname = path_names[2] + 'Distance_Ratios_DUR_COUNT_new_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
 
@@ -677,7 +709,7 @@ if GAP:
 if save_extended_spikes:
     path_names = mf.get_directories('2018-02-16-aa')
     sp = np.load(path_names[1] + 'Calls_spikes.npy').item()
-    mf.extend_spike_train(sp, gap=[0.05, 0.01], extension_time=[4, 0.18], mode='both', path_names=path_names)
+    mf.extend_spike_train(sp, gap=[0.05, 0.01, 0.05, 0.01], extension_time=[4, 0.18, 4, 0.18], mode='all', path_names=path_names)
     print('Spike trains extended and saved')
 
 if POISSON_TRAINS:
@@ -1184,9 +1216,13 @@ if VANROSSUM:
         mm = [[]] * len(duration)
         gg = [[]] * len(duration)
         # Parallel loop through all durations for a given tau
-        r = Parallel(n_jobs=-2)(delayed(mf.vanrossum_matrix)(data_name, trains, stimulus_tags, duration[dur]/1000, dt, taus[tt]/1000, boot_sample=nsamples, save_fig=False) for dur in range(len(duration)))
-        # mf.vanrossum_matrix2(data_name, trains, stimulus_tags, duration/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True)
-        # mm_mean, correct_matches, distances_per_boot, gg_mean = mf.vanrossum_matrix(data_name, trains, stimulus_tags, duration[-1]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True)
+        r = Parallel(n_jobs=-2)(delayed(mf.vanrossum_matrix)
+                                (data_name, trains, stimulus_tags, duration[dur]/1000, dt, taus[tt]/1000,
+                                 boot_sample=nsamples, save_fig=False) for dur in range(len(duration)))
+        # mf.vanrossum_matrix2(data_name, trains, stimulus_tags, duration/1000, dt_factor, taus[tt]/1000, boot_
+        # sample=nsamples, save_fig=True)
+        # mm_mean, correct_matches, distances_per_boot, gg_mean = mf.vanrossum_matrix(data_name, trains, stimulus_tags,
+        # duration[-1]/1000, dt_factor, taus[tt]/1000, boot_sample=nsamples, save_fig=True)
 
         # Put values from parallel loop into correct variables
         for q in range(len(duration)):
@@ -1196,24 +1232,25 @@ if VANROSSUM:
             distances[q] = r[q][2]
         dist_profs.update({taus[tt]: distances})
         matches.update({taus[tt]: mm})
-        groups.update({taus[tt]: gg})
+        groups.update({taus[tt]: gg})  # not useful anymore
     # Save to HDD
     if extended:
         np.save(p + 'VanRossum_' + stim_type + '_extended.npy', dist_profs)
         np.save(p + 'VanRossum_correct_' + stim_type + '_extended.npy', correct)
         np.save(p + 'VanRossum_matches_' + stim_type + '_extended.npy', matches)
-        np.save(p + 'VanRossum_groups_' + stim_type + '_extended.npy', groups)
+        np.save(p + 'VanRossum_groups_' + stim_type + '_extended.npy', groups)  # not useful anymore
     else:
         np.save(p + 'VanRossum_' + stim_type + '.npy', dist_profs)
         np.save(p + 'VanRossum_correct_' + stim_type + '.npy', correct)
         np.save(p + 'VanRossum_matches_' + stim_type + '.npy', matches)
-        np.save(p + 'VanRossum_groups_' + stim_type + '.npy', groups)
+        np.save(p + 'VanRossum_groups_' + stim_type + '.npy', groups)  # not useful anymore
     print('VanRossum Distances done')
 
-
 if MVSB:
-    stim_length = 'series'
-    stim_type = 'all_series'
+    extended = False
+    method = 'VanRossum'
+    # stim_length = 'series'
+    # stim_type = 'all_series'
     if stim_length == 'single':
         boarder = 19
     if stim_length == 'series':
@@ -1222,46 +1259,145 @@ if MVSB:
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
-    matches = np.load(p + 'VanRossum_matches_' + stim_type + '.npy').item()
-    percent_moths = [[]] * len(duration)
-    d_prime = np.zeros(shape=(len(taus), len(duration)))
-    p_correct = np.zeros(shape=(len(taus), len(duration)))
-    hit_rate = np.zeros(shape=(len(taus), len(duration)))
-    fa_rate = np.zeros(shape=(len(taus), len(duration)))
-    criterion_c = np.zeros(shape=(len(taus), len(duration)))
+    if method is 'VanRossum':
+        if extended:
+            matches = np.load(p + 'VanRossum_matches_' + stim_type + '_extended.npy').item()
+            figname = path_names[2] + 'MvsB_VanRossum_dprime_' + stim_type + '_extended.png'
+            figname2 = path_names[2] + 'MvsB_VanRossum_percent_' + stim_type + '_extended.png'
+            figname3 = path_names[2] + 'MvsB_VanRossum_percent_taus_' + stim_type + '_extended.png'
+        else:
+            matches = np.load(p + 'VanRossum_matches_' + stim_type + '.npy').item()
+            figname = path_names[2] + 'MvsB_VanRossum_dprime_' + stim_type + '.png'
+            figname2 = path_names[2] + 'MvsB_VanRossum_percent_' + stim_type + '.png'
+            figname3 = path_names[2] + 'MvsB_VanRossum_percent_taus_' + stim_type + '.png'
 
-    for t in range(len(taus)):
-        for i in range(len(duration)):
-            pm = np.zeros(len(matches[taus[9]][i]))
-            hit = 0
-            misses = 0
-            false_alarms = 0
-            correct_rejection = 0
-            for k in range(len(matches[taus[t]][i])):
-                m = sum(matches[taus[t]][i][:, k][0:19])
-                b = sum(matches[taus[t]][i][:, k][19:])
+        d_prime = np.zeros(shape=(len(taus), len(duration)))
+        p_correct = np.zeros(shape=(len(taus), len(duration)))
+        hit_rate = np.zeros(shape=(len(taus), len(duration)))
+        fa_rate = np.zeros(shape=(len(taus), len(duration)))
+        criterion_c = np.zeros(shape=(len(taus), len(duration)))
+        percent_moth = [[]] * len(taus)
+        for t in range(len(taus)):
+            p_moths = [[]] * len(duration)
+            for i in range(len(duration)):
+                pm = np.zeros(len(matches[taus[t]][i]))
+                hit = 0
+                misses = 0
+                false_alarms = 0
+                correct_rejection = 0
+                for k in range(len(matches[taus[t]][i])):
+                    m = sum(matches[taus[t]][i][:, k][0:19])
+                    b = sum(matches[taus[t]][i][:, k][19:])
 
-                if k <= boarder:
-                    a = 'noise'  # Stim is truely Moth
-                    false_alarms += b
-                    correct_rejection += m
-                else:
-                    a = 'signal'  # Stim is truely Bat
-                    hit += b
-                    misses += m
-                # pm[k] = m / (b+m)
-            # percent_moths[i] = pm
-            p_hit = hit / (hit+misses)
-            p_false = false_alarms / (false_alarms+correct_rejection)
-            p_correct[t, i] = 0.5 + (p_hit - p_false)/2
-            out = mf.dPrime(hit, misses, false_alarms, correct_rejection)
-            d_prime[t, i] = out['d']
-            criterion_c[t, i] = out['c']
-            hit_rate[t, i] = out['hit_rate']
-            fa_rate[t, i] = out['fa_rate']
+                    if k <= boarder:
+                        a = 'noise'  # Stim is truely Moth
+                        false_alarms += b
+                        correct_rejection += m
+                    else:
+                        a = 'signal'  # Stim is truely Bat
+                        hit += b
+                        misses += m
+                    pm[k] = m / (b+m)
+                p_moths[i] = pm
+                p_hit = hit / (hit+misses)
+                p_false = false_alarms / (false_alarms+correct_rejection)
+                p_correct[t, i] = 0.5 + (p_hit - p_false)/2
+                out = mf.dPrime(hit, misses, false_alarms, correct_rejection)
+                d_prime[t, i] = out['d']
+                criterion_c[t, i] = out['c']
+                hit_rate[t, i] = out['hit_rate']
+                fa_rate[t, i] = out['fa_rate']
+            percent_moth[t] = p_moths
 
-    embed()
-    exit()
+        p_taus = [[]] * len(percent_moth)
+        for j in range(len(percent_moth)):
+            p_taus[j] = percent_moth[j][50]
+        fig = plt.figure()
+        plt.pcolormesh(d_prime, cmap='jet', vmin=0, vmax=2)
+        plt.colorbar()
+        fig.savefig(figname)
+        plt.close()
+
+        fig = plt.figure()
+        plt.pcolormesh(percent_moth[9], cmap='jet', vmin=0, vmax=1)
+        plt.colorbar()
+        fig.savefig(figname2)
+        plt.close()
+
+        fig = plt.figure()
+        plt.pcolormesh(p_taus, cmap='jet', vmin=0, vmax=1)
+        plt.colorbar()
+        fig.savefig(figname3)
+        plt.close()
+        print('Plot saved')
+
+    # ==================================================================================================================
+    # DISTANCES ========================================================================================================
+    if method is 'Distances':
+        if extended:
+            matches = np.load(p + 'distances_matches_' + stim_type + '_extended.npy').item()
+            figname = path_names[2] + 'MvsB_distances_dprime_' + stim_type + '_extended.png'
+        else:
+            matches = np.load(p + 'distances_matches_' + stim_type + '.npy').item()
+            figname = path_names[2] + 'MvsB_distances_dprime_' + stim_type + '.png'
+
+        profiles = ['ISI', 'SYNC', 'DUR', 'COUNT']
+        d_prime = np.zeros(shape=(len(taus), len(duration)))
+        p_correct = np.zeros(shape=(len(taus), len(duration)))
+        hit_rate = np.zeros(shape=(len(taus), len(duration)))
+        fa_rate = np.zeros(shape=(len(taus), len(duration)))
+        criterion_c = np.zeros(shape=(len(taus), len(duration)))
+        percent_moth = [[]] * len(taus)
+        for t in range(len(profiles)):
+            p_moths = [[]] * len(duration)
+            for i in range(len(duration)):
+                pm = np.zeros(len(matches[profiles[t]][i]))
+                hit = 0
+                misses = 0
+                false_alarms = 0
+                correct_rejection = 0
+                for k in range(len(matches[profiles[t]][i])):
+                    m = sum(matches[profiles[t]][i][:, k][0:19])
+                    b = sum(matches[profiles[t]][i][:, k][19:])
+
+                    if k <= boarder:
+                        a = 'noise'  # Stim is truely Moth
+                        false_alarms += b
+                        correct_rejection += m
+                    else:
+                        a = 'signal'  # Stim is truely Bat
+                        hit += b
+                        misses += m
+                    pm[k] = m / (b + m)
+                p_moths[i] = pm
+                p_hit = hit / (hit + misses)
+                p_false = false_alarms / (false_alarms + correct_rejection)
+                p_correct[t, i] = 0.5 + (p_hit - p_false) / 2
+                out = mf.dPrime(hit, misses, false_alarms, correct_rejection)
+                d_prime[t, i] = out['d']
+                criterion_c[t, i] = out['c']
+                hit_rate[t, i] = out['hit_rate']
+                fa_rate[t, i] = out['fa_rate']
+            percent_moth[t] = p_moths
+
+        plt.figure()
+        for j in range(len(profiles)):
+            plt.plot(duration, d_prime[j], label=profiles[j])
+        plt.ylim(0, 2)
+        plt.legend()
+        plt.savefig(figname)
+        plt.close()
+
+        for j in range(len(profiles)):
+            plt.figure()
+            plt.pcolormesh(percent_moth[j], cmap='jet', vmin=0, vmax=1)
+            plt.colorbar()
+            if extended:
+                plt.savefig(path_names[2] + 'MvsB_distances_percent_' + stim_type + '_' + profiles[j] + '_extended.png')
+            else:
+                plt.savefig(path_names[2] + 'MvsB_distances_percent_' + stim_type + '_' + profiles[j] + '.png')
+            plt.close()
+        print('Plot saved')
 
 
 if PLOT_MvsB:
@@ -1641,33 +1777,104 @@ if PLOT_CORRECT:
     print('Distances Matrix Plot saved')
 
 if PLOT_VR_TAUVSDUR:
-    # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
-    # data_name = '2018-02-09-aa'
     data_name = '2018-02-16-aa'
-    # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
-    diff_extended = True
-    if extended:
-        vr_series = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '_extended.npy')
-        vr_series_dur = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '.npy')
-        vr_single = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '_extended.npy')
-        vr_single_dur = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '.npy')
-        figname = path_names[2] + 'VanRossum_TauVSDur_extended.pdf'
-        if diff_extended:
-            vr_series = vr_series_dur - vr_series
-            vr_single = vr_single_dur - vr_single
-            figname = path_names[2] + 'VanRossum_TauVSDur_extended_diff.pdf'
-    elif stim_type == 'poisson':
-        vr_series = np.load(p + 'VanRossum_correct_' + 'poisson' + '.npy')
-        vr_single = np.load(p + 'VanRossum_correct_' + 'poisson' + '.npy')
-        figname = path_names[2] + 'VanRossum_TauVSDur_poisson.pdf'
-    else:
-        vr_series = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '.npy')
-        vr_single = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '.npy')
-        figname = path_names[2] + 'VanRossum_TauVSDur.pdf'
+    # diff_extended = True
+    # if extended:
+    #     vr_series = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '_extended.npy')
+    #     vr_series_dur = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '.npy')
+    #     vr_single = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '_extended.npy')
+    #     vr_single_dur = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '.npy')
+    #     figname = path_names[2] + 'VanRossum_TauVSDur_extended.pdf'
+    #     if diff_extended:
+    #         vr_series = vr_series_dur - vr_series
+    #         vr_single = vr_single_dur - vr_single
+    #         figname = path_names[2] + 'VanRossum_TauVSDur_extended_diff.pdf'
+    # elif stim_type == 'poisson':
+    #     vr_series = np.load(p + 'VanRossum_correct_' + 'poisson' + '.npy')
+    #     vr_single = np.load(p + 'VanRossum_correct_' + 'poisson' + '.npy')
+    #     figname = path_names[2] + 'VanRossum_TauVSDur_poisson.pdf'
+    # else:
+    #     vr_series = np.load(p + 'VanRossum_correct_' + 'moth_series_selected' + '.npy')
+    #     vr_single = np.load(p + 'VanRossum_correct_' + 'moth_single_selected' + '.npy')
+    #     figname = path_names[2] + 'VanRossum_TauVSDur.pdf'
 
+    # Get all data
+    s_types = ['moth_series_selected', 'moth_series_selected_extended', 'moth_single_selected',
+               'moth_single_selected_extended']
+    data = {}
+    for k in range(len(s_types)):
+        data.update({s_types[k]: np.load(p + 'VanRossum_correct_' + s_types[k] + '.npy')})
+
+    # Plot
+    mf.plot_settings()
+    ax = [[]] * 5
+    grid = matplotlib.gridspec.GridSpec(nrows=24, ncols=26)
+    fig = plt.figure(figsize=(5.9, 4.9))
+    ax[0] = plt.subplot(grid[0:10, 0:10])
+    ax[1] = plt.subplot(grid[0:10, 13:23])
+    ax[2] = plt.subplot(grid[13:23, 0:10])
+    ax[3] = plt.subplot(grid[13:23, 13:23])
+    # Colorbar ax
+    ax[4] = plt.subplot(grid[0:23, 24:25])
+
+    # Image Grid
+    XX = [[]] * 4
+    x_single = list(np.arange(0, 255, 5))
+    x_single[0] = 1
+    x_series = list(np.arange(0, 2550, 50))
+    x_series[0] = 10
+    XX[0] = x_series
+    XX[1] = x_series
+    XX[2] = x_single
+    XX[3] = x_single
+    y = taus
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.025
+    label_y_pos = 1.05
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+
+    grid_color = '0.75'
+    grid_linewidth = 0.5
+
+    Xticks = [[]] * 4
+    Xticks[0] = np.arange(0, 2550, 500)
+    Xticks[1] = np.arange(0, 2550, 500)
+    Xticks[2] = np.arange(0, 255, 50)
+    Xticks[3] = np.arange(0, 255, 50)
+
+    # ColorMeshPlot
+    for i in range(len(s_types)):
+        X, Y = np.meshgrid(XX[i], y)
+        # im = ax[i].pcolormesh(X, Y, data[s_types[i]].T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
+        im = ax[i].pcolormesh(X, Y, data[s_types[i]].T, cmap='jet', vmin=0, vmax=1, shading='flat', rasterized=True)
+
+        ax[i].set_yscale('log')
+        ax[i].set_xticks(Xticks[i])
+        # Subplot caps
+        ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=ax[i].transAxes, size=subfig_caps,
+                 color='black')
+        # ax[i].grid(which='both', color=grid_color, linestyle='-', linewidth=grid_linewidth)
+
+    # Colorbar
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+    cb1 = matplotlib.colorbar.ColorbarBase(ax[4], cmap='jet', norm=norm)
+    # cb1.set_label('Correct')
+
+    fig.text(0.5, 0.025, 'Spike train duration [ms]', ha='center', fontdict=None)
+    fig.text(0.025, 0.55, r'$\tau$ [ms]', ha='center', fontdict=None, rotation=90)
+    fig.text(0.935, 0.55, 'Correct', ha='center', fontdict=None, rotation=-90)
+
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.1, hspace=0.1)
+    fig.savefig(path_names[2] + 'final/VanRossum_TauVsDur.pdf')
+    plt.close(fig)
+    print('TauvsDur Plot saved')
+    exit()
+    # OLD ==============================================================================================================
     mf.plot_settings()
     # Create Grid
     grid = matplotlib.gridspec.GridSpec(nrows=1, ncols=43)
@@ -1735,10 +1942,11 @@ if ISI:
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     print(stim_type)
+    print('extended: ' + str(extended))
     method = 'exp'
     path_save = path_names[1]
     # plot_correct = False
-    save_fig = True
+    save_fig = False
     dist_profs = {}
     matches = {}
 
@@ -3774,6 +3982,293 @@ if CUMHIST:
     figname = '/media/brehm/Data/MasterMoth/CallStats/CumHists.pdf'
     fig.savefig(figname)
     plt.close()
+
+if PLOT_VR_SPIKEMATCHING:
+    data_name = '2018-02-16-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    p = path_names[1]
+    # Get all data
+    s_types = ['moth_series_selected', 'moth_series_selected_extended', 'moth_single_selected',
+               'moth_single_selected_extended']
+    data = {}
+    for k in range(len(s_types)):
+        data.update({s_types[k]: np.load(p + 'VanRossum_matches_' + s_types[k] + '.npy').item()})
+
+    # Plot
+    mf.plot_settings()
+    ax = [[]] * 13
+    grid = matplotlib.gridspec.GridSpec(nrows=35, ncols=57)
+    fig = plt.figure(figsize=(5.9, 3.9))
+    ax[0] = plt.subplot(grid[0:10, 0:10])
+    ax[1] = plt.subplot(grid[0:10, 14:24])
+
+    ax[2] = plt.subplot(grid[0:10, 30:40])
+    ax[3] = plt.subplot(grid[0:10, 44:54])
+
+    ax[4] = plt.subplot(grid[12:22, 0:10])
+    ax[5] = plt.subplot(grid[12:22, 14:24])
+
+    ax[6] = plt.subplot(grid[12:22, 30:40])
+    ax[7] = plt.subplot(grid[12:22, 44:54])
+
+    ax[8] = plt.subplot(grid[24:34, 0:10])
+    ax[9] = plt.subplot(grid[24:34, 14:24])
+
+    ax[10] = plt.subplot(grid[24:34, 30:40])
+    ax[11] = plt.subplot(grid[24:34, 44:54])
+    # Colorbar ax
+    ax[12] = plt.subplot(grid[1:33, 55:56])
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = 0.05
+    label_y_pos = 0.82
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n']
+
+    grid_color = '0.75'
+    grid_linewidth = 0.5
+
+    Xticks = [[]] * 4
+    Xticks[0] = np.arange(0, 16, 5)
+    Xticks[1] = np.arange(0, 16, 5)
+    Xticks[2] = np.arange(0, 19, 5)
+    Xticks[3] = np.arange(0, 19, 5)
+    Xticks = Xticks * 3
+
+    DURS = [20, 20, 40, 40] * 3
+    TAUS = [0, 0, 0, 0, 9, 9, 9, 9, 34, 34, 34, 34]
+    tau_text = [r'$\tau$=1 ms', r'$\tau$=1 ms', r'$\tau$=1 ms', r'$\tau$=1 ms', r'$\tau$=10 ms', r'$\tau$=10 ms',
+                r'$\tau$=10 ms', r'$\tau$=10 ms', r'$\tau$=100 ms', r'$\tau$=100 ms', r'$\tau$=100 ms', r'$\tau$=100 ms']
+    s_types = s_types * 3
+    # ColorMeshPlot
+    for i in range(len(ax)-1):
+        # X, Y = np.meshgrid(XX[i], XX[i])
+        dd = data[s_types[i]][taus[TAUS[i]]][DURS[i]]
+        im = ax[i].pcolormesh(dd, cmap='jet', vmin=0, vmax=20, shading='flat', rasterized=True)
+
+        # ax[i].set_yscale('log')
+        ax[i].set_xticks(Xticks[i])
+        ax[i].set_yticks(Xticks[i])
+        ax[i].set_aspect('equal')
+        # Subplot caps
+        ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=ax[i].transAxes, size=subfig_caps,
+                   color='white')
+
+    # Colorbar
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=20)
+    cb1 = matplotlib.colorbar.ColorbarBase(ax[12], cmap='jet', norm=norm)
+
+    ax[4].set_ylabel('Matched call')
+
+    fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
+
+    sz_text = 12
+    fig.text(0.19, 0.9, 'Call series', ha='center', fontdict=None, size=sz_text)
+    fig.text(0.38, 0.9, 'Cs extended', ha='center', fontdict=None, size=sz_text)
+    fig.text(0.6, 0.9, 'Single calls', ha='center', fontdict=None, size=sz_text)
+    fig.text(0.79, 0.9, 'Sc extended', ha='center', fontdict=None, size=sz_text)
+
+    fig.text(0.02, 0.8, r'$\tau$=1 ms', ha='center', fontdict=None, rotation=90, size=sz_text)
+    fig.text(0.02, 0.54, r'$\tau$=10 ms', ha='center', fontdict=None, rotation=90, size=sz_text)
+    fig.text(0.02, 0.28, r'$\tau$=100 ms', ha='center', fontdict=None, rotation=90, size=sz_text)
+
+    fig.text(0.96, 0.55, 'Spike trains', ha='center', fontdict=None, rotation=-90)
+
+    # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.1, hspace=0.1)
+    fig.savefig(path_names[2] + 'final/VanRossum_SpikeTrainMatching.pdf')
+    plt.close(fig)
+    print('Van Rossum Spike Train Matching Plot saved')
+
+if PLOT_DISTANCES_CORRECT:
+    data_name = '2018-02-16-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    p = path_names[1]
+
+    # Get all data
+    s_types = ['moth_series_selected', 'moth_series_selected_extended', 'moth_single_selected',
+               'moth_single_selected_extended']
+    data_correct = {}
+    data_correct_random = {}
+    data_ratios = {'ISI': {}, 'SYNC': {}, 'DUR': {}, 'COUNT': {}}
+    for k in range(len(s_types)):
+        data_correct.update({s_types[k]: np.load(path_names[1] + 'distances_correct_' + s_types[k] + '.npy')})
+        data_correct_random.update({s_types[k]: np.load(path_names[1] + 'distances_rand_correct_' + s_types[k] + '.npy')})
+
+        data_ratios['ISI'].update({s_types[k]: np.load(path_names[1] + 'ISI_Ratios_' + s_types[k] + '.npy')})
+        data_ratios['SYNC'].update({s_types[k]: np.load(path_names[1] + 'SYNC_Ratios_' + s_types[k] + '.npy')})
+        data_ratios['DUR'].update({s_types[k]: np.load(path_names[1] + 'DUR_Ratios_' + s_types[k] + '.npy')})
+        data_ratios['COUNT'].update({s_types[k]: np.load(path_names[1] + 'COUNT_Ratios_' + s_types[k] + '.npy')})
+
+    # Plot
+    mf.plot_settings()
+    ax = [[]] * 24
+    grid = matplotlib.gridspec.GridSpec(nrows=81, ncols=55)
+    fig = plt.figure(figsize=(5.9, 5.9))
+    ax[0] = plt.subplot(grid[0:10, 0:10])
+    ax[1] = plt.subplot(grid[0:10, 14:24])
+
+    ax[2] = plt.subplot(grid[0:10, 30:40])
+    ax[3] = plt.subplot(grid[0:10, 44:54])
+
+    ax[4] = plt.subplot(grid[14:24, 0:10])
+    ax[5] = plt.subplot(grid[14:24, 14:24])
+
+    ax[6] = plt.subplot(grid[14:24, 30:40])
+    ax[7] = plt.subplot(grid[14:24, 44:54])
+
+    ax[8] = plt.subplot(grid[28:38, 0:10])
+    ax[9] = plt.subplot(grid[28:38, 14:24])
+
+    ax[10] = plt.subplot(grid[28:38, 30:40])
+    ax[11] = plt.subplot(grid[28:38, 44:54])
+
+    ax[12] = plt.subplot(grid[42:52, 0:10])
+    ax[13] = plt.subplot(grid[42:52, 14:24])
+
+    ax[14] = plt.subplot(grid[42:52, 30:40])
+    ax[15] = plt.subplot(grid[42:52, 44:54])
+
+    ax[16] = plt.subplot(grid[56:66, 0:10])
+    ax[17] = plt.subplot(grid[56:66, 14:24])
+
+    ax[18] = plt.subplot(grid[56:66, 30:40])
+    ax[19] = plt.subplot(grid[56:66, 44:54])
+
+    ax[20] = plt.subplot(grid[70:80, 0:10])
+    ax[21] = plt.subplot(grid[70:80, 14:24])
+
+    ax[22] = plt.subplot(grid[70:80, 30:40])
+    ax[23] = plt.subplot(grid[70:80, 44:54])
+
+    du1 = list(np.arange(0, 255, 5))
+    du1[0] = 1
+    du2 = list(np.arange(0, 2550, 50))
+    du2[0] = 10
+    duration = [du2, du2, du1, du1]
+    marks = ['', 'o', 'v', 's', '']
+    cc = ['0', 'orangered', 'navy', 'teal', '0']
+    styles = [':', '-', '-', '-', '--']
+
+    # Subplotfig caps
+    subfig_caps = 12
+    label_x_pos = -0.5
+    label_y_pos = 1.1
+    subfig_caps_labels1 = ['a', 'c', 'e',  'g' ,'i', 'k' , 'm']
+    subfig_caps_labels2 = ['b', 'd', 'f', 'h' ,'j' ,'l', 'n']
+
+    # Plot Correct vs Duration
+    for i in range(4):
+        ax[i].plot(duration[i], data_correct_random[s_types[i]]*100, marker='', color='k', linestyle='-')
+        for k in range(5):
+            ax[i].plot(duration[i], data_correct[s_types[i]][:, k]*100, marker='', color=cc[k], linestyle=styles[k])
+            ax[i].set_ylim(0, 100)
+            ax[i].set_yticks(np.arange(0, 101, 25))
+        # ax[i].grid(color='0.3', linestyle='-', linewidth=.5)
+
+    a = np.arange(0, 21, 4)
+    b = np.arange(1, 22, 4)
+    c = np.arange(2, 23, 4)
+    d = np.arange(3, 24, 4)
+
+    for i in range(len(a)):
+        ax[a[i]].set_xticks(np.arange(0, 2550, 1000))
+        ax[a[i]].set_xticklabels([])
+        ax[b[i]].set_xticks(np.arange(0, 2550, 1000))
+        ax[b[i]].set_xticklabels([])
+        ax[b[i]].set_yticklabels([])
+        ax[c[i]].set_xticks(np.arange(0, 255, 100))
+        ax[c[i]].set_xticklabels([])
+        ax[d[i]].set_xticks(np.arange(0, 255, 100))
+        ax[d[i]].set_xticklabels([])
+        ax[d[i]].set_yticklabels([])
+        ax[a[i]].text(label_x_pos, label_y_pos, subfig_caps_labels1[i], transform=ax[a[i]].transAxes, size=subfig_caps,
+                   color='black')
+        ax[c[i]].text(label_x_pos, label_y_pos, subfig_caps_labels2[i], transform=ax[c[i]].transAxes, size=subfig_caps,
+                      color='black')
+
+    ax[20].set_xticklabels([0, 1, 2])
+    ax[21].set_xticklabels([0, 1, 2])
+    ax[22].set_xticklabels([0, 0.1, 0.2])
+    ax[23].set_xticklabels([0, 0.1, 0.2])
+
+    ax[1].set_yticklabels([])
+    # ax[2].set_yticklabels([])
+    ax[3].set_yticklabels([])
+
+    # ax[0].set_ylabel('Correct')
+    duration = duration * 4
+    s_types = s_types * 4
+    profiles = ['ISI', 'ISI', 'ISI', 'ISI', 'SYNC', 'SYNC', 'SYNC', 'SYNC', 'DUR', 'DUR', 'DUR', 'DUR', 'COUNT',
+                'COUNT', 'COUNT', 'COUNT']
+    # Plot Distances
+    for i in range(4, 20):
+        if profiles[i-4] == 'DUR':
+            data_ratios[profiles[i - 4]][s_types[i - 4]][:, 0] = data_ratios[profiles[i-4]][s_types[i-4]][:, 0] * 1000
+            data_ratios[profiles[i - 4]][s_types[i - 4]][:, 1] = data_ratios[profiles[i-4]][s_types[i-4]][:, 1] * 1000
+            data_ratios[profiles[i - 4]][s_types[i - 4]][:, 2] = data_ratios[profiles[i-4]][s_types[i-4]][:, 2] * 1000
+
+        ax[i].fill_between(duration[i-4], data_ratios[profiles[i-4]][s_types[i-4]][:, 0] - data_ratios[profiles[i-4]][s_types[i-4]][:, 1],
+                         data_ratios[profiles[i-4]][s_types[i-4]][:, 0] + data_ratios[profiles[i-4]][s_types[i-4]][:, 1], facecolors='k',
+                         alpha=0.25)
+        ax[i].plot(duration[i-4], data_ratios[profiles[i-4]][s_types[i-4]][:, 0], 'k')
+        ax[i].plot(duration[i-4], data_ratios[profiles[i-4]][s_types[i-4]][:, 2], 'b')
+        ax[i].set_ylim(0, 1)
+        ax[i].set_yticks([0, 0.5, 1])
+
+    # ax[4].set_ylabel('ISI')
+    # ax[8].set_ylabel('SYNC')
+    # ax[12].set_ylabel('DUR')
+    # ax[16].set_ylabel('COUNT')
+
+    ax[12].set_ylim(0, 200)
+    ax[12].set_yticks(np.arange(0, 200+5, 100))
+    ax[13].set_ylim(0, 200)
+    ax[13].set_yticks(np.arange(0, 200+5, 100))
+
+    ax[14].set_ylim(0, 100)
+    ax[14].set_yticks(np.arange(0, 100 + 2, 50))
+    ax[15].set_ylim(0, 100)
+    ax[15].set_yticks(np.arange(0, 100 + 2, 50))
+
+    ax[16].set_ylim(0, 40)
+    ax[16].set_yticks(np.arange(0, 40 + 1, 20))
+    ax[17].set_ylim(0, 40)
+    ax[17].set_yticks(np.arange(0, 40 + 1, 20))
+
+    ax[18].set_ylim(0, 20)
+    ax[18].set_yticks(np.arange(0, 20 + 1, 10))
+    ax[19].set_ylim(0, 20)
+    ax[19].set_yticks(np.arange(0, 20 + 1, 10))
+
+    # Plot Ratios
+    cc = ['0', 'orangered', 'navy', 'teal', '0']
+    for i in range(20, 24):
+        ax[i].plot(duration[i-20], data_ratios['ISI'][s_types[i-20]][:, 3], marker='', color='orangered', linestyle='-')
+        ax[i].plot(duration[i-20], 1/data_ratios['SYNC'][s_types[i-20]][:, 3], marker='', color='teal', linestyle='-')
+        ax[i].plot(duration[i-20], data_ratios['DUR'][s_types[i-20]][:, 3], marker='', color='0', linestyle='--')
+        ax[i].plot(duration[i-20], data_ratios['COUNT'][s_types[i-20]][:, 3], marker='', color='0', linestyle=':')
+        ax[i].set_ylim(0, 3)
+        ax[i].set_yticks([0, 1, 2, 3])
+
+    fig.text(0.05, 0.85, 'Correct', ha='center', fontdict=None, rotation=90)
+    fig.text(0.05, 0.7, 'ISI', ha='center', fontdict=None, rotation=90)
+    fig.text(0.05, 0.59, 'SYNC', ha='center', fontdict=None, rotation=90)
+    fig.text(0.05, 0.45, 'DUR', ha='center', fontdict=None, rotation=90)
+    fig.text(0.05, 0.32, 'COUNT', ha='center', fontdict=None, rotation=90)
+    fig.text(0.05, 0.18, 'Ratio', ha='center', fontdict=None, rotation=90)
+
+    fig.text(0.5, 0.03, 'Spike train duration [s]', ha='center', fontdict=None)
+
+    sz_text = 12
+    fig.text(0.19, 0.94, 'Call series', ha='center', fontdict=None, size=sz_text)
+    fig.text(0.4, 0.94, 'Cs extended', ha='center', fontdict=None, size=sz_text)
+    fig.text(0.62, 0.94, 'Single calls', ha='center', fontdict=None, size=sz_text)
+    fig.text(0.82, 0.94, 'Sc extended', ha='center', fontdict=None, size=sz_text)
+    sns.despine()
+    fig.savefig(path_names[2] + 'final/Distances.pdf')
+    plt.close(fig)
 
 
 if TEST:
