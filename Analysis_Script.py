@@ -68,7 +68,7 @@ DISTANCE_RATIOS = False
 # Other Distances Correct Matches
 PLOT_CORRECT = False
 PLOT_CORRECT_OVERALL = False
-PLOT_DISTANCES_CORRECT = True
+PLOT_DISTANCES_CORRECT = False
 
 # Ratio: within vs. between distances
 PLOT_D_RATIOS = False
@@ -121,12 +121,14 @@ show = False
 # Settings for Call Analysis ===========================================================================================
 # General Settings
 save_extended_spikes = False
-extended = True
+extended = False
 POISSON_TRAINS = False
+POISSON_TAU_CORRECT = True
 
 # stim_type = 'moth_single_selected'
-stim_type = 'all_single'
-stim_length = 'single'
+# stim_type = 'all_single'
+stim_type = 'poisson'
+stim_length = 'series'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -715,9 +717,9 @@ if save_extended_spikes:
 if POISSON_TRAINS:
     rec = '2018-02-16-aa'
     path_names = mf.get_directories(rec)
-    trials = 10
+    trials = 20
     rate = 100
-    tmax_range = [0.1, 0.1, 0.5, 0.5, 1, 1., 1.5, 1.5, 2, 2, 2.5, 2.5, 3, 3]
+    tmax_range = [0.01, 0.01, 0.05, 0.05, 0.1, 0.1, 0.5, 0.5, 1, 1., 1.5, 1.5, 2, 2, 2.5, 2.5, 3, 3]
     spikes = {}
     spike_trains = {}
     ps = [[]] * len(tmax_range)
@@ -4086,6 +4088,8 @@ if PLOT_DISTANCES_CORRECT:
     print(data_name)
     p = path_names[1]
 
+    plot_distances = True
+    plot_correct = True
     # Get all data
     s_types = ['moth_series_selected', 'moth_series_selected_extended', 'moth_single_selected',
                'moth_single_selected_extended']
@@ -4101,175 +4105,314 @@ if PLOT_DISTANCES_CORRECT:
         data_ratios['DUR'].update({s_types[k]: np.load(path_names[1] + 'DUR_Ratios_' + s_types[k] + '.npy')})
         data_ratios['COUNT'].update({s_types[k]: np.load(path_names[1] + 'COUNT_Ratios_' + s_types[k] + '.npy')})
 
+    if plot_correct:
+        # Plot Correct vs. Duration
+        mf.plot_settings()
+        ax = [[]] * 4
+        grid = matplotlib.gridspec.GridSpec(nrows=25, ncols=25)
+        fig = plt.figure(figsize=(5.9, 4.9))
+        ax[0] = plt.subplot(grid[0:10, 0:10])
+        ax[1] = plt.subplot(grid[0:10, 14:24])
+
+        ax[2] = plt.subplot(grid[14:24, 0:10])
+        ax[3] = plt.subplot(grid[14:24, 14:24])
+
+        du1 = list(np.arange(0, 255, 5))
+        du1[0] = 1
+        du2 = list(np.arange(0, 2550, 50))
+        du2[0] = 10
+        duration = [du2, du2, du1, du1]
+        marks = ['', 'o', 'v', 's', '']
+        cc = ['0', 'orangered', 'navy', 'teal', '0']
+        styles = [':', '-', '-.', '-', '--']
+
+        # Subplotfig caps
+        subfig_caps = 12
+        label_x_pos = -0.3
+        label_y_pos = 1.08
+        subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+        labs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR']
+        for i in range(len(ax)):
+            ax[i].plot(duration[i], data_correct_random[s_types[i]][:, 0], marker='', color='0.9', linestyle='-', linewidth=3)
+            for k in range(5):
+                ax[i].plot(duration[i], data_correct[s_types[i]][:, k], marker='', color=cc[k], linestyle=styles[k],
+                           label=labs[k])
+                ax[i].set_ylim(0, 1)
+                ax[i].set_yticks(np.arange(0, 1.1, 0.25))
+            ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=ax[i].transAxes, size=subfig_caps,
+                         color='black')
+            # ax[i].grid(color='0.3', linestyle='-', linewidth=.5)
+        ax[3].legend(frameon=False)
+
+        ax[0].set_xticks(np.arange(0, 2550, 500))
+        ax[0].set_xlim(-100, 2500)
+
+        ax[1].set_xticks(np.arange(0, 2550, 500))
+        ax[1].set_xlim(-100, 2500)
+
+        ax[2].set_xticks(np.arange(0, 255, 50))
+        ax[2].set_xlim(-10, 250)
+
+        ax[3].set_xticks(np.arange(0, 255, 50))
+        ax[3].set_xlim(-10, 250)
+
+        ax[0].set_ylabel('Correct')
+        ax[2].set_ylabel('Correct')
+        fig.text(0.5, 0.03, 'Spike train duration [ms]', ha='center', fontdict=None)
+        # fig.text(0.02, 0.5, 'Correct', ha='center', fontdict=None, rotation=90)
+
+        sns.despine()
+        fig.savefig(path_names[2] + 'final/Distances_Correct.pdf')
+        plt.close(fig)
+        print('Distances Correct plot saved')
+
+    # Plot Distances and Ratios
+    if plot_distances:
+        mf.plot_settings()
+        ax = [[]] * 24
+        grid = matplotlib.gridspec.GridSpec(nrows=67, ncols=59)
+        fig = plt.figure(figsize=(5.9, 5.9))
+        ax[0] = plt.subplot(grid[0:10, 0:10])
+        ax[1] = plt.subplot(grid[0:10, 14:24])
+
+        ax[2] = plt.subplot(grid[0:10, 34:44])
+        ax[3] = plt.subplot(grid[0:10, 48:58])
+
+        ax[4] = plt.subplot(grid[14:24, 0:10])
+        ax[5] = plt.subplot(grid[14:24, 14:24])
+
+        ax[6] = plt.subplot(grid[14:24, 34:44])
+        ax[7] = plt.subplot(grid[14:24, 48:58])
+
+        ax[8] = plt.subplot(grid[28:38, 0:10])
+        ax[9] = plt.subplot(grid[28:38, 14:24])
+
+        ax[10] = plt.subplot(grid[28:38, 34:44])
+        ax[11] = plt.subplot(grid[28:38, 48:58])
+
+        ax[12] = plt.subplot(grid[42:52, 0:10])
+        ax[13] = plt.subplot(grid[42:52, 14:24])
+
+        ax[14] = plt.subplot(grid[42:52, 34:44])
+        ax[15] = plt.subplot(grid[42:52, 48:58])
+
+        ax[16] = plt.subplot(grid[56:66, 0:10])
+        ax[17] = plt.subplot(grid[56:66, 14:24])
+
+        ax[18] = plt.subplot(grid[56:66, 34:44])
+        ax[19] = plt.subplot(grid[56:66, 48:58])
+
+        # ax[20] = plt.subplot(grid[70:80, 0:10])
+        # ax[21] = plt.subplot(grid[70:80, 14:24])
+        #
+        # ax[22] = plt.subplot(grid[70:80, 30:40])
+        # ax[23] = plt.subplot(grid[70:80, 44:54])
+
+        du1 = list(np.arange(0, 255, 5))
+        du1[0] = 1
+        du2 = list(np.arange(0, 2550, 50))
+        du2[0] = 10
+        duration = [du2, du2, du1, du1]
+        marks = ['', 'o', 'v', 's', '']
+        cc = ['0', 'orangered', 'navy', 'teal', '0']
+        styles = [':', '-', '-', '-', '--']
+
+        # Subplotfig caps
+        subfig_caps = 12
+        label_x_pos = -0.5
+        label_y_pos = 1.1
+        subfig_caps_labels1 = ['a', 'c', 'e',  'g' ,'i', 'k' , 'm']
+        subfig_caps_labels2 = ['b', 'd', 'f', 'h' ,'j' ,'l', 'n']
+
+        # # Plot Correct vs Duration
+        # for i in range(4):
+        #     ax[i].plot(duration[i], data_correct_random[s_types[i]]*100, marker='', color='k', linestyle='-')
+        #     for k in range(5):
+        #         ax[i].plot(duration[i], data_correct[s_types[i]][:, k]*100, marker='', color=cc[k], linestyle=styles[k])
+        #         ax[i].set_ylim(0, 100)
+        #         ax[i].set_yticks(np.arange(0, 101, 25))
+        #     # ax[i].grid(color='0.3', linestyle='-', linewidth=.5)
+
+        a = np.arange(0, 17, 4)
+        b = np.arange(1, 18, 4)
+        c = np.arange(2, 19, 4)
+        d = np.arange(3, 20, 4)
+
+        for i in range(len(a)):
+            ax[a[i]].set_xticks(np.arange(0, 2550, 1000))
+            ax[a[i]].set_xticklabels([])
+            ax[b[i]].set_xticks(np.arange(0, 2550, 1000))
+            ax[b[i]].set_xticklabels([])
+            ax[b[i]].set_yticklabels([])
+            ax[c[i]].set_xticks(np.arange(0, 255, 100))
+            ax[c[i]].set_xticklabels([])
+            ax[d[i]].set_xticks(np.arange(0, 255, 100))
+            ax[d[i]].set_xticklabels([])
+            ax[d[i]].set_yticklabels([])
+            ax[a[i]].text(label_x_pos, label_y_pos, subfig_caps_labels1[i], transform=ax[a[i]].transAxes, size=subfig_caps,
+                       color='black')
+            ax[c[i]].text(label_x_pos, label_y_pos, subfig_caps_labels2[i], transform=ax[c[i]].transAxes, size=subfig_caps,
+                          color='black')
+
+        ax[16].set_xticklabels([0, 1, 2])
+        ax[17].set_xticklabels([0, 1, 2])
+        ax[18].set_xticklabels([0, 0.1, 0.2])
+        ax[19].set_xticklabels([0, 0.1, 0.2])
+
+        ax[1].set_yticklabels([])
+        # ax[2].set_yticklabels([])
+        ax[3].set_yticklabels([])
+
+        # ax[0].set_ylabel('Correct')
+        duration = duration * 4
+        s_types = s_types * 4
+        profiles = ['ISI', 'ISI', 'ISI', 'ISI', 'SYNC', 'SYNC', 'SYNC', 'SYNC', 'DUR', 'DUR', 'DUR', 'DUR', 'COUNT',
+                    'COUNT', 'COUNT', 'COUNT']
+        # Plot Distances
+        for i in range(0, 16):
+            if profiles[i] == 'DUR':
+                data_ratios[profiles[i]][s_types[i]][:, 0] = data_ratios[profiles[i]][s_types[i]][:, 0] * 1000
+                data_ratios[profiles[i]][s_types[i]][:, 1] = data_ratios[profiles[i]][s_types[i]][:, 1] * 1000
+                data_ratios[profiles[i]][s_types[i]][:, 2] = data_ratios[profiles[i]][s_types[i]][:, 2] * 1000
+
+            ax[i].fill_between(duration[i], data_ratios[profiles[i]][s_types[i]][:, 0] - data_ratios[profiles[i]][s_types[i]][:, 1],
+                             data_ratios[profiles[i]][s_types[i]][:, 0] + data_ratios[profiles[i]][s_types[i]][:, 1], facecolors='k',
+                             alpha=0.25)
+            ax[i].plot(duration[i], data_ratios[profiles[i]][s_types[i]][:, 0], 'k')
+            ax[i].plot(duration[i], data_ratios[profiles[i]][s_types[i]][:, 2], 'b')
+            ax[i].set_ylim(0, 1)
+            ax[i].set_yticks([0, 0.5, 1])
+
+        # ax[4].set_ylabel('ISI')
+        # ax[8].set_ylabel('SYNC')
+        # ax[12].set_ylabel('DUR')
+        # ax[16].set_ylabel('COUNT')
+
+        ax[8].set_ylim(0, 200)
+        ax[8].set_yticks(np.arange(0, 200+5, 100))
+        ax[9].set_ylim(0, 200)
+        ax[9].set_yticks(np.arange(0, 200+5, 100))
+
+        ax[10].set_ylim(0, 100)
+        ax[10].set_yticks(np.arange(0, 100 + 2, 50))
+        ax[11].set_ylim(0, 100)
+        ax[11].set_yticks(np.arange(0, 100 + 2, 50))
+
+        ax[12].set_ylim(0, 40)
+        ax[12].set_yticks(np.arange(0, 40 + 1, 20))
+        ax[13].set_ylim(0, 40)
+        ax[13].set_yticks(np.arange(0, 40 + 1, 20))
+
+        ax[14].set_ylim(0, 20)
+        ax[14].set_yticks(np.arange(0, 20 + 1, 10))
+        ax[15].set_ylim(0, 20)
+        ax[15].set_yticks(np.arange(0, 20 + 1, 10))
+
+        # Plot Ratios
+        cc = ['0', 'orangered', 'navy', 'teal', '0']
+        for i in range(16, 20):
+            k = i-16
+            ax[i].plot(duration[k], data_ratios['ISI'][s_types[k]][:, 3], marker='', color='orangered', linestyle='-')
+            ax[i].plot(duration[k], 1/data_ratios['SYNC'][s_types[k]][:, 3], marker='', color='teal', linestyle='-')
+            ax[i].plot(duration[k], data_ratios['DUR'][s_types[k]][:, 3], marker='', color='0', linestyle='--')
+            ax[i].plot(duration[k], data_ratios['COUNT'][s_types[k]][:, 3], marker='', color='0', linestyle=':')
+            ax[i].set_ylim(0, 3)
+            ax[i].set_yticks([0, 1, 2, 3])
+
+        # fig.text(0.05, 0.85, 'Correct', ha='center', fontdict=None, rotation=90)
+        fig.text(0.054, 0.83, 'ISI', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.67, 'SYNC', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.5, 'DUR', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.34, 'COUNT', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.18, 'Ratio', ha='center', fontdict=None, rotation=90, va='center')
+
+        fig.text(0.5, 0.03, 'Spike train duration [s]', ha='center', fontdict=None)
+
+        sz_text = 12
+        fig.text(0.18, 0.93, 'Call series', ha='center', fontdict=None, size=sz_text)
+        fig.text(0.38, 0.93, 'Cs extended', ha='center', fontdict=None, size=sz_text)
+        fig.text(0.64, 0.93, 'Single calls', ha='center', fontdict=None, size=sz_text)
+        fig.text(0.825, 0.93, 'Sc extended', ha='center', fontdict=None, size=sz_text)
+        sns.despine()
+        fig.savefig(path_names[2] + 'final/Distances_Ratios.pdf')
+        plt.close(fig)
+        print('Distances Ratios plot saved')
+
+if POISSON_TAU_CORRECT:
+    data_name = '2018-02-16-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    p = path_names[1]
+
+    # Get all data
+    data = {}
+    data.update({'vr': np.load(p + 'VanRossum_correct_' + 'poisson' + '.npy')})
+    data.update({'distances': np.load(p + 'distances_correct_poisson' + '.npy')})
+    data.update({'random': np.load(p + 'distances_rand_correct_poisson' + '.npy')})
+
     # Plot
     mf.plot_settings()
-    ax = [[]] * 24
-    grid = matplotlib.gridspec.GridSpec(nrows=81, ncols=55)
-    fig = plt.figure(figsize=(5.9, 5.9))
-    ax[0] = plt.subplot(grid[0:10, 0:10])
-    ax[1] = plt.subplot(grid[0:10, 14:24])
+    ax = [[]] * 5
+    grid = matplotlib.gridspec.GridSpec(nrows=11, ncols=53)
+    fig = plt.figure(figsize=(5.9, 2.4))
+    ax[0] = plt.subplot(grid[0:10, 0:20])
+    ax[1] = plt.subplot(grid[0:10, 21:22])
+    ax[2] = plt.subplot(grid[0:10, 32:52])
 
-    ax[2] = plt.subplot(grid[0:10, 30:40])
-    ax[3] = plt.subplot(grid[0:10, 44:54])
+    # Image Grid
+    x_series = np.arange(0, 2550, 50)
+    x_series[0] = 10
+    x_series = x_series / 1000
+    y = taus
 
-    ax[4] = plt.subplot(grid[14:24, 0:10])
-    ax[5] = plt.subplot(grid[14:24, 14:24])
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = -0.25
+    label_y_pos = 1.05
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
 
-    ax[6] = plt.subplot(grid[14:24, 30:40])
-    ax[7] = plt.subplot(grid[14:24, 44:54])
+    grid_color = '0.75'
+    grid_linewidth = 0.5
 
-    ax[8] = plt.subplot(grid[28:38, 0:10])
-    ax[9] = plt.subplot(grid[28:38, 14:24])
+    Xticks = np.arange(0, 2550, 500)/1000
 
-    ax[10] = plt.subplot(grid[28:38, 30:40])
-    ax[11] = plt.subplot(grid[28:38, 44:54])
+    # Tau vs. Duration
+    X, Y = np.meshgrid(x_series, y)
+    im = ax[0].pcolormesh(X, Y, data['vr'].T, cmap='jet', vmin=0, vmax=1, shading='flat', rasterized=True)
+    ax[0].set_yscale('log')
+    ax[0].set_xticks(Xticks)
+    ax[0].text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax[0].transAxes, size=subfig_caps,
+               color='black')
+    # Colorbar
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+    cb1 = matplotlib.colorbar.ColorbarBase(ax[1], cmap='jet', norm=norm)
+    # cb1.set_label('Correct')
 
-    ax[12] = plt.subplot(grid[42:52, 0:10])
-    ax[13] = plt.subplot(grid[42:52, 14:24])
-
-    ax[14] = plt.subplot(grid[42:52, 30:40])
-    ax[15] = plt.subplot(grid[42:52, 44:54])
-
-    ax[16] = plt.subplot(grid[56:66, 0:10])
-    ax[17] = plt.subplot(grid[56:66, 14:24])
-
-    ax[18] = plt.subplot(grid[56:66, 30:40])
-    ax[19] = plt.subplot(grid[56:66, 44:54])
-
-    ax[20] = plt.subplot(grid[70:80, 0:10])
-    ax[21] = plt.subplot(grid[70:80, 14:24])
-
-    ax[22] = plt.subplot(grid[70:80, 30:40])
-    ax[23] = plt.subplot(grid[70:80, 44:54])
-
-    du1 = list(np.arange(0, 255, 5))
-    du1[0] = 1
-    du2 = list(np.arange(0, 2550, 50))
-    du2[0] = 10
-    duration = [du2, du2, du1, du1]
+    # Correct vs Duration
+    duration = np.arange(0, 2550, 50)
+    duration[0] = 10
     marks = ['', 'o', 'v', 's', '']
     cc = ['0', 'orangered', 'navy', 'teal', '0']
-    styles = [':', '-', '-', '-', '--']
+    styles = [':', '-', '-.', '-', '--']
+    labs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR']
+    for i in range(5):
+        ax[2].plot(duration/1000, data['distances'][:, i], marker='', color=cc[i], linestyle=styles[i], label=labs[i])
 
-    # Subplotfig caps
-    subfig_caps = 12
-    label_x_pos = -0.5
-    label_y_pos = 1.1
-    subfig_caps_labels1 = ['a', 'c', 'e',  'g' ,'i', 'k' , 'm']
-    subfig_caps_labels2 = ['b', 'd', 'f', 'h' ,'j' ,'l', 'n']
+    ax[2].text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax[2].transAxes, size=subfig_caps,
+               color='black')
+    ax[2].legend(frameon=False, loc=0)
+    ax[2].set_xticks(Xticks)
+    ax[2].set_ylim(0, 1)
+    ax[2].set_yticks(np.arange(0, 1.1, 0.2))
+    sns.despine(ax=ax[2])
+    fig.text(0.5, 0.025, 'Spike train duration [s]', ha='center', fontdict=None)
+    fig.text(0.025, 0.55, r'$\tau$ [ms]', ha='center', fontdict=None, rotation=90)
+    fig.text(0.51, 0.55, 'Correct', ha='center', fontdict=None, rotation=-90)
 
-    # Plot Correct vs Duration
-    for i in range(4):
-        ax[i].plot(duration[i], data_correct_random[s_types[i]]*100, marker='', color='k', linestyle='-')
-        for k in range(5):
-            ax[i].plot(duration[i], data_correct[s_types[i]][:, k]*100, marker='', color=cc[k], linestyle=styles[k])
-            ax[i].set_ylim(0, 100)
-            ax[i].set_yticks(np.arange(0, 101, 25))
-        # ax[i].grid(color='0.3', linestyle='-', linewidth=.5)
-
-    a = np.arange(0, 21, 4)
-    b = np.arange(1, 22, 4)
-    c = np.arange(2, 23, 4)
-    d = np.arange(3, 24, 4)
-
-    for i in range(len(a)):
-        ax[a[i]].set_xticks(np.arange(0, 2550, 1000))
-        ax[a[i]].set_xticklabels([])
-        ax[b[i]].set_xticks(np.arange(0, 2550, 1000))
-        ax[b[i]].set_xticklabels([])
-        ax[b[i]].set_yticklabels([])
-        ax[c[i]].set_xticks(np.arange(0, 255, 100))
-        ax[c[i]].set_xticklabels([])
-        ax[d[i]].set_xticks(np.arange(0, 255, 100))
-        ax[d[i]].set_xticklabels([])
-        ax[d[i]].set_yticklabels([])
-        ax[a[i]].text(label_x_pos, label_y_pos, subfig_caps_labels1[i], transform=ax[a[i]].transAxes, size=subfig_caps,
-                   color='black')
-        ax[c[i]].text(label_x_pos, label_y_pos, subfig_caps_labels2[i], transform=ax[c[i]].transAxes, size=subfig_caps,
-                      color='black')
-
-    ax[20].set_xticklabels([0, 1, 2])
-    ax[21].set_xticklabels([0, 1, 2])
-    ax[22].set_xticklabels([0, 0.1, 0.2])
-    ax[23].set_xticklabels([0, 0.1, 0.2])
-
-    ax[1].set_yticklabels([])
-    # ax[2].set_yticklabels([])
-    ax[3].set_yticklabels([])
-
-    # ax[0].set_ylabel('Correct')
-    duration = duration * 4
-    s_types = s_types * 4
-    profiles = ['ISI', 'ISI', 'ISI', 'ISI', 'SYNC', 'SYNC', 'SYNC', 'SYNC', 'DUR', 'DUR', 'DUR', 'DUR', 'COUNT',
-                'COUNT', 'COUNT', 'COUNT']
-    # Plot Distances
-    for i in range(4, 20):
-        if profiles[i-4] == 'DUR':
-            data_ratios[profiles[i - 4]][s_types[i - 4]][:, 0] = data_ratios[profiles[i-4]][s_types[i-4]][:, 0] * 1000
-            data_ratios[profiles[i - 4]][s_types[i - 4]][:, 1] = data_ratios[profiles[i-4]][s_types[i-4]][:, 1] * 1000
-            data_ratios[profiles[i - 4]][s_types[i - 4]][:, 2] = data_ratios[profiles[i-4]][s_types[i-4]][:, 2] * 1000
-
-        ax[i].fill_between(duration[i-4], data_ratios[profiles[i-4]][s_types[i-4]][:, 0] - data_ratios[profiles[i-4]][s_types[i-4]][:, 1],
-                         data_ratios[profiles[i-4]][s_types[i-4]][:, 0] + data_ratios[profiles[i-4]][s_types[i-4]][:, 1], facecolors='k',
-                         alpha=0.25)
-        ax[i].plot(duration[i-4], data_ratios[profiles[i-4]][s_types[i-4]][:, 0], 'k')
-        ax[i].plot(duration[i-4], data_ratios[profiles[i-4]][s_types[i-4]][:, 2], 'b')
-        ax[i].set_ylim(0, 1)
-        ax[i].set_yticks([0, 0.5, 1])
-
-    # ax[4].set_ylabel('ISI')
-    # ax[8].set_ylabel('SYNC')
-    # ax[12].set_ylabel('DUR')
-    # ax[16].set_ylabel('COUNT')
-
-    ax[12].set_ylim(0, 200)
-    ax[12].set_yticks(np.arange(0, 200+5, 100))
-    ax[13].set_ylim(0, 200)
-    ax[13].set_yticks(np.arange(0, 200+5, 100))
-
-    ax[14].set_ylim(0, 100)
-    ax[14].set_yticks(np.arange(0, 100 + 2, 50))
-    ax[15].set_ylim(0, 100)
-    ax[15].set_yticks(np.arange(0, 100 + 2, 50))
-
-    ax[16].set_ylim(0, 40)
-    ax[16].set_yticks(np.arange(0, 40 + 1, 20))
-    ax[17].set_ylim(0, 40)
-    ax[17].set_yticks(np.arange(0, 40 + 1, 20))
-
-    ax[18].set_ylim(0, 20)
-    ax[18].set_yticks(np.arange(0, 20 + 1, 10))
-    ax[19].set_ylim(0, 20)
-    ax[19].set_yticks(np.arange(0, 20 + 1, 10))
-
-    # Plot Ratios
-    cc = ['0', 'orangered', 'navy', 'teal', '0']
-    for i in range(20, 24):
-        ax[i].plot(duration[i-20], data_ratios['ISI'][s_types[i-20]][:, 3], marker='', color='orangered', linestyle='-')
-        ax[i].plot(duration[i-20], 1/data_ratios['SYNC'][s_types[i-20]][:, 3], marker='', color='teal', linestyle='-')
-        ax[i].plot(duration[i-20], data_ratios['DUR'][s_types[i-20]][:, 3], marker='', color='0', linestyle='--')
-        ax[i].plot(duration[i-20], data_ratios['COUNT'][s_types[i-20]][:, 3], marker='', color='0', linestyle=':')
-        ax[i].set_ylim(0, 3)
-        ax[i].set_yticks([0, 1, 2, 3])
-
-    fig.text(0.05, 0.85, 'Correct', ha='center', fontdict=None, rotation=90)
-    fig.text(0.05, 0.7, 'ISI', ha='center', fontdict=None, rotation=90)
-    fig.text(0.05, 0.59, 'SYNC', ha='center', fontdict=None, rotation=90)
-    fig.text(0.05, 0.45, 'DUR', ha='center', fontdict=None, rotation=90)
-    fig.text(0.05, 0.32, 'COUNT', ha='center', fontdict=None, rotation=90)
-    fig.text(0.05, 0.18, 'Ratio', ha='center', fontdict=None, rotation=90)
-
-    fig.text(0.5, 0.03, 'Spike train duration [s]', ha='center', fontdict=None)
-
-    sz_text = 12
-    fig.text(0.19, 0.94, 'Call series', ha='center', fontdict=None, size=sz_text)
-    fig.text(0.4, 0.94, 'Cs extended', ha='center', fontdict=None, size=sz_text)
-    fig.text(0.62, 0.94, 'Single calls', ha='center', fontdict=None, size=sz_text)
-    fig.text(0.82, 0.94, 'Sc extended', ha='center', fontdict=None, size=sz_text)
-    sns.despine()
-    fig.savefig(path_names[2] + 'final/Distances.pdf')
+    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.1, hspace=0.1)
+    fig.savefig(path_names[2] + 'final/Poisson_TauVsDur_Correct.pdf')
     plt.close(fig)
-
+    print('Poisson Plot saved')
 
 if TEST:
     data = [1, 2, 3, 4, 5, 7, 8, 9, 10]
