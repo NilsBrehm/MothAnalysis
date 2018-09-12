@@ -60,6 +60,8 @@ POISSON = False
 EPULSES = False
 VANROSSUM = False
 MVSB = False
+PLOT_MVSB = False
+PLOT_MVSB_DPRIME = True
 
 # Compute other Distances
 ISI = False
@@ -123,7 +125,7 @@ show = False
 save_extended_spikes = False
 extended = False
 POISSON_TRAINS = False
-POISSON_TAU_CORRECT = True
+POISSON_TAU_CORRECT = False
 
 # stim_type = 'moth_single_selected'
 # stim_type = 'all_single'
@@ -1249,345 +1251,730 @@ if VANROSSUM:
     print('VanRossum Distances done')
 
 if MVSB:
-    extended = False
-    method = 'VanRossum'
-    # stim_length = 'series'
-    # stim_type = 'all_series'
+    extended = True
+    # method = 'VanRossum'
+    stim_type = 'all_series'
+    stim_length = stim_type[4:]
+    print(stim_length)
+    print('extended: ' + str(extended))
+
     if stim_length == 'single':
-        boarder = 19
+        boarder = 20
     if stim_length == 'series':
-        boarder = 16
+        boarder = 17
     data_name = '2018-02-16-aa'
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
-    if method is 'VanRossum':
-        if extended:
-            matches = np.load(p + 'VanRossum_matches_' + stim_type + '_extended.npy').item()
-            figname = path_names[2] + 'MvsB_VanRossum_dprime_' + stim_type + '_extended.png'
-            figname2 = path_names[2] + 'MvsB_VanRossum_percent_' + stim_type + '_extended.png'
-            figname3 = path_names[2] + 'MvsB_VanRossum_percent_taus_' + stim_type + '_extended.png'
-        else:
-            matches = np.load(p + 'VanRossum_matches_' + stim_type + '.npy').item()
-            figname = path_names[2] + 'MvsB_VanRossum_dprime_' + stim_type + '.png'
-            figname2 = path_names[2] + 'MvsB_VanRossum_percent_' + stim_type + '.png'
-            figname3 = path_names[2] + 'MvsB_VanRossum_percent_taus_' + stim_type + '.png'
 
-        d_prime = np.zeros(shape=(len(taus), len(duration)))
-        p_correct = np.zeros(shape=(len(taus), len(duration)))
-        hit_rate = np.zeros(shape=(len(taus), len(duration)))
-        fa_rate = np.zeros(shape=(len(taus), len(duration)))
-        criterion_c = np.zeros(shape=(len(taus), len(duration)))
-        percent_moth = [[]] * len(taus)
-        for t in range(len(taus)):
-            p_moths = [[]] * len(duration)
-            for i in range(len(duration)):
-                pm = np.zeros(len(matches[taus[t]][i]))
-                hit = 0
-                misses = 0
-                false_alarms = 0
-                correct_rejection = 0
-                for k in range(len(matches[taus[t]][i])):
-                    m = sum(matches[taus[t]][i][:, k][0:19])
-                    b = sum(matches[taus[t]][i][:, k][19:])
+    if extended:
+        matches = np.load(p + 'VanRossum_matches_' + stim_type + '_extended.npy').item()
+    else:
+        matches = np.load(p + 'VanRossum_matches_' + stim_type + '.npy').item()
 
-                    if k <= boarder:
-                        a = 'noise'  # Stim is truely Moth
-                        false_alarms += b
-                        correct_rejection += m
-                    else:
-                        a = 'signal'  # Stim is truely Bat
-                        hit += b
-                        misses += m
-                    pm[k] = m / (b+m)
-                p_moths[i] = pm
-                p_hit = hit / (hit+misses)
-                p_false = false_alarms / (false_alarms+correct_rejection)
-                p_correct[t, i] = 0.5 + (p_hit - p_false)/2
-                out = mf.dPrime(hit, misses, false_alarms, correct_rejection)
-                d_prime[t, i] = out['d']
-                criterion_c[t, i] = out['c']
-                hit_rate[t, i] = out['hit_rate']
-                fa_rate[t, i] = out['fa_rate']
-            percent_moth[t] = p_moths
+    d_prime = np.zeros(shape=(len(taus), len(duration)))
+    p_correct = np.zeros(shape=(len(taus), len(duration)))
+    hit_rate = np.zeros(shape=(len(taus), len(duration)))
+    fa_rate = np.zeros(shape=(len(taus), len(duration)))
+    criterion_c = np.zeros(shape=(len(taus), len(duration)))
+    percent_moth = [[]] * len(taus)
+    for t in range(len(taus)):
+        p_moths = [[]] * len(duration)
+        for i in range(len(duration)):
+            pm = np.zeros(len(matches[taus[t]][i]))
+            hit = 0
+            misses = 0
+            false_alarms = 0
+            correct_rejection = 0
+            for k in range(len(matches[taus[t]][i])):
+                m = sum(matches[taus[t]][i][:, k][0:boarder])
+                b = sum(matches[taus[t]][i][:, k][boarder:])
 
-        p_taus = [[]] * len(percent_moth)
-        for j in range(len(percent_moth)):
-            p_taus[j] = percent_moth[j][50]
-        fig = plt.figure()
-        plt.pcolormesh(d_prime, cmap='jet', vmin=0, vmax=2)
-        plt.colorbar()
-        fig.savefig(figname)
-        plt.close()
+                if k <= boarder:
+                    a = 'noise'  # Stim is truely Moth
+                    false_alarms += b
+                    correct_rejection += m
+                else:
+                    a = 'signal'  # Stim is truely Bat
+                    hit += b
+                    misses += m
+                pm[k] = m / (b+m)
+            p_moths[i] = pm
+            p_hit = hit / (hit+misses)
+            p_false = false_alarms / (false_alarms+correct_rejection)
+            p_correct[t, i] = 0.5 + (p_hit - p_false)/2
+            out = mf.dPrime(hit, misses, false_alarms, correct_rejection)
+            d_prime[t, i] = out['d']
+            criterion_c[t, i] = out['c']
+            hit_rate[t, i] = out['hit_rate']
+            fa_rate[t, i] = out['fa_rate']
+        percent_moth[t] = p_moths
 
-        fig = plt.figure()
-        plt.pcolormesh(percent_moth[9], cmap='jet', vmin=0, vmax=1)
-        plt.colorbar()
-        fig.savefig(figname2)
-        plt.close()
+    p_taus = [[]] * len(percent_moth)
+    for j in range(len(percent_moth)):
+        p_taus[j] = percent_moth[j][50]
 
-        fig = plt.figure()
-        plt.pcolormesh(p_taus, cmap='jet', vmin=0, vmax=1)
-        plt.colorbar()
-        fig.savefig(figname3)
-        plt.close()
-        print('Plot saved')
+    data = {}
+    data = {'dprime': d_prime, 'c': criterion_c, 'hitrate': hit_rate, 'farate': fa_rate, 'pmoth': percent_moth,
+            'pcorrect': p_correct, 'ptaus': p_taus}
+    if extended:
+        np.save(path_names[1] + 'MvsB_VanRossum_' + stim_length + '_extended.npy', data)
+    else:
+        np.save(path_names[1] + 'MvsB_VanRossum_' + stim_length + '.npy', data)
+
+    print('MvsB VanRossum data saved')
+
+    # fig = plt.figure()
+    # plt.pcolormesh(d_prime, cmap='jet', vmin=0, vmax=2)
+    # plt.colorbar()
+    # fig.savefig(figname)
+    # plt.close()
+    #
+    # fig = plt.figure()
+    # plt.pcolormesh(percent_moth[9], cmap='jet', vmin=0, vmax=1)
+    # plt.colorbar()
+    # fig.savefig(figname2)
+    # plt.close()
+    #
+    # fig = plt.figure()
+    # plt.pcolormesh(p_taus, cmap='jet', vmin=0, vmax=1)
+    # plt.colorbar()
+    # fig.savefig(figname3)
+    # plt.close()
+    # print('Plot saved')
 
     # ==================================================================================================================
     # DISTANCES ========================================================================================================
-    if method is 'Distances':
-        if extended:
-            matches = np.load(p + 'distances_matches_' + stim_type + '_extended.npy').item()
-            figname = path_names[2] + 'MvsB_distances_dprime_' + stim_type + '_extended.png'
-        else:
-            matches = np.load(p + 'distances_matches_' + stim_type + '.npy').item()
-            figname = path_names[2] + 'MvsB_distances_dprime_' + stim_type + '.png'
 
-        profiles = ['ISI', 'SYNC', 'DUR', 'COUNT']
-        d_prime = np.zeros(shape=(len(taus), len(duration)))
-        p_correct = np.zeros(shape=(len(taus), len(duration)))
-        hit_rate = np.zeros(shape=(len(taus), len(duration)))
-        fa_rate = np.zeros(shape=(len(taus), len(duration)))
-        criterion_c = np.zeros(shape=(len(taus), len(duration)))
-        percent_moth = [[]] * len(taus)
-        for t in range(len(profiles)):
-            p_moths = [[]] * len(duration)
-            for i in range(len(duration)):
-                pm = np.zeros(len(matches[profiles[t]][i]))
-                hit = 0
-                misses = 0
-                false_alarms = 0
-                correct_rejection = 0
-                for k in range(len(matches[profiles[t]][i])):
-                    m = sum(matches[profiles[t]][i][:, k][0:19])
-                    b = sum(matches[profiles[t]][i][:, k][19:])
+    if extended:
+        matches = np.load(p + 'distances_matches_' + stim_type + '_extended.npy').item()
+        figname = path_names[2] + 'MvsB_distances_dprime_' + stim_type + '_extended.png'
+    else:
+        matches = np.load(p + 'distances_matches_' + stim_type + '.npy').item()
+        figname = path_names[2] + 'MvsB_distances_dprime_' + stim_type + '.png'
 
-                    if k <= boarder:
-                        a = 'noise'  # Stim is truely Moth
-                        false_alarms += b
-                        correct_rejection += m
-                    else:
-                        a = 'signal'  # Stim is truely Bat
-                        hit += b
-                        misses += m
-                    pm[k] = m / (b + m)
-                p_moths[i] = pm
-                p_hit = hit / (hit + misses)
-                p_false = false_alarms / (false_alarms + correct_rejection)
-                p_correct[t, i] = 0.5 + (p_hit - p_false) / 2
-                out = mf.dPrime(hit, misses, false_alarms, correct_rejection)
-                d_prime[t, i] = out['d']
-                criterion_c[t, i] = out['c']
-                hit_rate[t, i] = out['hit_rate']
-                fa_rate[t, i] = out['fa_rate']
-            percent_moth[t] = p_moths
+    profiles = ['ISI', 'SYNC', 'DUR', 'COUNT']
+    d_prime = np.zeros(shape=(len(taus), len(duration)))
+    p_correct = np.zeros(shape=(len(taus), len(duration)))
+    hit_rate = np.zeros(shape=(len(taus), len(duration)))
+    fa_rate = np.zeros(shape=(len(taus), len(duration)))
+    criterion_c = np.zeros(shape=(len(taus), len(duration)))
+    percent_moth = [[]] * len(taus)
+    for t in range(len(profiles)):
+        p_moths = [[]] * len(duration)
+        for i in range(len(duration)):
+            pm = np.zeros(len(matches[profiles[t]][i]))
+            hit = 0
+            misses = 0
+            false_alarms = 0
+            correct_rejection = 0
+            for k in range(len(matches[profiles[t]][i])):
+                m = sum(matches[profiles[t]][i][:, k][0:boarder])
+                b = sum(matches[profiles[t]][i][:, k][boarder:])
 
-        plt.figure()
-        for j in range(len(profiles)):
-            plt.plot(duration, d_prime[j], label=profiles[j])
-        plt.ylim(0, 2)
-        plt.legend()
-        plt.savefig(figname)
-        plt.close()
+                if k <= boarder:
+                    a = 'noise'  # Stim is truely Moth
+                    false_alarms += b
+                    correct_rejection += m
+                else:
+                    a = 'signal'  # Stim is truely Bat
+                    hit += b
+                    misses += m
+                pm[k] = m / (b + m)
+            p_moths[i] = pm
+            p_hit = hit / (hit + misses)
+            p_false = false_alarms / (false_alarms + correct_rejection)
+            p_correct[t, i] = 0.5 + (p_hit - p_false) / 2
+            out = mf.dPrime(hit, misses, false_alarms, correct_rejection)
+            d_prime[t, i] = out['d']
+            criterion_c[t, i] = out['c']
+            hit_rate[t, i] = out['hit_rate']
+            fa_rate[t, i] = out['fa_rate']
+        percent_moth[t] = p_moths
 
-        for j in range(len(profiles)):
-            plt.figure()
-            plt.pcolormesh(percent_moth[j], cmap='jet', vmin=0, vmax=1)
-            plt.colorbar()
-            if extended:
-                plt.savefig(path_names[2] + 'MvsB_distances_percent_' + stim_type + '_' + profiles[j] + '_extended.png')
-            else:
-                plt.savefig(path_names[2] + 'MvsB_distances_percent_' + stim_type + '_' + profiles[j] + '.png')
-            plt.close()
-        print('Plot saved')
+    # Save Data
+    data2 = {}
+    data2 = {'dprime': d_prime, 'c': criterion_c, 'hitrate': hit_rate, 'farate': fa_rate, 'pmoth': percent_moth,
+            'pcorrect': p_correct, 'ptaus': p_taus}
+    if extended:
+        np.save(path_names[1] + 'MvsB_Distances_' + stim_length + '_extended.npy', data2)
+    else:
+        np.save(path_names[1] + 'MvsB_Distances_' + stim_length + '.npy', data2)
 
+    print('MvsB Distances data saved')
 
-if PLOT_MvsB:
-    # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
+    # plt.figure()
+    # for j in range(len(profiles)):
+    #     plt.plot(duration, d_prime[j], label=profiles[j])
+    # plt.ylim(0, 2)
+    # plt.legend()
+    # plt.savefig(figname)
+    # plt.close()
+    #
+    # for j in range(len(profiles)):
+    #     plt.figure()
+    #     plt.pcolormesh(percent_moth[j], cmap='jet', vmin=0, vmax=1)
+    #     plt.colorbar()
+    #     if extended:
+    #         plt.savefig(path_names[2] + 'MvsB_distances_percent_' + stim_type + '_' + profiles[j] + '_extended.png')
+    #     else:
+    #         plt.savefig(path_names[2] + 'MvsB_distances_percent_' + stim_type + '_' + profiles[j] + '.png')
+    #     plt.close()
+    # print('Plot saved')
+
+if PLOT_MVSB:
+    # method = 'VanRossum'
+    # stim_type = 'all_single'
+    # stim_length = stim_type[4:]
+
+    boarder_series = 17
+    boarder_single = 20
     data_name = '2018-02-16-aa'
-    # data_name = datasets[-1]
     path_names = mf.get_directories(data_name=data_name)
     print(data_name)
     p = path_names[1]
+    # Get Data
+    data_vr_series_ext = np.load(path_names[1] + 'MvsB_VanRossum_' + 'series' + '_extended.npy').item()
+    data_vr_single_ext = np.load(path_names[1] + 'MvsB_VanRossum_' + 'single' + '_extended.npy').item()
+    data_d_series_ext = np.load(path_names[1] + 'MvsB_Distances_' + 'series' + '_extended.npy').item()
+    data_d_single_ext = np.load(path_names[1] + 'MvsB_Distances_' + 'single' + '_extended.npy').item()
+    data_vr_series = np.load(path_names[1] + 'MvsB_VanRossum_' + 'series' + '.npy').item()
+    data_vr_single = np.load(path_names[1] + 'MvsB_VanRossum_' + 'single' + '.npy').item()
+    data_d_series = np.load(path_names[1] + 'MvsB_Distances_' + 'series' + '.npy').item()
+    data_d_single = np.load(path_names[1] + 'MvsB_Distances_' + 'single' + '.npy').item()
 
-    plot_dprime = True
-
-    groups = np.load(p + 'VanRossum_groups_' + stim_type + '.npy').item()
-
-    p_moths = [[]] * len(taus)
-    for tt in range(len(taus)):
-        p_m = [[]] * len(duration)
-        p_b = [[]] * len(duration)
-        for k in range(len(duration)):
-            # ax = plt.subplot(len(duration), 1, k+1)
-            p_m[k] = groups[taus[tt]][k][0, :] / (groups[taus[tt]][k][1, :] + groups[taus[tt]][k][0, :])
-            # p_b[k] = groups[taus[tt]][k][1, :] / (groups[taus[tt]][k][1, :] + groups[taus[tt]][k][0, :])
-            # ax.imshow(ratio)
-        p_moths[tt] = p_m
-
-    # idx = [True, False, False, True, False, False, True, False, False, False, False, False, True]
-    tau_p = [1, 10, 50, 1000]  # taus used for plotting percentage
-    idx = []
-    for i in tau_p:
-        idx.append(taus.index(i))
-    p_moths = np.array(p_moths)[idx]
-
-    # d prime: bat = signal, moth = noise
-    d_prime = np.zeros(shape=(len(taus), len(duration)))
-    crit = np.zeros(shape=(len(taus), len(duration)))
-    area_d = np.zeros(shape=(len(taus), len(duration)))
-    beta = np.zeros(shape=(len(taus), len(duration)))
-
-    if stim_length == 'series':
-        idx_groups = 16
-    if stim_length == 'single':
-        idx_groups = 19
-
-    for i in range(len(taus)):
-        out = [[]] * len(duration)
-        for k in range(len(duration)):
-            a = groups[taus[i]][k]
-            cr = np.sum(a[0, :idx_groups])    # call=moth, matching=response=moth
-            miss = np.sum(a[0, idx_groups:])      # call=bat, matching=moth
-            fa = np.sum(a[1, :idx_groups])    # call=moth, matching=bat
-            hits = np.sum(a[1, idx_groups:])      # call=bat, matching=bat
-            out[k] = mf.dPrime(hits, miss, fa, cr)
-            d_prime[i, k] = out[k]['d']
-            crit[i, k] = out[k]['c']
-            area_d[i, k] = out[k]['Ad']
-            beta[i, k] = out[k]['beta']
-
+    # Plot percent moth
     mf.plot_settings()
-    # d prime plot
-    if plot_dprime:
-        # Create Grid
-        fig = plt.figure(figsize=(5.9, 2.9))
-        from mpl_toolkits.axes_grid1 import ImageGrid
-        grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
-                         nrows_ncols=(1, 2),
-                         label_mode='L',
-                         axes_pad=0.75,
-                         share_all=False,
-                         cbar_location="right",
-                         cbar_mode="each",
-                         cbar_size="3%",
-                         cbar_pad=0.05,
-                         aspect=False
-                         )
-        # Subplot caps
-        subfig_caps = 12
-        label_x_pos = 0.05
-        label_y_pos = 0.90
-        subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    ax = [[]] * 21
+    grid = matplotlib.gridspec.GridSpec(nrows=67, ncols=66)
+    fig = plt.figure(figsize=(5.9, 5.9))
+    ax[0] = plt.subplot(grid[0:10, 0:10])
+    ax[1] = plt.subplot(grid[0:10, 14:24])
 
-        # im1 = grid[0].imshow(d_prime, vmin=np.min(d_prime), vmax=3, interpolation='gaussian', cmap='jet', origin='lower')
-        # im2 = grid[1].imshow(crit, vmin=-1, vmax=1, interpolation='gaussian', cmap='seismic', origin='lower')
-        grid[0].text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=grid[0].transAxes, size=subfig_caps,
-                     color='black')
-        grid[1].text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=grid[1].transAxes, size=subfig_caps,
-                     color='black')
+    ax[2] = plt.subplot(grid[0:10, 38:48])
+    ax[3] = plt.subplot(grid[0:10, 52:62])
 
-        # Image Plot
-        x = duration
-        y = taus
-        X, Y = np.meshgrid(x, y)
-        # im1 = grid[0].pcolormesh(X, Y, d_prime, cmap='jet', vmin=np.min(d_prime)-0.5, vmax=3, shading='gouraud')
-        # im2 = grid[1].pcolormesh(X, Y, crit, cmap='seismic', vmin=-1, vmax=1, shading='gouraud')
-        im1 = grid[0].pcolormesh(X, Y, d_prime, cmap='jet', vmin=np.min(d_prime) - 0.5, vmax=2, shading='flat')
-        im2 = grid[1].pcolormesh(X, Y, crit, cmap='seismic', vmin=-1, vmax=1, shading='flat')
+    ax[4] = plt.subplot(grid[14:24, 0:10])
+    ax[5] = plt.subplot(grid[14:24, 14:24])
 
-        # grid[1].axvline(15, color='black', linestyle=':', linewidth=0.5)
-        # grid[0].axvline(15, color='black', linestyle=':', linewidth=0.5)
-        # grid[0].axhline(30, color='black', linestyle=':', linewidth=0.5)
-        # grid[1].axhline(30, color='black', linestyle=':', linewidth=0.5)
+    ax[6] = plt.subplot(grid[14:24, 38:48])
+    ax[7] = plt.subplot(grid[14:24, 52:62])
 
-        # grid[0].set_xscale('log')
-        grid[0].set_yscale('log')
-        # grid[1].set_xscale('log')
-        grid[1].set_yscale('log')
+    ax[8] = plt.subplot(grid[28:38, 0:10])
+    ax[9] = plt.subplot(grid[28:38, 14:24])
 
-        # Colorbar
-        cbar1 = grid[0].cax.colorbar(im1, ticks=np.arange(0, 2.1, 1))
-        cbar2 = grid[1].cax.colorbar(im2, ticks=[-1, -0.5, 0, 0.5, 1])
-        cbar1.ax.set_ylabel('d prime', rotation=270, labelpad=15)
-        cbar2.ax.set_ylabel('criterion', rotation=270, labelpad=10)
-        cbar1.solids.set_rasterized(True)  # Removes white lines
-        cbar2.solids.set_rasterized(True)  # Removes white lines
+    ax[10] = plt.subplot(grid[28:38, 38:48])
+    ax[11] = plt.subplot(grid[28:38, 52:62])
 
-        # Axes Labels
-        grid[0].set_ylabel('Tau [ms]')
-        fig.text(0.5, 0.075, 'Spike train duration [ms]', ha='center', fontdict=None)
+    ax[12] = plt.subplot(grid[42:52, 0:10])
+    ax[13] = plt.subplot(grid[42:52, 14:24])
 
-        # fig.set_size_inches(5.9, 1.9)
-        fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
-        figname = path_names[2] + 'dprime_MothsvsBats_' + stim_type + '_new.pdf'
-        fig.savefig(figname)
-        plt.close(fig)
-        print('d prime plot saved')
+    ax[14] = plt.subplot(grid[42:52, 38:48])
+    ax[15] = plt.subplot(grid[42:52, 52:62])
 
-    # Percentage Plot
-    # Create Grid
-    fig = plt.figure(figsize=(5.9, 3.9))
-    from mpl_toolkits.axes_grid1 import ImageGrid
-    grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
-                     nrows_ncols=(2, 2),
-                     label_mode='L',
-                     axes_pad=0.15,
-                     share_all=False,
-                     cbar_location="right",
-                     cbar_mode="single",
-                     cbar_size="3%",
-                     cbar_pad=0.15,
-                     aspect=False
-                     )
+    ax[16] = plt.subplot(grid[56:66, 0:10])
+    ax[17] = plt.subplot(grid[56:66, 14:24])
+
+    ax[18] = plt.subplot(grid[56:66, 38:48])
+    ax[19] = plt.subplot(grid[56:66, 52:62])
+
+    # Colorbar
+    ax[20] = plt.subplot(grid[0:66, 64:65])
+
+    # Image Grid
+    x_series = np.arange(0, 28, 1)
+    y_series = np.arange(0, 2550, 50)
+    y_series[0] = 10
+    X_series, Y_series = np.meshgrid(x_series, y_series)
+
+    x_single = np.arange(0, 32, 1)
+    y_single = np.arange(0, 255, 5)
+    y_single[0] = 1
+    X_single, Y_single = np.meshgrid(x_single, y_single)
+    tau_idx = 4
+
     # Subplot caps
     subfig_caps = 12
-    label_x_pos = 0.05
-    label_y_pos = 0.85
-    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
-    i = 0
-    taus2 = np.array(taus)[idx]
-    if stim_length == 'series':
-        bats_region = 17
-    if stim_length == 'single':
-        bats_region = 20
+    label_x_pos = -0.4
+    label_y_pos = 1.05
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k']
 
-    for ax in grid:
-        y = duration
-        x = np.linspace(1, p_moths[i].shape[1], p_moths[i].shape[1])
-        X, Y = np.meshgrid(x, y)
-        im = ax.pcolormesh(X, Y, p_moths[i], cmap='jet', vmin=0, vmax=1, shading='flat', rasterized=True)
+    color_map = 'gray'
+    ax[0].pcolormesh(X_series, Y_series, data_vr_series['pmoth'][tau_idx], cmap=color_map, vmin=0, vmax=1, rasterized=True)
+    ax[1].pcolormesh(X_series, Y_series, data_vr_series_ext['pmoth'][tau_idx], cmap=color_map, vmin=0, vmax=1, rasterized=True)
+    ax[2].pcolormesh(X_single, Y_single, data_vr_single['pmoth'][tau_idx], cmap=color_map, vmin=0, vmax=1, rasterized=True)
+    ax[3].pcolormesh(X_single, Y_single, data_vr_single_ext['pmoth'][tau_idx], cmap=color_map, vmin=0, vmax=1, rasterized=True)
 
-        grid[i].axvline(bats_region, color='black', linestyle='-', linewidth=3)
-        grid[i].axvline(bats_region, color='white', linestyle='--', linewidth=1)
+    k = 0
+    for i in [4, 8, 12, 16]:
+        ax[i].pcolormesh(X_series, Y_series, data_d_series['pmoth'][k], cmap=color_map, vmin=0, vmax=1, rasterized=True)
+        ax[i+1].pcolormesh(X_series, Y_series, data_d_series_ext['pmoth'][k], cmap=color_map, vmin=0, vmax=1, rasterized=True)
+        ax[i+2].pcolormesh(X_single, Y_single, data_d_single['pmoth'][k], cmap=color_map, vmin=0, vmax=1, rasterized=True)
+        ax[i+3].pcolormesh(X_single, Y_single, data_d_single_ext['pmoth'][k], cmap=color_map, vmin=0, vmax=1, rasterized=True)
+        k += 1
 
-        ax.set_xticks(np.arange(0, 30, 5))
+    # Axes ticks
+    j = 0
+    for i in [0, 4, 8, 12, 16]:  # series
+        ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels[j], transform=ax[i].transAxes, size=subfig_caps,
+                   color='black')
+        j += 2
+        for k in range(2):
+            ax[i+k].set_xticks(np.arange(0.5, 27.5, 10))
+            ax[i+k].set_xticklabels([])
+            ax[i+k].plot([boarder_series-0.25, boarder_series-0.25], [10, 2500], 'r-', lw=0.75)
+            ax[i+k].set_yticks([0, 1000, 2000])
+            ax[i+k].set_yticklabels([0, 1, 2])
+            ax[i+k].annotate("", xy=(16.75, 2400), xycoords='data', xytext=(16.75, 3000), textcoords='data',
+                           arrowprops=dict(arrowstyle="-", connectionstyle="arc3", color='r', linewidth=0.75))
+        ax[i+1].set_yticklabels([])
+    j = 1
+    for i in [2, 6, 10, 14, 18]:  # single
+        ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels[j], transform=ax[i].transAxes, size=subfig_caps,
+                   color='black')
+        j += 2
+        for k in range(2):
+            ax[i+k].set_xticks(np.arange(0.5, 31.5, 10))
+            ax[i+k].set_xticklabels([])
+            ax[i + k].plot([boarder_single-0.25, boarder_single-0.25], [1, 250], 'r-', lw=0.75)
+            ax[i + k].set_yticks([0, 100, 200])
+            ax[i + k].set_yticklabels([0, 0.1, 0.2])
+            # path_effects = [path_effects.Stroke(linewidth=1, foreground='red'), path_effects.Normal()]
+            ax[i+k].annotate("", xy=(19.75, 240), xycoords='data', xytext=(19.75, 300), textcoords='data',
+                           arrowprops=dict(arrowstyle="-", connectionstyle="arc3", color='r', linewidth=0.75))
+        ax[i + 1].set_yticklabels([])
 
-        grid[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=grid[i].transAxes, size=subfig_caps,
-                     color='black')
-        grid[i].text(0.7, 0.05, r'$\tau$ = ' + str(taus2[i]) + ' ms', transform=grid[i].transAxes, size=6,
-                     color='black')
-        # grid[i].set_yscale('log')
+    ax[16].set_xticklabels(np.arange(0, 27, 10))
+    ax[17].set_xticklabels(np.arange(0, 27, 10))
+    ax[18].set_xticklabels(np.arange(0, 31, 10))
+    ax[19].set_xticklabels(np.arange(0, 31, 10))
 
-        i += 1
+    # for i in range(len(ax)-1):
+    #     ax[i].set_aspect('equal')
 
-    if stim_length == 'series':
-        grid[0].text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=grid[0].transAxes, size=subfig_caps,
-                     color='white')
+    for i in range(len(ax)-1):
+        ax[i].text(0.18, 1.02, 'moths', transform=ax[i].transAxes, size=6, color='red')
+        ax[i].text(0.7, 1.02, 'bats', transform=ax[i].transAxes, size=6, color='red')
+
+    for i in range(4):
+        ax[i].text(0.05, 0.02, r'$\tau$ = 10 ms', transform=ax[i].transAxes, size=6, color='k',
+                   path_effects=[path_effects.Stroke(linewidth=1, foreground='w'), path_effects.Normal()])
+
     # Colorbar
-    cbar = ax.cax.colorbar(im)
-    cbar.solids.set_rasterized(True)  # Removes white lines
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+    cb1 = matplotlib.colorbar.ColorbarBase(ax[20], cmap=color_map, norm=norm)
 
-    # Axes Labels
-    fig.text(0.5, 0.05, 'Original call', ha='center', fontdict=None)
-    fig.text(0.025, 0.65, 'Spike train duration [ms]', ha='center', fontdict=None, rotation=90)
-    fig.text(0.965, 0.65, 'Percentage moth calls', ha='center', fontdict=None, rotation=270)
+    sz_text = 12
+    ax[0].text(13, 3500, 'Call series', ha='center', va='center', fontdict=None, size=sz_text)
+    ax[1].text(13, 3500, 'Cs extended', ha='center', va='center', fontdict=None, size=sz_text)
+    ax[2].text(15, 350, 'Single calls', ha='center', va='center', fontdict=None, size=sz_text)
+    ax[3].text(15, 350, 'Sc extended', ha='center', va='center', fontdict=None, size=sz_text)
+    ax[20].text(8, 0.5, 'Percentage of moth classification', ha='center', va='center', fontdict=None, rotation=-90)
+    fig.text(0.5, 0.05, 'Call number', ha='center', fontdict=None)
+    fig.text(0.05, 0.5, 'Spike train duration [s]', ha='center', va='center', fontdict=None, rotation=90)
 
-    # fig.set_size_inches(5.9, 1.9)
-    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.15, right=0.9, wspace=0.1, hspace=0.1)
-    figname = path_names[2] + 'VanRossum_MothsvsBats_' + stim_type + '_new.pdf'
-    fig.savefig(figname)
+    sz_text = 8
+    dist_x = -25
+    ax[2].text(dist_x, 125, 'Van \nRossum', ha='center', va='center', fontdict=None, size=sz_text, color='k', bbox=dict(boxstyle='round', facecolor='w'))
+    ax[6].text(dist_x, 125, 'ISI', ha='center', va='center', fontdict=None, size=sz_text, color='k', bbox=dict(boxstyle='round', facecolor='w'))
+    ax[10].text(dist_x, 125, 'SYNC', ha='center', va='center', fontdict=None, size=sz_text, color='k', bbox=dict(boxstyle='round', facecolor='w'))
+    ax[14].text(dist_x, 125, 'DUR', ha='center', va='center', fontdict=None, size=sz_text, color='k', bbox=dict(boxstyle='round', facecolor='w'))
+    ax[18].text(dist_x, 125, 'COUNT', ha='center', va='center', fontdict=None, size=sz_text, color='k', bbox=dict(boxstyle='round', facecolor='w'))
+
+    sns.despine(top=True, right=True, left=True, bottom=True, offset=None, trim=False)
+    fig.savefig(path_names[2] + 'final/MvsB_pmoth.pdf')
     plt.close(fig)
+    print('Poisson Plot saved')
+    
+# if PLOT_MvsB:
+#     # taus = [1, 2, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000]
+#     data_name = '2018-02-16-aa'
+#     # data_name = datasets[-1]
+#     path_names = mf.get_directories(data_name=data_name)
+#     print(data_name)
+#     p = path_names[1]
+#
+#     plot_dprime = True
+#
+#     groups = np.load(p + 'VanRossum_groups_' + stim_type + '.npy').item()
+#
+#     p_moths = [[]] * len(taus)
+#     for tt in range(len(taus)):
+#         p_m = [[]] * len(duration)
+#         p_b = [[]] * len(duration)
+#         for k in range(len(duration)):
+#             # ax = plt.subplot(len(duration), 1, k+1)
+#             p_m[k] = groups[taus[tt]][k][0, :] / (groups[taus[tt]][k][1, :] + groups[taus[tt]][k][0, :])
+#             # p_b[k] = groups[taus[tt]][k][1, :] / (groups[taus[tt]][k][1, :] + groups[taus[tt]][k][0, :])
+#             # ax.imshow(ratio)
+#         p_moths[tt] = p_m
+#
+#     # idx = [True, False, False, True, False, False, True, False, False, False, False, False, True]
+#     tau_p = [1, 10, 50, 1000]  # taus used for plotting percentage
+#     idx = []
+#     for i in tau_p:
+#         idx.append(taus.index(i))
+#     p_moths = np.array(p_moths)[idx]
+#
+#     # d prime: bat = signal, moth = noise
+#     d_prime = np.zeros(shape=(len(taus), len(duration)))
+#     crit = np.zeros(shape=(len(taus), len(duration)))
+#     area_d = np.zeros(shape=(len(taus), len(duration)))
+#     beta = np.zeros(shape=(len(taus), len(duration)))
+#
+#     if stim_length == 'series':
+#         idx_groups = 16
+#     if stim_length == 'single':
+#         idx_groups = 19
+#
+#     for i in range(len(taus)):
+#         out = [[]] * len(duration)
+#         for k in range(len(duration)):
+#             a = groups[taus[i]][k]
+#             cr = np.sum(a[0, :idx_groups])    # call=moth, matching=response=moth
+#             miss = np.sum(a[0, idx_groups:])      # call=bat, matching=moth
+#             fa = np.sum(a[1, :idx_groups])    # call=moth, matching=bat
+#             hits = np.sum(a[1, idx_groups:])      # call=bat, matching=bat
+#             out[k] = mf.dPrime(hits, miss, fa, cr)
+#             d_prime[i, k] = out[k]['d']
+#             crit[i, k] = out[k]['c']
+#             area_d[i, k] = out[k]['Ad']
+#             beta[i, k] = out[k]['beta']
+#
+#     mf.plot_settings()
+#     # d prime plot
+#     if plot_dprime:
+#         # Create Grid
+#         fig = plt.figure(figsize=(5.9, 2.9))
+#         from mpl_toolkits.axes_grid1 import ImageGrid
+#         grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
+#                          nrows_ncols=(1, 2),
+#                          label_mode='L',
+#                          axes_pad=0.75,
+#                          share_all=False,
+#                          cbar_location="right",
+#                          cbar_mode="each",
+#                          cbar_size="3%",
+#                          cbar_pad=0.05,
+#                          aspect=False
+#                          )
+#         # Subplot caps
+#         subfig_caps = 12
+#         label_x_pos = 0.05
+#         label_y_pos = 0.90
+#         subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+#
+#         # im1 = grid[0].imshow(d_prime, vmin=np.min(d_prime), vmax=3, interpolation='gaussian', cmap='jet', origin='lower')
+#         # im2 = grid[1].imshow(crit, vmin=-1, vmax=1, interpolation='gaussian', cmap='seismic', origin='lower')
+#         grid[0].text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=grid[0].transAxes, size=subfig_caps,
+#                      color='black')
+#         grid[1].text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=grid[1].transAxes, size=subfig_caps,
+#                      color='black')
+#
+#         # Image Plot
+#         x = duration
+#         y = taus
+#         X, Y = np.meshgrid(x, y)
+#         # im1 = grid[0].pcolormesh(X, Y, d_prime, cmap='jet', vmin=np.min(d_prime)-0.5, vmax=3, shading='gouraud')
+#         # im2 = grid[1].pcolormesh(X, Y, crit, cmap='seismic', vmin=-1, vmax=1, shading='gouraud')
+#         im1 = grid[0].pcolormesh(X, Y, d_prime, cmap='jet', vmin=np.min(d_prime) - 0.5, vmax=2, shading='flat')
+#         im2 = grid[1].pcolormesh(X, Y, crit, cmap='seismic', vmin=-1, vmax=1, shading='flat')
+#
+#         # grid[1].axvline(15, color='black', linestyle=':', linewidth=0.5)
+#         # grid[0].axvline(15, color='black', linestyle=':', linewidth=0.5)
+#         # grid[0].axhline(30, color='black', linestyle=':', linewidth=0.5)
+#         # grid[1].axhline(30, color='black', linestyle=':', linewidth=0.5)
+#
+#         # grid[0].set_xscale('log')
+#         grid[0].set_yscale('log')
+#         # grid[1].set_xscale('log')
+#         grid[1].set_yscale('log')
+#
+#         # Colorbar
+#         cbar1 = grid[0].cax.colorbar(im1, ticks=np.arange(0, 2.1, 1))
+#         cbar2 = grid[1].cax.colorbar(im2, ticks=[-1, -0.5, 0, 0.5, 1])
+#         cbar1.ax.set_ylabel('d prime', rotation=270, labelpad=15)
+#         cbar2.ax.set_ylabel('criterion', rotation=270, labelpad=10)
+#         cbar1.solids.set_rasterized(True)  # Removes white lines
+#         cbar2.solids.set_rasterized(True)  # Removes white lines
+#
+#         # Axes Labels
+#         grid[0].set_ylabel('Tau [ms]')
+#         fig.text(0.5, 0.075, 'Spike train duration [ms]', ha='center', fontdict=None)
+#
+#         # fig.set_size_inches(5.9, 1.9)
+#         fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+#         figname = path_names[2] + 'dprime_MothsvsBats_' + stim_type + '_new.pdf'
+#         fig.savefig(figname)
+#         plt.close(fig)
+#         print('d prime plot saved')
+#
+#     # Percentage Plot
+#     # Create Grid
+#     fig = plt.figure(figsize=(5.9, 3.9))
+#     from mpl_toolkits.axes_grid1 import ImageGrid
+#     grid = ImageGrid(fig, 111,  # as in plt.subplot(111)
+#                      nrows_ncols=(2, 2),
+#                      label_mode='L',
+#                      axes_pad=0.15,
+#                      share_all=False,
+#                      cbar_location="right",
+#                      cbar_mode="single",
+#                      cbar_size="3%",
+#                      cbar_pad=0.15,
+#                      aspect=False
+#                      )
+#     # Subplot caps
+#     subfig_caps = 12
+#     label_x_pos = 0.05
+#     label_y_pos = 0.85
+#     subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+#     i = 0
+#     taus2 = np.array(taus)[idx]
+#     if stim_length == 'series':
+#         bats_region = 17
+#     if stim_length == 'single':
+#         bats_region = 20
+#
+#     for ax in grid:
+#         y = duration
+#         x = np.linspace(1, p_moths[i].shape[1], p_moths[i].shape[1])
+#         X, Y = np.meshgrid(x, y)
+#         im = ax.pcolormesh(X, Y, p_moths[i], cmap='jet', vmin=0, vmax=1, shading='flat', rasterized=True)
+#
+#         grid[i].axvline(bats_region, color='black', linestyle='-', linewidth=3)
+#         grid[i].axvline(bats_region, color='white', linestyle='--', linewidth=1)
+#
+#         ax.set_xticks(np.arange(0, 30, 5))
+#
+#         grid[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=grid[i].transAxes, size=subfig_caps,
+#                      color='black')
+#         grid[i].text(0.7, 0.05, r'$\tau$ = ' + str(taus2[i]) + ' ms', transform=grid[i].transAxes, size=6,
+#                      color='black')
+#         # grid[i].set_yscale('log')
+#
+#         i += 1
+#
+#     if stim_length == 'series':
+#         grid[0].text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=grid[0].transAxes, size=subfig_caps,
+#                      color='white')
+#     # Colorbar
+#     cbar = ax.cax.colorbar(im)
+#     cbar.solids.set_rasterized(True)  # Removes white lines
+#
+#     # Axes Labels
+#     fig.text(0.5, 0.05, 'Original call', ha='center', fontdict=None)
+#     fig.text(0.025, 0.65, 'Spike train duration [ms]', ha='center', fontdict=None, rotation=90)
+#     fig.text(0.965, 0.65, 'Percentage moth calls', ha='center', fontdict=None, rotation=270)
+#
+#     # fig.set_size_inches(5.9, 1.9)
+#     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.15, right=0.9, wspace=0.1, hspace=0.1)
+#     figname = path_names[2] + 'VanRossum_MothsvsBats_' + stim_type + '_new.pdf'
+#     fig.savefig(figname)
+#     plt.close(fig)
+
+if PLOT_MVSB_DPRIME:
+    boarder_series = 17
+    boarder_single = 20
+    data_name = '2018-02-16-aa'
+    path_names = mf.get_directories(data_name=data_name)
+    print(data_name)
+    p = path_names[1]
+    # Get Data
+    data_vr_series_ext = np.load(path_names[1] + 'MvsB_VanRossum_' + 'series' + '_extended.npy').item()
+    data_vr_single_ext = np.load(path_names[1] + 'MvsB_VanRossum_' + 'single' + '_extended.npy').item()
+    data_d_series_ext = np.load(path_names[1] + 'MvsB_Distances_' + 'series' + '_extended.npy').item()
+    data_d_single_ext = np.load(path_names[1] + 'MvsB_Distances_' + 'single' + '_extended.npy').item()
+    data_vr_series = np.load(path_names[1] + 'MvsB_VanRossum_' + 'series' + '.npy').item()
+    data_vr_single = np.load(path_names[1] + 'MvsB_VanRossum_' + 'single' + '.npy').item()
+    data_d_series = np.load(path_names[1] + 'MvsB_Distances_' + 'series' + '.npy').item()
+    data_d_single = np.load(path_names[1] + 'MvsB_Distances_' + 'single' + '.npy').item()
+
+    # Plot percent moth
+    mf.plot_settings()
+    ax = [[]] * 18
+    grid = matplotlib.gridspec.GridSpec(nrows=53, ncols=66)
+    fig = plt.figure(figsize=(5.9, 4.9))
+    ax[0] = plt.subplot(grid[0:10, 0:10])
+    ax[1] = plt.subplot(grid[0:10, 14:24])
+
+    ax[2] = plt.subplot(grid[0:10, 38:48])
+    ax[3] = plt.subplot(grid[0:10, 52:62])
+
+    ax[4] = plt.subplot(grid[14:24, 0:10])
+    ax[5] = plt.subplot(grid[14:24, 14:24])
+
+    ax[6] = plt.subplot(grid[14:24, 38:48])
+    ax[7] = plt.subplot(grid[14:24, 52:62])
+
+    ax[8] = plt.subplot(grid[28:38, 0:10])
+    ax[9] = plt.subplot(grid[28:38, 14:24])
+
+    ax[10] = plt.subplot(grid[28:38, 38:48])
+    ax[11] = plt.subplot(grid[28:38, 52:62])
+
+    ax[12] = plt.subplot(grid[42:52, 0:10])
+    ax[13] = plt.subplot(grid[42:52, 14:24])
+
+    ax[14] = plt.subplot(grid[42:52, 38:48])
+    ax[15] = plt.subplot(grid[42:52, 52:62])
+
+    # Colorbar
+    ax[16] = plt.subplot(grid[0:10, 64:65])
+    ax[17] = plt.subplot(grid[14:24, 64:65])
+
+
+    # Image Grid
+    y_series = taus
+    x_series = np.arange(0, 2550, 50)
+    x_series[0] = 10
+    X_series, Y_series = np.meshgrid(x_series, y_series)
+
+    y_single = taus
+    x_single = np.arange(0, 255, 5)
+    x_single[0] = 1
+    X_single, Y_single = np.meshgrid(x_single, y_single)
+
+    Xticks = [[]] * 4
+    Xticks[0] = np.arange(0, 2550, 500)
+    Xticks[1] = np.arange(0, 2550, 500)
+    Xticks[2] = np.arange(0, 255, 50)
+    Xticks[3] = np.arange(0, 255, 50)
+
+    # Subplot caps
+    subfig_caps = 12
+    label_x_pos = -0.6
+    label_y_pos = 1.05
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k']
+
+    color_map = 'jet'
+    # Van Rossum d prime
+    ax[0].pcolormesh(X_series, Y_series, data_vr_series['dprime'], cmap=color_map, vmin=0, vmax=2, shading='gouraud')
+    ax[1].pcolormesh(X_series, Y_series, data_vr_series_ext['dprime'], cmap=color_map, vmin=0, vmax=2, shading='gouraud')
+    ax[2].pcolormesh(X_single, Y_single, data_vr_single['dprime'], cmap=color_map, vmin=0, vmax=2, shading='gouraud')
+    ax[3].pcolormesh(X_single, Y_single, data_vr_single_ext['dprime'], cmap=color_map, vmin=0, vmax=2, shading='gouraud')
+    # Van Rossum criterion c
+    c_color_map = 'seismic'
+    ax[4].pcolormesh(X_series, Y_series, data_vr_series['c'], cmap=c_color_map, vmin=-1, vmax=1, shading='gouraud')
+    ax[5].pcolormesh(X_series, Y_series, data_vr_series_ext['c'], cmap=c_color_map, vmin=-1, vmax=1, shading='gouraud')
+    ax[6].pcolormesh(X_single, Y_single, data_vr_single['c'], cmap=c_color_map, vmin=-1, vmax=1, shading='gouraud')
+    ax[7].pcolormesh(X_single, Y_single, data_vr_single_ext['c'], cmap=c_color_map, vmin=-1, vmax=1, shading='gouraud')
+
+    # Log Axes
+    import matplotlib.ticker
+    locmaj = matplotlib.ticker.LogLocator(base=10, numticks=12)
+    locmin = matplotlib.ticker.LogLocator(base=10.0, subs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9), numticks=12)
+
+    for i in range(8):
+        ax[i].set_yscale('log')
+        ax[i].yaxis.set_major_locator(locmaj)
+        ax[i].yaxis.set_minor_locator(locmin)
+        ax[i].yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+        # ax[i].tick_params(axis='x', which='minor')
+        # ax[i].set_yscale('symlog')
+
+    # Distances d prime
+    profiles = ['ISI', 'SYNC', 'DUR', 'COUNT']
+    marks = ['o', 's', '', '']
+    cc = ['orangered', 'teal', '0', '0']
+    styles = ['-', '-', '--', ':']
+    for i in range(4):
+        ax[8].plot(x_series, data_d_series['dprime'][i], marker='', color=cc[i], linestyle=styles[i])
+        ax[9].plot(x_series, data_d_series_ext['dprime'][i], marker='', color=cc[i], linestyle=styles[i])
+        ax[10].plot(x_single, data_d_single['dprime'][i], marker='', color=cc[i], linestyle=styles[i])
+        ax[11].plot(x_single, data_d_single_ext['dprime'][i], marker='', color=cc[i], linestyle=styles[i], label=profiles[i])
+        
+    # Distances criterion c
+    for i in range(4):
+        ax[12].plot(x_series, data_d_series['c'][i], marker='', color=cc[i], linestyle=styles[i])
+        ax[13].plot(x_series, data_d_series_ext['c'][i], marker='', color=cc[i], linestyle=styles[i])
+        ax[14].plot(x_single, data_d_single['c'][i], marker='', color=cc[i], linestyle=styles[i])
+        ax[15].plot(x_single, data_d_single_ext['c'][i], marker='', color=cc[i], linestyle=styles[i])
+
+    # Colorbar
+    norm1 = matplotlib.colors.Normalize(vmin=0, vmax=2)
+    cb1 = matplotlib.colorbar.ColorbarBase(ax[16], cmap=color_map, norm=norm1)
+    norm2 = matplotlib.colors.Normalize(vmin=-1, vmax=1)
+    cb2 = matplotlib.colorbar.ColorbarBase(ax[17], cmap=color_map, norm=norm2)
+
+    cb1.set_ticks([0, 1, 2])
+    cb2.set_ticks([-1, 0, 1])
+    ax[16].text(6, 0.5, 'd prime', ha='center', va='center', fontdict=None, rotation=-90)
+    ax[17].text(6, 0.5, 'Criterion c', ha='center', va='center', fontdict=None, rotation=-90)
+
+    # cb1.set_ticklabels([0, 0.5, 1])
+
+    # SERIES
+    y_labels = [r'$\tau$ [ms]', r'$\tau$ [ms]', 'd prime', 'criterion c']
+    la_y_pos = [20, 20, 1.5, 0.5]
+    la_x_pos = [-1600, -1600, -1800, -1800]
+
+    j = 0
+    jj = 0
+    for i in [0, 4, 8, 12]:  # series
+        ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels[j], transform=ax[i].transAxes, size=subfig_caps,
+                   color='black')
+        # ax[i].set_ylabel(y_labels[jj])
+        ax[i].text(la_x_pos[jj], la_y_pos[jj], y_labels[jj], ha='center', va='center', fontdict=None, rotation=90)
+        j += 2
+        jj += 1
+        for k in range(2):
+            ax[i + k].set_xticks([0, 1000, 2000])
+            ax[i + k].set_xticklabels([0, 1, 2])
+        ax[i + 1].set_yticklabels([])
+
+    # SINGLE
+    la_y_pos = [20, 20, 1.5, 0.5]
+    la_x_pos = [-160, -160, -180, -180]
+    j = 1
+    jj = 0
+    for i in [2, 6, 10, 14]:  # single
+        ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels[j], transform=ax[i].transAxes, size=subfig_caps,
+                   color='black')
+        ax[i].text(la_x_pos[jj], la_y_pos[jj], y_labels[jj], ha='center', va='center', fontdict=None, rotation=90)
+        j += 2
+        jj += 1
+        for k in range(2):
+            ax[i + k].set_xticks([0, 100, 200])
+            ax[i + k].set_xticklabels([0, 0.1, 0.2])
+        ax[i + 1].set_yticklabels([])
+
+    ax[8].set_ylim(0, 3)
+    ax[9].set_ylim(0, 3)
+    ax[10].set_ylim(0, 3)
+    ax[11].set_ylim(0, 3)
+
+    ax[8].set_yticks([0, 1, 2, 3])
+    ax[9].set_yticks([0, 1, 2, 3])
+    ax[10].set_yticks([0, 1, 2, 3])
+    ax[11].set_yticks([0, 1, 2, 3])
+
+    ax[12].set_ylim(-1, 2)
+    ax[13].set_ylim(-1, 2)
+    ax[14].set_ylim(-1, 2)
+    ax[15].set_ylim(-1, 2)
+
+    ax[12].set_yticks([-1, 0, 1, 2])
+    ax[13].set_yticks([-1, 0, 1, 2])
+    ax[14].set_yticks([-1, 0, 1, 2])
+    ax[15].set_yticks([-1, 0, 1, 2])
+
+    # ax[18].legend()
+    ax[11].legend(frameon=False ,bbox_to_anchor=(1.1, 1.05))
+
+    sz_text = 12
+    ax[0].text(1200, 10000, 'Call series', ha='center', va='center', fontdict=None, size=sz_text)
+    ax[1].text(1200, 10000, 'Cs extended', ha='center', va='center', fontdict=None, size=sz_text)
+    ax[2].text(120, 10000, 'Single calls', ha='center', va='center', fontdict=None, size=sz_text)
+    ax[3].text(120, 10000, 'Sc extended', ha='center', va='center', fontdict=None, size=sz_text)
+
+    for i in range(8, 16):
+        sns.despine(ax=ax[i])
+
+    # fig.subplots_adjust(left=0.1, top=0.95, bottom=0.05, right=0.9, wspace=0.1, hspace=0.1)
+    fig.savefig(path_names[2] + 'final/MvsB_dprime.pdf')
+    plt.close(fig)
+    print('Poisson d prime Plot saved')
 
 if PLOT_VR:
     # data_name = '2018-02-09-aa'
