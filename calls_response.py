@@ -188,9 +188,9 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, I
         ax1.plot(t_audio * 1000, call_audio[1], 'k', linewidth=0.5)
     ax2.plot(t_volt*1000, y, 'k', linewidth=0.5)
     fs = 100*1000
-    if stim_type is 'series':
-        mared_idx = marked[trial_nr] * fs
-        ax2.plot(marked[trial_nr]*1000, y[mared_idx.astype('int')], 'rx', linewidth=0.5, markersize=0.25)
+    # if stim_type is 'series':
+    #     mared_idx = marked[trial_nr] * fs
+    #     ax2.plot(marked[trial_nr]*1000, y[mared_idx.astype('int')], 'rx', linewidth=0.5, markersize=0.25)
 
     for k in range(len(call_spikes)):
         ax3.plot(call_spikes[k]*1000, np.ones(len(call_spikes[k])) + k, 'ks', markersize=0.2, linewidth=0.5)
@@ -222,9 +222,14 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, I
     sns.despine(ax=ax2, top=True, right=True, left=True, bottom=True, offset=False, trim=False)
     sns.despine(ax=ax3, top=True, right=True, left=True, bottom=True, offset=5, trim=False)
 
-    ob = sb.AnchoredHScaleBar(size=10, label='', loc=1, frameon=False, pad=0.2, sep=4, color="k")
+    if stim_type is 'series' or stim_type is 'bats_series':
+        scale_size = 100
+    else:
+        scale_size = 10
+
+    ob = sb.AnchoredHScaleBar(size=scale_size, label='', loc=1, frameon=False, pad=0.2, sep=4, color="k")
     ax1.add_artist(ob)
-    fig.text(0.84, 0.90, '10 ms', ha='center', fontdict=None, size=6)
+    fig.text(0.84, 0.90, str(scale_size) + ' ms', ha='center', fontdict=None, size=6)
 
     # Subplot caps
     subfig_caps = 6
@@ -244,7 +249,7 @@ def plot_spikes(rec, name, stim_type, volt, spikes, cutoff, trial_nr, t_limit, I
     # figname = '/media/nils/Data/Moth/figs/' + rec + '/responses/' + stim_type + str(ID) + '.pdf'
     # figname = '/media/nils/Data/Moth/Thesis/nilsbrehm/figs/responses/' + stim_type + str(ID) + '.pdf'
     # figname = path_names[4] + 'test/' + stim_type + str(ID) + '.pdf'
-    figname = path_names[2] + 'responses/' + stim_type + str(ID) + '.png'
+    figname = path_names[2] + 'responses/' + stim_type + str(ID) + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
     return 0
@@ -456,11 +461,10 @@ valleys = np.load(path_names[1] + 'Calls_valleys.npy').item()
 spikes_old = np.load(path_names[1] + 'backup/Calls_spikes.npy').item()
 
 for q in range(len(ss)):  # Loop through stimulus types
-    # stim_types = 'bats_series'
     stim_types = ss[q]
     if stim_types is 'single':
         # rec = '2018-02-16-aa'  # good recs for single calls
-        call_limit = 0.19
+        call_limit = 0.2
         stims = ['BCI1062_07x07.wav',
                  'aclytia_gynamorpha_24x24.wav',
                  'agaraea_semivitrea_07x07.wav',
@@ -484,7 +488,7 @@ for q in range(len(ss)):  # Loop through stimulus types
 
     if stim_types is 'series':
         # rec = '2018-02-16-aa'  # good recs for call series
-        call_limit = 0
+        call_limit = 2
         stims = ['A7838.wav',
                  'BCI1348.wav',
                  'Chrostosoma_thoracicum.wav',
@@ -504,7 +508,7 @@ for q in range(len(ss)):  # Loop through stimulus types
                  'melese_PK1300_01.wav']
 
     if stim_types is'bats_single':
-        call_limit = 0.1
+        call_limit = 0.2
         # rec = '2018-02-20-aa'  # good recs for bats single
         stims = ['Barbastella_barbastellus_1_n.wav',
                  'Eptesicus_nilssonii_1_s.wav',
@@ -519,7 +523,7 @@ for q in range(len(ss)):  # Loop through stimulus types
                  'Vespertilio_murinus_1_s.wav']
 
     if stim_types is 'bats_series':
-        call_limit = 0.3
+        call_limit = 1
         # rec = '2018-02-16-aa'  # good recs for bats series
         stims = ['Barbastella_barbastellus_1_n.wav',
                  'Myotis_bechsteinii_1_n.wav',
@@ -587,15 +591,15 @@ for q in range(len(ss)):  # Loop through stimulus types
     #     print(str(i) + ': ' + stims[i][0:-4])
     # exit()
 
-    for kk in tqdm(range(len(stims)), desc=stim_types):
-        plot_volt(rec, stims[kk], stim_types, volt, spikes, spikes_raw, valleys, spikes_old, cutoff, None, [0, call_limit], ID=kk, path_names=path_names)
-
+    # for kk in tqdm(range(len(stims)), desc=stim_types):
+    #     plot_volt(rec, stims[kk], stim_types, volt, spikes, spikes_raw, valleys, spikes_old, cutoff, None, [0, call_limit], ID=kk, path_names=path_names)
     # change = [5, 6, 7, 9]
     # trials = [0, 1, 1, 10]
     # change_stims = np.array(stims)[change]
     # for kk in tqdm(range(len(change_stims)), desc='Calls'):
     #     plot_spikes(rec, change_stims[kk], stim_types, volt, spikes, cutoff, trials[kk], [0, 0], ID=change[kk], path_names=path_names)
-    # for kk in tqdm(range(len(stims)), desc='Calls'):
-    #     plot_spikes(rec, stims[kk], stim_types, volt, spikes, cutoff, None, [0, call_limit], ID=kk, path_names=path_names)
     #
-    # print('All plots saved')
+    for kk in tqdm(range(len(stims)), desc=stim_types):
+        plot_spikes(rec, stims[kk], stim_types, volt, spikes, cutoff, None, [0, call_limit], ID=kk, path_names=path_names)
+
+print('All plots saved')

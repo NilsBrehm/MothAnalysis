@@ -61,7 +61,7 @@ EPULSES = False
 VANROSSUM = False
 MVSB = False
 PLOT_MVSB = False
-PLOT_MVSB_DPRIME = True
+PLOT_MVSB_DPRIME = False
 
 # Compute other Distances
 ISI = False
@@ -70,7 +70,7 @@ DISTANCE_RATIOS = False
 # Other Distances Correct Matches
 PLOT_CORRECT = False
 PLOT_CORRECT_OVERALL = False
-PLOT_DISTANCES_CORRECT = False
+PLOT_DISTANCES_CORRECT = True
 
 # Ratio: within vs. between distances
 PLOT_D_RATIOS = False
@@ -4475,7 +4475,7 @@ if PLOT_DISTANCES_CORRECT:
     print(data_name)
     p = path_names[1]
 
-    plot_distances = True
+    plot_distances = False
     plot_correct = True
     # Get all data
     s_types = ['moth_series_selected', 'moth_series_selected_extended', 'moth_single_selected',
@@ -4512,7 +4512,6 @@ if PLOT_DISTANCES_CORRECT:
         marks = ['', 'o', 'v', 's', '']
         cc = ['0', 'orangered', 'navy', 'teal', '0']
         styles = [':', '-', '-.', '-', '--']
-
         # Subplotfig caps
         subfig_caps = 12
         label_x_pos = -0.3
@@ -4522,8 +4521,8 @@ if PLOT_DISTANCES_CORRECT:
         for i in range(len(ax)):
             ax[i].plot(duration[i], data_correct_random[s_types[i]][:, 0], marker='', color='0.9', linestyle='-', linewidth=3)
             for k in range(5):
-                ax[i].plot(duration[i], data_correct[s_types[i]][:, k], marker='', color=cc[k], linestyle=styles[k],
-                           label=labs[k])
+                ax[i].plot(duration[i], data_correct[s_types[i]][:, k], marker=marks[k], color=cc[k], linestyle=styles[k],
+                           label=labs[k], markersize=0.5)
                 ax[i].set_ylim(0, 1)
                 ax[i].set_yticks(np.arange(0, 1.1, 0.25))
             ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=ax[i].transAxes, size=subfig_caps,
@@ -4549,7 +4548,7 @@ if PLOT_DISTANCES_CORRECT:
         # fig.text(0.02, 0.5, 'Correct', ha='center', fontdict=None, rotation=90)
 
         sns.despine()
-        fig.savefig(path_names[2] + 'final/Distances_Correct.pdf')
+        fig.savefig(path_names[2] + 'final/Distances_Correct_TEST.pdf')
         plt.close(fig)
         print('Distances Correct plot saved')
 
