@@ -61,7 +61,7 @@ EPULSES = False
 VANROSSUM = False
 MVSB = False
 PLOT_MVSB = False
-PLOT_MVSB_DPRIME = False
+PLOT_MVSB_DPRIME = True
 
 # Compute other Distances
 ISI = False
@@ -70,7 +70,7 @@ DISTANCE_RATIOS = False
 # Other Distances Correct Matches
 PLOT_CORRECT = False
 PLOT_CORRECT_OVERALL = False
-PLOT_DISTANCES_CORRECT = True
+PLOT_DISTANCES_CORRECT = False
 
 # Ratio: within vs. between distances
 PLOT_D_RATIOS = False
@@ -1895,7 +1895,7 @@ if PLOT_MVSB_DPRIME:
     norm1 = matplotlib.colors.Normalize(vmin=0, vmax=2)
     cb1 = matplotlib.colorbar.ColorbarBase(ax[16], cmap=color_map, norm=norm1)
     norm2 = matplotlib.colors.Normalize(vmin=-1, vmax=1)
-    cb2 = matplotlib.colorbar.ColorbarBase(ax[17], cmap=color_map, norm=norm2)
+    cb2 = matplotlib.colorbar.ColorbarBase(ax[17], cmap=c_color_map, norm=norm2)
 
     cb1.set_ticks([0, 1, 2])
     cb2.set_ticks([-1, 0, 1])
@@ -4475,22 +4475,40 @@ if PLOT_DISTANCES_CORRECT:
     print(data_name)
     p = path_names[1]
 
-    plot_distances = False
-    plot_correct = True
+    plot_distances = True
+    plot_correct = False
     # Get all data
     s_types = ['moth_series_selected', 'moth_series_selected_extended', 'moth_single_selected',
                'moth_single_selected_extended']
     data_correct = {}
     data_correct_random = {}
     data_ratios = {'ISI': {}, 'SYNC': {}, 'DUR': {}, 'COUNT': {}}
+    n = [17, 17, 20, 20]
     for k in range(len(s_types)):
         data_correct.update({s_types[k]: np.load(path_names[1] + 'distances_correct_' + s_types[k] + '.npy')})
         data_correct_random.update({s_types[k]: np.load(path_names[1] + 'distances_rand_correct_' + s_types[k] + '.npy')})
 
         data_ratios['ISI'].update({s_types[k]: np.load(path_names[1] + 'ISI_Ratios_' + s_types[k] + '.npy')})
         data_ratios['SYNC'].update({s_types[k]: np.load(path_names[1] + 'SYNC_Ratios_' + s_types[k] + '.npy')})
-        data_ratios['DUR'].update({s_types[k]: np.load(path_names[1] + 'DUR_Ratios_' + s_types[k] + '.npy')})
-        data_ratios['COUNT'].update({s_types[k]: np.load(path_names[1] + 'COUNT_Ratios_' + s_types[k] + '.npy')})
+        # data_ratios['DUR'].update({s_types[k]: np.load(path_names[1] + 'DUR_Ratios_' + s_types[k] + '.npy')})
+        # data_ratios['COUNT'].update({s_types[k]: np.load(path_names[1] + 'COUNT_Ratios_' + s_types[k] + '.npy')})
+
+        # Normalize
+        a = np.load(path_names[1] + 'DUR_Ratios_' + s_types[k] + '.npy')
+        norm_max = np.max(a[:, 2])
+        a[:, 0] = a[:, 0] / norm_max
+        a[:, 1] = a[:, 1] / norm_max
+        a[:, 4] = a[:, 4] / norm_max
+        a[:, 2] = a[:, 2] / norm_max
+        data_ratios['DUR'].update({s_types[k]: a})
+
+        b = np.load(path_names[1] + 'COUNT_Ratios_' + s_types[k] + '.npy')
+        norm_max = np.max(b[:, 2])
+        b[:, 0] = b[:, 0] / norm_max
+        b[:, 1] = b[:, 1] / norm_max
+        b[:, 4] = b[:, 4] / norm_max
+        b[:, 2] = b[:, 2] / norm_max
+        data_ratios['COUNT'].update({s_types[k]: b})
 
     if plot_correct:
         # Plot Correct vs. Duration
@@ -4610,15 +4628,6 @@ if PLOT_DISTANCES_CORRECT:
         subfig_caps_labels1 = ['a', 'c', 'e',  'g' ,'i', 'k' , 'm']
         subfig_caps_labels2 = ['b', 'd', 'f', 'h' ,'j' ,'l', 'n']
 
-        # # Plot Correct vs Duration
-        # for i in range(4):
-        #     ax[i].plot(duration[i], data_correct_random[s_types[i]]*100, marker='', color='k', linestyle='-')
-        #     for k in range(5):
-        #         ax[i].plot(duration[i], data_correct[s_types[i]][:, k]*100, marker='', color=cc[k], linestyle=styles[k])
-        #         ax[i].set_ylim(0, 100)
-        #         ax[i].set_yticks(np.arange(0, 101, 25))
-        #     # ax[i].grid(color='0.3', linestyle='-', linewidth=.5)
-
         a = np.arange(0, 17, 4)
         b = np.arange(1, 18, 4)
         c = np.arange(2, 19, 4)
@@ -4646,71 +4655,66 @@ if PLOT_DISTANCES_CORRECT:
         ax[19].set_xticklabels([0, 0.1, 0.2])
 
         ax[1].set_yticklabels([])
-        # ax[2].set_yticklabels([])
         ax[3].set_yticklabels([])
 
-        # ax[0].set_ylabel('Correct')
         duration = duration * 4
         s_types = s_types * 4
         profiles = ['ISI', 'ISI', 'ISI', 'ISI', 'SYNC', 'SYNC', 'SYNC', 'SYNC', 'DUR', 'DUR', 'DUR', 'DUR', 'COUNT',
                     'COUNT', 'COUNT', 'COUNT']
+        n = [17, 17, 20, 20] * 4
         # Plot Distances
         for i in range(0, 16):
-            if profiles[i] == 'DUR':
-                data_ratios[profiles[i]][s_types[i]][:, 0] = data_ratios[profiles[i]][s_types[i]][:, 0] * 1000
-                data_ratios[profiles[i]][s_types[i]][:, 1] = data_ratios[profiles[i]][s_types[i]][:, 1] * 1000
-                data_ratios[profiles[i]][s_types[i]][:, 2] = data_ratios[profiles[i]][s_types[i]][:, 2] * 1000
-
-            ax[i].fill_between(duration[i], data_ratios[profiles[i]][s_types[i]][:, 0] - data_ratios[profiles[i]][s_types[i]][:, 1],
-                             data_ratios[profiles[i]][s_types[i]][:, 0] + data_ratios[profiles[i]][s_types[i]][:, 1], facecolors='k',
-                             alpha=0.25)
+            # if profiles[i] == 'DUR':
+            #     data_ratios[profiles[i]][s_types[i]][:, 0] = data_ratios[profiles[i]][s_types[i]][:, 0] * 1000
+            #     data_ratios[profiles[i]][s_types[i]][:, 1] = data_ratios[profiles[i]][s_types[i]][:, 1] * 1000
+            #     data_ratios[profiles[i]][s_types[i]][:, 2] = data_ratios[profiles[i]][s_types[i]][:, 2] * 1000
+            sem = data_ratios[profiles[i]][s_types[i]][:, 1] / np.sqrt(n[i])
+            ax[i].fill_between(duration[i], data_ratios[profiles[i]][s_types[i]][:, 0] - sem,
+                             data_ratios[profiles[i]][s_types[i]][:, 0] + sem, facecolors='k', alpha=0.25)
             ax[i].plot(duration[i], data_ratios[profiles[i]][s_types[i]][:, 0], 'k')
             ax[i].plot(duration[i], data_ratios[profiles[i]][s_types[i]][:, 2], 'b')
             ax[i].set_ylim(0, 1)
             ax[i].set_yticks([0, 0.5, 1])
 
-        # ax[4].set_ylabel('ISI')
-        # ax[8].set_ylabel('SYNC')
-        # ax[12].set_ylabel('DUR')
-        # ax[16].set_ylabel('COUNT')
-
-        ax[8].set_ylim(0, 200)
-        ax[8].set_yticks(np.arange(0, 200+5, 100))
-        ax[9].set_ylim(0, 200)
-        ax[9].set_yticks(np.arange(0, 200+5, 100))
-
-        ax[10].set_ylim(0, 100)
-        ax[10].set_yticks(np.arange(0, 100 + 2, 50))
-        ax[11].set_ylim(0, 100)
-        ax[11].set_yticks(np.arange(0, 100 + 2, 50))
-
-        ax[12].set_ylim(0, 40)
-        ax[12].set_yticks(np.arange(0, 40 + 1, 20))
-        ax[13].set_ylim(0, 40)
-        ax[13].set_yticks(np.arange(0, 40 + 1, 20))
-
-        ax[14].set_ylim(0, 20)
-        ax[14].set_yticks(np.arange(0, 20 + 1, 10))
-        ax[15].set_ylim(0, 20)
-        ax[15].set_yticks(np.arange(0, 20 + 1, 10))
+        # ax[8].set_ylim(0, 200)
+        # ax[8].set_yticks(np.arange(0, 200+5, 100))
+        # ax[9].set_ylim(0, 200)
+        # ax[9].set_yticks(np.arange(0, 200+5, 100))
+        #
+        # ax[10].set_ylim(0, 100)
+        # ax[10].set_yticks(np.arange(0, 100 + 2, 50))
+        # ax[11].set_ylim(0, 100)
+        # ax[11].set_yticks(np.arange(0, 100 + 2, 50))
+        #
+        # ax[12].set_ylim(0, 40)
+        # ax[12].set_yticks(np.arange(0, 40 + 1, 20))
+        # ax[13].set_ylim(0, 40)
+        # ax[13].set_yticks(np.arange(0, 40 + 1, 20))
+        #
+        # ax[14].set_ylim(0, 20)
+        # ax[14].set_yticks(np.arange(0, 20 + 1, 10))
+        # ax[15].set_ylim(0, 20)
+        # ax[15].set_yticks(np.arange(0, 20 + 1, 10))
 
         # Plot Ratios
+        # mode: ratio = 3, diff = 4
+        mode = 4
         cc = ['0', 'orangered', 'navy', 'teal', '0']
         for i in range(16, 20):
             k = i-16
-            ax[i].plot(duration[k], data_ratios['ISI'][s_types[k]][:, 3], marker='', color='orangered', linestyle='-')
-            ax[i].plot(duration[k], 1/data_ratios['SYNC'][s_types[k]][:, 3], marker='', color='teal', linestyle='-')
-            ax[i].plot(duration[k], data_ratios['DUR'][s_types[k]][:, 3], marker='', color='0', linestyle='--')
-            ax[i].plot(duration[k], data_ratios['COUNT'][s_types[k]][:, 3], marker='', color='0', linestyle=':')
-            ax[i].set_ylim(0, 3)
-            ax[i].set_yticks([0, 1, 2, 3])
+            ax[i].plot(duration[k], data_ratios['ISI'][s_types[k]][:, mode], marker='', color='orangered', linestyle='-')
+            ax[i].plot(duration[k], -data_ratios['SYNC'][s_types[k]][:, mode], marker='', color='teal', linestyle='-')
+            ax[i].plot(duration[k], data_ratios['DUR'][s_types[k]][:, mode], marker='', color='0', linestyle='--')
+            ax[i].plot(duration[k], data_ratios['COUNT'][s_types[k]][:, mode], marker='', color='0', linestyle=':')
+            ax[i].set_ylim(-0.1, 0.4)
+            ax[i].set_yticks([0, 0.2, 0.4])
 
         # fig.text(0.05, 0.85, 'Correct', ha='center', fontdict=None, rotation=90)
         fig.text(0.054, 0.83, 'ISI', ha='center', fontdict=None, rotation=90, va='center')
         fig.text(0.054, 0.67, 'SYNC', ha='center', fontdict=None, rotation=90, va='center')
-        fig.text(0.054, 0.5, 'DUR', ha='center', fontdict=None, rotation=90, va='center')
-        fig.text(0.054, 0.34, 'COUNT', ha='center', fontdict=None, rotation=90, va='center')
-        fig.text(0.054, 0.18, 'Ratio', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.5, 'Norm. \nDUR', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.34, 'Norm. \nCOUNT', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.18, 'Interspace', ha='center', fontdict=None, rotation=90, va='center')
 
         fig.text(0.5, 0.03, 'Spike train duration [s]', ha='center', fontdict=None)
 
@@ -4720,7 +4724,7 @@ if PLOT_DISTANCES_CORRECT:
         fig.text(0.64, 0.93, 'Single calls', ha='center', fontdict=None, size=sz_text)
         fig.text(0.825, 0.93, 'Sc extended', ha='center', fontdict=None, size=sz_text)
         sns.despine()
-        fig.savefig(path_names[2] + 'final/Distances_Ratios.pdf')
+        fig.savefig(path_names[2] + 'final/Distances_Differences.pdf')
         plt.close(fig)
         print('Distances Ratios plot saved')
 
