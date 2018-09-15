@@ -433,11 +433,12 @@ if compare_ratios:
 
         # Get all ratios
         for i in range(len(rands)):
+            mode = 3
             stim_type = 'series'
-            r_isi_series[i] = np.load(p + 'ISI_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, 3]
-            r_sync_series[i] = 1/np.load(p + 'SYNC_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, 3]
-            r_dur_series[i] = np.load(p + 'DUR_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, 3]
-            r_count_series[i] = np.load(p + 'COUNT_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, 3]
+            r_isi_series[i] = np.load(p + 'ISI_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, mode]
+            r_sync_series[i] = 1/np.load(p + 'SYNC_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, mode]
+            r_dur_series[i] = np.load(p + 'DUR_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, mode]
+            r_count_series[i] = np.load(p + 'COUNT_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, mode]
 
             idx_inf = r_count_series[i] == np.inf
             r_count_series[i][idx_inf] = 500
@@ -445,10 +446,10 @@ if compare_ratios:
             r_dur_series[i][idx_inf] = 500
 
             stim_type = 'single'
-            r_isi_single[i] = np.load(p + 'ISI_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, 3]
-            r_sync_single[i] = 1/np.load(p + 'SYNC_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, 3]
-            r_dur_single[i] = np.load(p + 'DUR_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, 3]
-            r_count_single[i] = np.load(p + 'COUNT_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, 3]
+            r_isi_single[i] = np.load(p + 'ISI_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, mode]
+            r_sync_single[i] = 1/np.load(p + 'SYNC_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, mode]
+            r_dur_single[i] = np.load(p + 'DUR_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, mode]
+            r_count_single[i] = np.load(p + 'COUNT_Ratios_PulseTrains_' + stim_type + '_' + str(i) + '.npy')[:, mode]
             idx_inf = r_count_single[i] == np.inf
             r_count_single[i][idx_inf] = 500
             idx_inf = r_dur_single[i] == np.inf
@@ -477,7 +478,7 @@ if compare_ratios:
         cb1 = plt.subplot(grid[0:23, 50:51])
         # Ratio limits
         ratio_lower = 1
-        ratio_upper = 4
+        ratio_upper = 3
         im1 = ax1.pcolormesh(XX_series, YY_series, r_isi_series, cmap='jet', vmin=ratio_lower, vmax=ratio_upper, shading='flat', rasterized=True)
         im2 = ax2.pcolormesh(XX_series, YY_series, r_sync_series, cmap='jet', vmin=ratio_lower, vmax=ratio_upper, shading='flat', rasterized=True)
         im3 = ax3.pcolormesh(XX_series, YY_series, r_dur_series, cmap='jet', vmin=ratio_lower, vmax=ratio_upper, shading='flat', rasterized=True)

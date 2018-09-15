@@ -61,7 +61,7 @@ EPULSES = False
 VANROSSUM = False
 MVSB = False
 PLOT_MVSB = False
-PLOT_MVSB_DPRIME = True
+PLOT_MVSB_DPRIME = False
 
 # Compute other Distances
 ISI = False
@@ -70,7 +70,7 @@ DISTANCE_RATIOS = False
 # Other Distances Correct Matches
 PLOT_CORRECT = False
 PLOT_CORRECT_OVERALL = False
-PLOT_DISTANCES_CORRECT = False
+PLOT_DISTANCES_CORRECT = True
 
 # Ratio: within vs. between distances
 PLOT_D_RATIOS = False
@@ -4574,8 +4574,8 @@ if PLOT_DISTANCES_CORRECT:
     if plot_distances:
         mf.plot_settings()
         ax = [[]] * 24
-        grid = matplotlib.gridspec.GridSpec(nrows=67, ncols=59)
-        fig = plt.figure(figsize=(5.9, 5.9))
+        grid = matplotlib.gridspec.GridSpec(nrows=81, ncols=59)
+        fig = plt.figure(figsize=(5.9, 6.9))
         ax[0] = plt.subplot(grid[0:10, 0:10])
         ax[1] = plt.subplot(grid[0:10, 14:24])
 
@@ -4606,11 +4606,11 @@ if PLOT_DISTANCES_CORRECT:
         ax[18] = plt.subplot(grid[56:66, 34:44])
         ax[19] = plt.subplot(grid[56:66, 48:58])
 
-        # ax[20] = plt.subplot(grid[70:80, 0:10])
-        # ax[21] = plt.subplot(grid[70:80, 14:24])
-        #
-        # ax[22] = plt.subplot(grid[70:80, 30:40])
-        # ax[23] = plt.subplot(grid[70:80, 44:54])
+        ax[20] = plt.subplot(grid[70:80, 0:10])
+        ax[21] = plt.subplot(grid[70:80, 14:24])
+
+        ax[22] = plt.subplot(grid[70:80, 34:44])
+        ax[23] = plt.subplot(grid[70:80, 48:58])
 
         du1 = list(np.arange(0, 255, 5))
         du1[0] = 1
@@ -4628,10 +4628,10 @@ if PLOT_DISTANCES_CORRECT:
         subfig_caps_labels1 = ['a', 'c', 'e',  'g' ,'i', 'k' , 'm']
         subfig_caps_labels2 = ['b', 'd', 'f', 'h' ,'j' ,'l', 'n']
 
-        a = np.arange(0, 17, 4)
-        b = np.arange(1, 18, 4)
-        c = np.arange(2, 19, 4)
-        d = np.arange(3, 20, 4)
+        a = np.arange(0, 21, 4)
+        b = np.arange(1, 22, 4)
+        c = np.arange(2, 23, 4)
+        d = np.arange(3, 24, 4)
 
         for i in range(len(a)):
             ax[a[i]].set_xticks(np.arange(0, 2550, 1000))
@@ -4649,10 +4649,10 @@ if PLOT_DISTANCES_CORRECT:
             ax[c[i]].text(label_x_pos, label_y_pos, subfig_caps_labels2[i], transform=ax[c[i]].transAxes, size=subfig_caps,
                           color='black')
 
-        ax[16].set_xticklabels([0, 1, 2])
-        ax[17].set_xticklabels([0, 1, 2])
-        ax[18].set_xticklabels([0, 0.1, 0.2])
-        ax[19].set_xticklabels([0, 0.1, 0.2])
+        ax[20].set_xticklabels([0, 1, 2])
+        ax[21].set_xticklabels([0, 1, 2])
+        ax[22].set_xticklabels([0, 0.1, 0.2])
+        ax[23].set_xticklabels([0, 0.1, 0.2])
 
         ax[1].set_yticklabels([])
         ax[3].set_yticklabels([])
@@ -4696,7 +4696,7 @@ if PLOT_DISTANCES_CORRECT:
         # ax[15].set_ylim(0, 20)
         # ax[15].set_yticks(np.arange(0, 20 + 1, 10))
 
-        # Plot Ratios
+        # Plot Diffs
         # mode: ratio = 3, diff = 4
         mode = 4
         cc = ['0', 'orangered', 'navy', 'teal', '0']
@@ -4709,12 +4709,28 @@ if PLOT_DISTANCES_CORRECT:
             ax[i].set_ylim(-0.1, 0.4)
             ax[i].set_yticks([0, 0.2, 0.4])
 
+        # Plot Ratios
+        # mode: ratio = 3, diff = 4
+        mode = 3
+        cc = ['0', 'orangered', 'navy', 'teal', '0']
+        for i in range(20, 24):
+            k = i - 20
+            ax[i].plot(duration[k], data_ratios['ISI'][s_types[k]][:, mode], marker='', color='orangered',
+                       linestyle='-')
+            ax[i].plot(duration[k], 1/data_ratios['SYNC'][s_types[k]][:, mode], marker='', color='teal',
+                       linestyle='-')
+            ax[i].plot(duration[k], data_ratios['DUR'][s_types[k]][:, mode], marker='', color='0', linestyle='--')
+            ax[i].plot(duration[k], data_ratios['COUNT'][s_types[k]][:, mode], marker='', color='0', linestyle=':')
+            ax[i].set_ylim(0.9, 3)
+            ax[i].set_yticks([1, 2, 3])
+
         # fig.text(0.05, 0.85, 'Correct', ha='center', fontdict=None, rotation=90)
-        fig.text(0.054, 0.83, 'ISI', ha='center', fontdict=None, rotation=90, va='center')
-        fig.text(0.054, 0.67, 'SYNC', ha='center', fontdict=None, rotation=90, va='center')
-        fig.text(0.054, 0.5, 'Norm. \nDUR', ha='center', fontdict=None, rotation=90, va='center')
-        fig.text(0.054, 0.34, 'Norm. \nCOUNT', ha='center', fontdict=None, rotation=90, va='center')
-        fig.text(0.054, 0.18, 'Interspace', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.835, 'ISI', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.7, 'SYNC', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.57, 'Norm. \nDUR', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.44, 'Norm. \nCOUNT', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.3, 'Interspace', ha='center', fontdict=None, rotation=90, va='center')
+        fig.text(0.054, 0.17, 'Ratio', ha='center', fontdict=None, rotation=90, va='center')
 
         fig.text(0.5, 0.03, 'Spike train duration [s]', ha='center', fontdict=None)
 
@@ -4724,7 +4740,7 @@ if PLOT_DISTANCES_CORRECT:
         fig.text(0.64, 0.93, 'Single calls', ha='center', fontdict=None, size=sz_text)
         fig.text(0.825, 0.93, 'Sc extended', ha='center', fontdict=None, size=sz_text)
         sns.despine()
-        fig.savefig(path_names[2] + 'final/Distances_Differences.pdf')
+        fig.savefig(path_names[2] + 'final/Distances_DiffsAndRatio.pdf')
         plt.close(fig)
         print('Distances Ratios plot saved')
 
