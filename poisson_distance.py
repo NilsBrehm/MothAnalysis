@@ -93,45 +93,89 @@ rec = '2018-02-16-aa'
 path_names = mf.get_directories(rec)
 compute_poisson = False
 plot_poisson = True
-
-if compute_poisson:
+TAU = False
+if TAU:
     trials = 10
     rate = 100
     durations = np.arange(0, 1000, 10)
     durations[0] = 1
     durations = durations / 1000
-    spikes = [[]] * len(durations)
-    spike_trains = [[]] * len(durations)
-    base_tmax = [0.01, 0.1, 0.5, 1, 2]
+    # base_tmax = [0.01, 0.1, 0.5, 1, 2]
+    # base_tmax = [0.1, 0.5, 1, 2, 4, 8]
+    base_tmax = [2, 2, 2, 2, 2]
+
+    taus = np.arange(1, 1000, 10) / 1000
+    dt = 0.001
+    vr = np.ndarray((len(base_tmax), len(taus)))
+    vr_expected = np.ndarray((len(base_tmax), len(taus)))
+
+    p01 = [[]] * len(base_tmax)
+    p02 = [[]] * len(base_tmax)
+    for k in range(len(base_tmax)):
+        p01[k], _ = poission_spikes(1, rate, tmax=base_tmax[k])
+        p02[k], _ = poission_spikes(1, rate, tmax=base_tmax[k])
+        for j in tqdm(range(len(taus)), desc='Taus'):
+            pulse01 = mf.fast_e_pulses(np.array(p01[k][0]), tau=taus[j], dt=dt)
+            pulse02 = mf.fast_e_pulses(np.array(p02[k][0]), tau=taus[j], dt=dt)
+            vr_expected[k][j] = rate * base_tmax[k]
+            vr[k][j] = mf.vanrossum_distance(pulse01, pulse02, dt=dt, tau=taus[j])
+    embed()
+    exit()
+
+if compute_poisson:
+    boots = 10
+    rate = 100
+    # base_tmax = [0.01, 0.1, 0.5, 1, 2]
+    base_tmax = [0.05, 0.1, 0.5, 1, 2]
     t_diffs = np.arange(0.001, 2, 0.001)
+    t_diffs = np.insert(t_diffs, 0, 0)
     taus = [0.001, 0.01, 0.1]
-
-    vr = np.ndarray((len(base_tmax), len(t_diffs), len(taus)))
-    isi = np.ndarray((len(base_tmax), len(t_diffs)))
-    sync = np.ndarray((len(base_tmax), len(t_diffs)))
-    count = np.ndarray((len(base_tmax), len(t_diffs)))
-    dur = np.ndarray((len(base_tmax), len(t_diffs)))
-    spike = np.ndarray((len(base_tmax), len(t_diffs)))
-
-    vr_tau_small = [[]] * len(base_tmax)
     dt = 0.001
     tau = 0.1
     data = []
-    for k in tqdm(range(len(base_tmax)), desc='Poisson Trains: '):
-        for i in range(len(t_diffs)):
-            p01, _ = poission_spikes(1, rate, tmax=base_tmax[k])
-            p02, _ = poission_spikes(1, rate, tmax=base_tmax[k]+t_diffs[i])
-            spike_train01 = spk.SpikeTrain(p01[0], [0, base_tmax[k]+t_diffs[i]])
-            spike_train02 = spk.SpikeTrain(p02[0], [0, base_tmax[k]+t_diffs[i]])
-            for j in range(len(taus)):
-                pulse01 = mf.fast_e_pulses(np.array(p01[0]), tau=taus[j], dt=dt)
-                pulse02 = mf.fast_e_pulses(np.array(p02[0]), tau=taus[j], dt=dt)
-                vr[k][i][j] = mf.vanrossum_distance(pulse01, pulse02, dt=dt, tau=taus[j])
-            isi[k][i] = spk.isi_distance(spike_train01, spike_train02)
-            sync[k][i] = spk.spike_sync(spike_train01, spike_train02)
-            count[k][i] = abs(len(spike_train01.spikes) - len(spike_train02.spikes))
-            dur[k][i] = abs(spike_train01.spikes[-1] - spike_train02[-1])
-            spike[k][i] = spk.spike_distance(spike_train01, spike_train02)
+    vr_boots = [[]] * boots
+    isi_boots = [[]] * boots
+    sync_boots = [[]] * boots
+    count_boots = [[]] * boots
+    dur_boots = [[]] * boots
+    spike_boots = [[]] * boots
+    for n in range(boots):
+        vr = np.ndarray((len(base_tmax), len(t_diffs), len(taus)))
+        isi = np.ndarray((len(base_tmax), len(t_diffs)))
+        sync = np.ndarray((len(base_tmax), len(t_diffs)))
+        count = np.ndarray((len(base_tmax), len(t_diffs)))
+        dur = np.ndarray((len(base_tmax), len(t_diffs)))
+        spike = np.ndarray((len(base_tmax), len(t_diffs)))
+
+        pp01, _ = poission_spikes(1, rate, tmax=base_tmax[-1])
+        pp02, _ = poission_spikes(1, rate, tmax=base_tmax[-1] + t_diffs[-1])
+        pp01 = np.array(pp01[0])
+        pp02 = np.array(pp02[0])
+
+        for k in tqdm(range(len(base_tmax)), desc='Poisson Trains: '):
+            for i in range(len(t_diffs)):
+                # p01, _ = poission_spikes(1, rate, tmax=base_tmax[k])
+                # p02, _ = poission_spikes(1, rate, tmax=base_tmax[k]+t_diffs[i])
+                p01 = pp01[pp01 <= base_tmax[k]]
+                p02 = pp02[pp02 <= base_tmax[k] + t_diffs[i]]
+                spike_train01 = spk.SpikeTrain(p01, [0, base_tmax[k]+t_diffs[i]])
+                spike_train02 = spk.SpikeTrain(p02, [0, base_tmax[k]+t_diffs[i]])
+                for j in range(len(taus)):
+                    pulse01 = mf.fast_e_pulses(np.array(p01), tau=taus[j], dt=dt)
+                    pulse02 = mf.fast_e_pulses(np.array(p02), tau=taus[j], dt=dt)
+                    vr[k][i][j] = mf.vanrossum_distance(pulse01, pulse02, dt=dt, tau=taus[j])
+                isi[k][i] = spk.isi_distance(spike_train01, spike_train02)
+                sync[k][i] = spk.spike_sync(spike_train01, spike_train02)
+                count[k][i] = abs(len(spike_train01.spikes) - len(spike_train02.spikes))
+                dur[k][i] = abs(spike_train01.spikes[-1] - spike_train02[-1])
+                spike[k][i] = spk.spike_distance(spike_train01, spike_train02)
+        vr_boots[n] = vr
+        isi_boots[n] = isi
+        sync_boots[n] = sync
+        count_boots[n] = count
+        dur_boots[n] = dur
+        spike_boots[n] = spike
+
     # FIT
     fit_vr_x = np.ndarray((len(base_tmax), len(taus), 1000))
     fit_vr_y = np.ndarray((len(base_tmax), len(taus), 1000))
@@ -148,24 +192,72 @@ if compute_poisson:
 
     for j in tqdm(range(len(base_tmax)), desc='Fit: '):
         for t in range(len(taus)):
-            fit_vr_x[j][t], fit_vr_y[j][t], _, _, _ = fit_function(t_diffs, vr[j][:, t], x_plot=[t_diffs[0], t_diffs[-1]],
+            dummy = vr_boots[0][j][:, t]
+            t_dummy1 = np.copy(t_diffs)
+            for kk in range(boots-1):
+                dummy = np.append(dummy, vr_boots[kk+1][j][:, t])
+                t_dummy1 = np.append(t_dummy1, t_diffs)
+            fit_vr_x[j][t], fit_vr_y[j][t], _, _, _ = fit_function(t_dummy1, dummy, x_plot=[t_diffs[0], t_diffs[-1]],
                                                                    method='power')
-        fit_isi_x[j], fit_isi_y[j], _, _, _ = fit_function(t_diffs, isi[j], x_plot=[t_diffs[0], t_diffs[-1]],
+        dummy_isi = isi_boots[0][j]
+        dummy_sync = sync_boots[0][j]
+        dummy_count = count_boots[0][j]
+        dummy_dur = dur_boots[0][j]
+        dummy_spike = spike_boots[0][j]
+        t_dummy = np.copy(t_diffs)
+        for kk in range(boots - 1):
+            dummy_isi = np.append(dummy_isi, isi_boots[kk + 1][j])
+            dummy_sync = np.append(dummy_sync, sync_boots[kk + 1][j])
+            dummy_count = np.append(dummy_count, count_boots[kk + 1][j])
+            dummy_dur = np.append(dummy_dur, dur_boots[kk + 1][j])
+            dummy_spike = np.append(dummy_spike, spike_boots[kk + 1][j])
+            t_dummy = np.append(t_dummy, t_diffs)
+
+        fit_isi_x[j], fit_isi_y[j], _, _, _ = fit_function(t_dummy, dummy_isi, x_plot=[t_diffs[0], t_diffs[-1]],
                                                            method='limited')
-        fit_sync_x[j], fit_sync_y[j], _, _, _ = fit_function(t_diffs, sync[j], x_plot=[t_diffs[0], t_diffs[-1]],
+        fit_sync_x[j], fit_sync_y[j], _, _, _ = fit_function(t_dummy, dummy_sync, x_plot=[t_diffs[0], t_diffs[-1]],
                                                            method='exp_decay')
-        fit_count_x[j], fit_count_y[j], _, _, _ = fit_function(t_diffs, count[j], x_plot=[t_diffs[0], t_diffs[-1]],
+        fit_count_x[j], fit_count_y[j], _, _, _ = fit_function(t_dummy, dummy_count, x_plot=[t_diffs[0], t_diffs[-1]],
                                                            method='linear')
-        fit_dur_x[j], fit_dur_y[j], _, _, _ = fit_function(t_diffs, dur[j], x_plot=[t_diffs[0], t_diffs[-1]],
+        fit_dur_x[j], fit_dur_y[j], _, _, _ = fit_function(t_dummy, dummy_dur, x_plot=[t_diffs[0], t_diffs[-1]],
                                                            method='linear')
-        fit_spike_x[j], fit_spike_y[j], _, _, _ = fit_function(t_diffs, spike[j], x_plot=[t_diffs[0], t_diffs[-1]],
+        fit_spike_x[j], fit_spike_y[j], _, _, _ = fit_function(t_dummy, dummy_spike, x_plot=[t_diffs[0], t_diffs[-1]],
                                                            method='power')
+
+    # for j in tqdm(range(len(base_tmax)), desc='Fit: '):
+    #     for t in range(len(taus)):
+    #         dummy = vr_boots[0][j][:, t]
+    #         t_dummy = t_diffs
+    #         for kk in range(boots - 1):
+    #             dummy = np.append(dummy, vr_boots[kk + 1][j][:, t])
+    #             t_dummy = np.append(t_dummy, t_dummy)
+    #         fit_vr_x[j][t], fit_vr_y[j][t], _, _, _ = fit_function(t_diffs, vr[j][:, t],
+    #                                                                x_plot=[t_diffs[0], t_diffs[-1]],
+    #                                                                method='power')
+    #     fit_isi_x[j], fit_isi_y[j], _, _, _ = fit_function(t_diffs, isi[j], x_plot=[t_diffs[0], t_diffs[-1]],
+    #                                                        method='limited')
+    #     fit_sync_x[j], fit_sync_y[j], _, _, _ = fit_function(t_diffs, sync[j], x_plot=[t_diffs[0], t_diffs[-1]],
+    #                                                          method='exp_decay')
+    #     fit_count_x[j], fit_count_y[j], _, _, _ = fit_function(t_diffs, count[j], x_plot=[t_diffs[0], t_diffs[-1]],
+    #                                                            method='linear')
+    #     fit_dur_x[j], fit_dur_y[j], _, _, _ = fit_function(t_diffs, dur[j], x_plot=[t_diffs[0], t_diffs[-1]],
+    #                                                        method='linear')
+    #     fit_spike_x[j], fit_spike_y[j], _, _, _ = fit_function(t_diffs, spike[j], x_plot=[t_diffs[0], t_diffs[-1]],
+    #                                                            method='power')
+
     # Save Data
-    data = {'vr': vr, 'isi': isi, 'sync': sync, 'spike': spike, 'dur': dur, 'count': count, 'base_tmax': base_tmax,
+    # data = {'vr': vr, 'isi': isi, 'sync': sync, 'spike': spike, 'dur': dur, 'count': count, 'base_tmax': base_tmax,
+    #         't_diffs': t_diffs, 'taus': taus, 'dt': dt,
+    #         'fit_vr': [fit_vr_x, fit_vr_y], 'fit_isi': [fit_isi_x, fit_isi_y],  'fit_sync': [fit_sync_x, fit_sync_y],
+    #         'fit_count': [fit_count_x, fit_count_y], 'fit_dur': [fit_dur_x, fit_dur_y],
+    #         'fit_spike': [fit_spike_x, fit_spike_y]}
+
+    data = {'vr': vr_boots, 'isi': isi_boots, 'sync': sync_boots, 'spike': spike_boots, 'dur': dur_boots, 'count': count_boots, 'base_tmax': base_tmax,
             't_diffs': t_diffs, 'taus': taus, 'dt': dt,
-            'fit_vr': [fit_vr_x, fit_vr_y], 'fit_isi': [fit_isi_x, fit_isi_y],  'fit_sync': [fit_sync_x, fit_sync_y],
+            'fit_vr': [fit_vr_x, fit_vr_y], 'fit_isi': [fit_isi_x, fit_isi_y], 'fit_sync': [fit_sync_x, fit_sync_y],
             'fit_count': [fit_count_x, fit_count_y], 'fit_dur': [fit_dur_x, fit_dur_y],
-            'fit_spike': [fit_spike_x, fit_spike_y]}
+            'fit_spike': [fit_spike_x, fit_spike_y], 'boots': boots}
+
     np.save(path_names[1] + 'poisson/distance_bs_diff.npy', data)
     print('Poisson data saved')
 
@@ -200,14 +292,16 @@ if plot_poisson:
     subfig_caps_labels1 = ['a', 'b', 'c']
     subfig_caps_labels2 = ['d', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n']
 
-    # Plot VanRossum
+    # Plot VanRossum ===================================================================================================
     y_limits = [1000, 1000, 2000]
     for i in range(3):
         for k in range(len(base_tmax)):
-            ax[i].plot(t_diffs, data['vr'][k][:, i], marker='.', color=cc1[k], alpha=0.2, linestyle='')
+            for boots in range(data['boots']):
+                # ax[i].plot(t_diffs, data['vr'][k][:, i], marker='', color=cc1[k], alpha=0.8, linestyle='-')
+                ax[i].plot(t_diffs, data['vr'][boots][k][:, i], marker='.', color=cc1[k], alpha=0.2, linestyle='')
+
         ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels1[i], transform=ax[i].transAxes, size=subfig_caps,
                    color='black')
-
     for i in range(3):
         for k in range(len(base_tmax)):
             ax[i].plot(data['fit_vr'][0][:, i][k], data['fit_vr'][1][:, i][k], color=cc2[k], lw=1,
@@ -221,11 +315,15 @@ if plot_poisson:
 
     profiles = ['isi', 'sync', 'spike', 'dur', 'count']
     y_limits = [1, 1, 1, 2, 250]
-    # Plot Profiles
+
+    # Plot Profiles ====================================================================================================
     for i in range(3, 8):
         k = i-3
         for j in range(len(base_tmax)):
-            ax[i].plot(t_diffs, data[profiles[k]][j], marker='.', color=cc1[j], alpha=0.2, linestyle='')
+            for boots in range(data['boots']):
+                # ax[i].plot(t_diffs, data[profiles[k]][j], marker='', color=cc1[j], alpha=0.8, linestyle='-')
+                ax[i].plot(t_diffs, data[profiles[k]][boots][j], marker='.', color=cc1[j], alpha=0.2, linestyle='')
+
         ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels2[k], transform=ax[i].transAxes, size=subfig_caps,
                    color='black')
         # ax[i].set_ylim(0, y_limits[k])
@@ -260,6 +358,6 @@ if plot_poisson:
 
     # # Estimate for two poisson trains with same rate and duration
     # b = [(rate * base_tmax[i]) for i in range(len(vr))]
-    fig.savefig(path_names[2] + 'final/Poisson_DiffInDuration.pdf')
+    fig.savefig(path_names[2] + 'final/Poisson_DiffInDuration.png')
     plt.close(fig)
     print('Poisson Difference in Duration Plot saved')

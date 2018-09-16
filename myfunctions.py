@@ -3500,9 +3500,9 @@ def trains_to_e_pulses(path_names, tau, dt, stim_type, method, extended=False):
                  'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
                  'callseries/bats/Vespertilio_murinus_1_s.wav']
 
-    if stim_type == 'poisson':
-        stimulus_tags = np.load(path_names[1] + 'Poisson_tags.npy')
-        spikes = np.load(path_names[1] + 'Poisson_spikes.npy').item()
+    if stim_type[0:7] == 'poisson':
+        stimulus_tags = np.load(path_names[1] + stim_type + '_tags.npy')
+        spikes = np.load(path_names[1] + stim_type +'_spikes.npy').item()
     else:
         # Tags and Stimulus names
         connection, _ = tagtostimulus(path_names)
@@ -4050,9 +4050,9 @@ def isi_matrix(path_names, duration, boot_sample, stim_type, profile, save_fig, 
                  'callseries/bats/Rhinolophus_ferrumequinum_1_n.wav',
                  'callseries/bats/Vespertilio_murinus_1_s.wav']
 
-    if stim_type == 'poisson':
-        stimulus_tags = np.load(path_names[1] + 'Poisson_tags.npy')
-        spikes = np.load(path_names[1] + 'Poisson_spikes.npy').item()
+    if stim_type[0:7] == 'poisson':
+        stimulus_tags = np.load(path_names[1] + stim_type +'_tags.npy')
+        spikes = np.load(path_names[1] + stim_type + '_spikes.npy').item()
     else:
         # Tags and Stimulus names
         connection, _ = tagtostimulus(path_names)

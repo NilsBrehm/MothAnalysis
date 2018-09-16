@@ -70,7 +70,7 @@ DISTANCE_RATIOS = False
 # Other Distances Correct Matches
 PLOT_CORRECT = False
 PLOT_CORRECT_OVERALL = False
-PLOT_DISTANCES_CORRECT = True
+PLOT_DISTANCES_CORRECT = False
 
 # Ratio: within vs. between distances
 PLOT_D_RATIOS = False
@@ -125,11 +125,11 @@ show = False
 save_extended_spikes = False
 extended = False
 POISSON_TRAINS = False
-POISSON_TAU_CORRECT = False
+POISSON_TAU_CORRECT = True
 
 # stim_type = 'moth_single_selected'
 # stim_type = 'all_single'
-stim_type = 'poisson'
+stim_type = 'poisson_2diff'
 stim_length = 'series'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
@@ -721,7 +721,16 @@ if POISSON_TRAINS:
     path_names = mf.get_directories(rec)
     trials = 20
     rate = 100
-    tmax_range = [0.01, 0.01, 0.05, 0.05, 0.1, 0.1, 0.5, 0.5, 1, 1., 1.5, 1.5, 2, 2, 2.5, 2.5, 3, 3]
+    # tmax_range = [0.01, 0.01, 0.05, 0.05, 0.1, 0.1, 0.5, 0.5, 1, 1, 1.5, 1.5, 2, 2, 2.5, 2.5, 3, 3]
+    # tmax_range = [0.01, 0.05, 0.1, 0.5, 1, 1.5, 2, 2.5, 3]
+    if stim_type is 'poisson_diff':
+        tmax_range = np.round(np.linspace(0.05, 3, 20), 2)
+    if stim_type is 'poisson_2diff':
+        tmax_range = np.round(np.linspace(0.05, 3, 10), 2)
+        tmax_range =np.sort(np.append(tmax_range, tmax_range))
+    if stim_type is 'poisson_same':
+        tmax_range = np.zeros(20) + 2
+
     spikes = {}
     spike_trains = {}
     ps = [[]] * len(tmax_range)
@@ -734,10 +743,10 @@ if POISSON_TRAINS:
             poisson_spike_trains[i] = spk.SpikeTrain(ps[k][i], [0, tmax_range[k]])
         spike_trains.update({'p' + str(k): poisson_spike_trains})
         spikes.update({'p' + str(k): ps[k]})
-    np.save(path_names[1] + 'Poisson_spikes.npy', spikes)
-    np.save(path_names[1] + 'Poisson_spk_spike_trains.npy', spikes)
-    np.save(path_names[1] + 'Poisson_tags.npy', ps_tag)
-    print('Poisson Spike trains saved')
+    np.save(path_names[1] + stim_type + '_spikes.npy', spikes)
+    np.save(path_names[1] + stim_type + '_spk_spike_trains.npy', spikes)
+    np.save(path_names[1] + stim_type + '_tags.npy', ps_tag)
+    print('Poisson Spike trains saved: ' + stim_type)
 
 # Rect Intervals
 if INTERVAL_REC_SPONT:
@@ -4753,7 +4762,9 @@ if POISSON_TAU_CORRECT:
     # Get all data
     data = {}
     data.update({'vr': np.load(p + 'VanRossum_correct_' + 'poisson' + '.npy')})
-    data.update({'distances': np.load(p + 'distances_correct_poisson' + '.npy')})
+    data.update({'distances_same': np.load(p + 'distances_correct_poisson_same' + '.npy')})
+    data.update({'distances_diff': np.load(p + 'distances_correct_poisson_diff' + '.npy')})
+    data.update({'distances_2diff': np.load(p + 'distances_correct_poisson_2diff' + '.npy')})
     data.update({'random': np.load(p + 'distances_rand_correct_poisson' + '.npy')})
 
     # Plot
@@ -4802,7 +4813,9 @@ if POISSON_TAU_CORRECT:
     styles = [':', '-', '-.', '-', '--']
     labs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR']
     for i in range(5):
-        ax[2].plot(duration/1000, data['distances'][:, i], marker='', color=cc[i], linestyle=styles[i], label=labs[i])
+        ax[2].plot(duration/1000, data['distances_same'][:, i], marker='', color=cc[i], linestyle=styles[i], label=labs[i])
+        ax[2].plot(duration/1000, data['distances_diff'][:, i], marker='', color=cc[i], linestyle=styles[i], label=labs[i], lw=1.5)
+        ax[2].plot(duration/1000, data['distances_2diff'][:, i], marker='', color=cc[i], linestyle=styles[i], label=labs[i], lw=2.5)
 
     ax[2].text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax[2].transAxes, size=subfig_caps,
                color='black')
