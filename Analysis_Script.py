@@ -59,6 +59,7 @@ POISSON = False
 # Compute Van Rossum Distance
 EPULSES = False
 VANROSSUM = False
+
 MVSB = False
 PLOT_MVSB = False
 PLOT_MVSB_DPRIME = False
@@ -129,7 +130,7 @@ POISSON_TAU_CORRECT = True
 
 # stim_type = 'moth_single_selected'
 # stim_type = 'all_single'
-stim_type = 'poisson_2diff'
+stim_type = 'poisson_same'
 stim_length = 'series'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
@@ -723,13 +724,15 @@ if POISSON_TRAINS:
     rate = 100
     # tmax_range = [0.01, 0.01, 0.05, 0.05, 0.1, 0.1, 0.5, 0.5, 1, 1, 1.5, 1.5, 2, 2, 2.5, 2.5, 3, 3]
     # tmax_range = [0.01, 0.05, 0.1, 0.5, 1, 1.5, 2, 2.5, 3]
+    if stim_type is 'poisson_real':
+        tmax_range = [0.22, 0.14, 3.5, 2.04, 1.03, 0.96, 0.76, 0.22, 2.97, 1.52, 0.17, 2.76, 0.4, 0.41, 0.47, 1.87, 3.99]
     if stim_type is 'poisson_diff':
         tmax_range = np.round(np.linspace(0.05, 3, 20), 2)
     if stim_type is 'poisson_2diff':
         tmax_range = np.round(np.linspace(0.05, 3, 10), 2)
         tmax_range =np.sort(np.append(tmax_range, tmax_range))
     if stim_type is 'poisson_same':
-        tmax_range = np.zeros(20) + 2
+        tmax_range = np.zeros(17) + 2
 
     spikes = {}
     spike_trains = {}
@@ -4761,11 +4764,10 @@ if POISSON_TAU_CORRECT:
 
     # Get all data
     data = {}
-    data.update({'vr': np.load(p + 'VanRossum_correct_' + 'poisson' + '.npy')})
+    data.update({'vr': np.load(p + 'VanRossum_correct_' + 'poisson_real' + '.npy')})
     data.update({'distances_same': np.load(p + 'distances_correct_poisson_same' + '.npy')})
-    data.update({'distances_diff': np.load(p + 'distances_correct_poisson_diff' + '.npy')})
-    data.update({'distances_2diff': np.load(p + 'distances_correct_poisson_2diff' + '.npy')})
-    data.update({'random': np.load(p + 'distances_rand_correct_poisson' + '.npy')})
+    data.update({'distances_real': np.load(p + 'distances_correct_poisson_real' + '.npy')})
+    data.update({'random': np.load(p + 'distances_rand_correct_poisson_real' + '.npy')})
 
     # Plot
     mf.plot_settings()
@@ -4812,10 +4814,11 @@ if POISSON_TAU_CORRECT:
     cc = ['0', 'orangered', 'navy', 'teal', '0']
     styles = [':', '-', '-.', '-', '--']
     labs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR']
+    ax[2].plot(duration / 1000, data['random'][:, 0], marker='', color='gray', linestyle='-',
+               label='Random', lw=3, alpha=0.5)
     for i in range(5):
         ax[2].plot(duration/1000, data['distances_same'][:, i], marker='', color=cc[i], linestyle=styles[i], label=labs[i])
-        ax[2].plot(duration/1000, data['distances_diff'][:, i], marker='', color=cc[i], linestyle=styles[i], label=labs[i], lw=1.5)
-        ax[2].plot(duration/1000, data['distances_2diff'][:, i], marker='', color=cc[i], linestyle=styles[i], label=labs[i], lw=2.5)
+        ax[2].plot(duration/1000, data['distances_real'][:, i], marker='', color=cc[i], linestyle=styles[i])
 
     ax[2].text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax[2].transAxes, size=subfig_caps,
                color='black')
