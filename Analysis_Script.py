@@ -100,7 +100,7 @@ PLOT_MvsB = False
 PLOT_DISTANCES = False
 
 # Pulse Train Stuff
-PULSE_TRAIN_VANROSSUM = False
+PULSE_TRAIN_VANROSSUM = True
 PULSE_TRAIN_ISI = False
 
 # FI Stuff
@@ -126,12 +126,12 @@ show = False
 save_extended_spikes = False
 extended = False
 POISSON_TRAINS = False
-POISSON_TAU_CORRECT = True
+POISSON_TAU_CORRECT = False
 
-# stim_type = 'moth_single_selected'
+stim_type = 'moth_single_selected'
 # stim_type = 'all_single'
-stim_type = 'poisson_same'
-stim_length = 'series'
+# stim_type = 'poisson_same'
+stim_length = 'single'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -3083,173 +3083,173 @@ if PULSE_TRAIN_VANROSSUM:
 
         # figname = "/media/nils/Data/Moth/figs/" + data_name + '/' + stim_type + '_' + str(
         #     selected_duration) + '_comparison.pdf'
-        figname = path_names[2] + stim_type + '_' + str(selected_duration) + '_comparison.pdf'
+        figname = path_names[2] + 'comparison/' + stim_type + '_' + str(selected_duration) + '_comparison.pdf'
         fig.savefig(figname)
 
     exit()
-    for aa in range(4):
-        if method[aa] is 'vr':
-            fig = plt.figure(figsize=(5.9, 3.9))
-            grid = matplotlib.gridspec.GridSpec(nrows=23, ncols=25)
-            ax1 = plt.subplot(grid[0:11, 0:8])
-            ax2 = plt.subplot(grid[0:11, 8:16])
-            ax3 = plt.subplot(grid[0:11, 16:24])
-            ax4 = plt.subplot(grid[11:22, 0:8])
-            ax5 = plt.subplot(grid[11:22, 8:16])
-            ax6 = plt.subplot(grid[11:22, 16:24])
-            ax_cbar = plt.subplot(grid[0:22, -1])
-
-            im1 = ax1.imshow(plot_data[aa][0], vmin=0, vmax=np.max(plot_data[aa][0]), cmap='viridis')
-            im2 = ax2.imshow(plot_data[aa][1], vmin=0, vmax=np.max(plot_data[aa][1]), cmap='viridis')
-            im3 = ax3.imshow(plot_data[aa][2], vmin=0, vmax=np.max(plot_data[aa][2]), cmap='viridis')
-            im4 = ax4.imshow(plot_data[aa][3], vmin=0, vmax=np.max(plot_data[aa][3]), cmap='viridis')
-            im5 = ax5.imshow(plot_data[aa][4], vmin=0, vmax=np.max(plot_data[aa][4]), cmap='viridis')
-            im6 = ax6.imshow(plot_data[aa][5], vmin=0, vmax=np.max(plot_data[aa][5]), cmap='viridis')
-            cb1 = matplotlib.colorbar.ColorbarBase(ax_cbar, cmap='viridis')
-            cb1.set_label('Normalized Van Rossum Distance')
-
-
-            ax1.set_xticks([])
-            ax2.set_xticks([])
-            ax3.set_xticks([])
-            ax4.set_xticks(np.arange(0, 20, 5))
-            ax5.set_xticks(np.arange(0, 20, 5))
-            ax6.set_xticks(np.arange(0, 20, 5))
-            ax2.set_yticks([])
-            ax3.set_yticks([])
-            ax5.set_yticks([])
-            ax6.set_yticks([])
-            ax1.set_yticks(np.arange(0, 20, 5))
-            ax4.set_yticks(np.arange(0, 20, 5))
-
-            # Axes Labels
-            fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
-            fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
-
-            # Subfig caps
-            subfig_caps = 12
-            label_x_pos = 0.85
-            label_y_pos = 0.85
-            subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
-            ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
-                     color='white')
-            ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
-                     color='white')
-            ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
-                     color='white')
-            ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
-                     color='white')
-            ax5.text(label_x_pos, label_y_pos, subfig_caps_labels[4], transform=ax5.transAxes, size=subfig_caps,
-                     color='white')
-            ax6.text(label_x_pos, label_y_pos, subfig_caps_labels[5], transform=ax6.transAxes, size=subfig_caps,
-                     color='white')
-
-            t1 = ax1.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[0]) + ' ms', transform=ax1.transAxes, size=6,
-                     color=cc)
-            t2 = ax1.text(0.1, 0.05, 'dur = ' + str(duration_pulses[0]) + ' ms', transform=ax1.transAxes, size=6,
-                     color=cc)
-            t3 = ax2.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[1]) + ' ms', transform=ax2.transAxes, size=6,
-                     color=cc)
-            t4 = ax2.text(0.1, 0.05, 'dur = ' + str(duration_pulses[1]) + ' ms', transform=ax2.transAxes, size=6,
-                     color=cc)
-            t5 = ax3.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[2]) + ' ms', transform=ax3.transAxes, size=6,
-                     color=cc)
-            t6 = ax3.text(0.1, 0.05, 'dur = ' + str(duration_pulses[2]) + ' ms', transform=ax3.transAxes, size=6,
-                     color=cc)
-            t7 = ax4.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[3]) + ' ms', transform=ax4.transAxes, size=6,
-                     color=cc)
-            t8 = ax4.text(0.1, 0.05, 'dur = ' + str(duration_pulses[3]) + ' ms', transform=ax4.transAxes, size=6,
-                     color=cc)
-            t9 = ax5.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[4]) + ' ms', transform=ax5.transAxes, size=6,
-                     color=cc)
-            t10 = ax5.text(0.1, 0.05, 'dur = ' + str(duration_pulses[4]) + ' ms', transform=ax5.transAxes, size=6,
-                     color=cc)
-            t11 = ax6.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[5]) + ' ms', transform=ax6.transAxes, size=6,
-                     color=cc)
-            t12 = ax6.text(0.1, 0.05, 'dur = ' + str(duration_pulses[5]) + ' ms', transform=ax6.transAxes, size=6,
-                     color=cc)
-
-            t1.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t2.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t3.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t4.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t5.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t6.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t7.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t8.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t9.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t10.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t11.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-            t12.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
-
-            fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.2, hspace=0.4)
-            figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[aa] + stim_type + '.pdf'
-            fig.savefig(figname)
-            plt.close(fig)
-
-        else:
-            fig = plt.figure(figsize=(5.9, 4.9))
-            grid = matplotlib.gridspec.GridSpec(nrows=82, ncols=102)
-            ax1 = plt.subplot(grid[0:40, 0:40])
-            cb1 = plt.subplot(grid[1:39, 41])
-
-            ax2 = plt.subplot(grid[0:40, 60:100])
-            cb2 = plt.subplot(grid[1:39, 101])
-
-            ax3 = plt.subplot(grid[41:81, 0:40])
-            cb3 = plt.subplot(grid[42:80, 41])
-
-            ax4 = plt.subplot(grid[41:81, 60:100])
-            cb4 = plt.subplot(grid[42:80, 101])
-
-            if method[aa] is 'sd':
-                im1 = ax1.imshow(plot_data[aa][0], vmin=0, vmax=1, cmap='viridis')
-                im2 = ax2.imshow(plot_data[aa][1], vmin=0, vmax=1, cmap='viridis')
-                im3 = ax3.imshow(plot_data[aa][2], vmin=0, vmax=np.max(plot_data[aa][2]), cmap='viridis')
-                im4 = ax4.imshow(plot_data[aa][3], vmin=0, vmax=np.max(plot_data[aa][3]), cmap='viridis')
-            else:
-                im1 = ax1.imshow(plot_data[aa][0][dur_d], vmin=0, vmax=1, cmap='viridis')
-                im2 = ax2.imshow(plot_data[aa][1][dur_d], vmin=0, vmax=1, cmap='viridis')
-                im3 = ax3.imshow(plot_data[aa][2][dur_d], vmin=0, vmax=np.max(plot_data[aa][2]), cmap='viridis')
-                im4 = ax4.imshow(plot_data[aa][3][dur_d], vmin=0, vmax=np.max(plot_data[aa][3]), cmap='viridis')
-
-            c1 = matplotlib.colorbar.ColorbarBase(cb1, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=1))
-            c2 = matplotlib.colorbar.ColorbarBase(cb2, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=1))
-            c3 = matplotlib.colorbar.ColorbarBase(cb3, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=np.max(plot_data[aa][2])))
-            c4 = matplotlib.colorbar.ColorbarBase(cb4, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=np.max(plot_data[aa][3])))
-            c1.set_label(cbar_labels[0])
-            c2.set_label(cbar_labels[1])
-            c3.set_label(cbar_labels[2])
-            c4.set_label(cbar_labels[3])
-
-            # axes
-            ax1.set_xticks([])
-            ax2.set_xticks([])
-            ax3.set_xticks(np.arange(0, 20, 5))
-            ax4.set_xticks(np.arange(0, 20, 5))
-            ax4.set_yticks([])
-            ax1.set_yticks(np.arange(0, 20, 5))
-            ax3.set_yticks(np.arange(0, 20, 5))
-            ax2.set_yticks([])
-
-            # Axes Labels
-            fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
-            fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
-
-            # Subfig caps
-            subfig_caps = 12
-            label_x_pos = 0.85
-            label_y_pos = 0.85
-            subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
-            ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps, color='white')
-            ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps, color='white')
-            ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps, color='white')
-            ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps, color='white')
-
-            # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.5, hspace=0.1)
-            figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[aa] + stim_type + '_' + str(selected_duration) +'.pdf'
-            fig.savefig(figname)
-            plt.close(fig)
+    # for aa in range(4):
+    #     if method[aa] is 'vr':
+    #         fig = plt.figure(figsize=(5.9, 3.9))
+    #         grid = matplotlib.gridspec.GridSpec(nrows=23, ncols=25)
+    #         ax1 = plt.subplot(grid[0:11, 0:8])
+    #         ax2 = plt.subplot(grid[0:11, 8:16])
+    #         ax3 = plt.subplot(grid[0:11, 16:24])
+    #         ax4 = plt.subplot(grid[11:22, 0:8])
+    #         ax5 = plt.subplot(grid[11:22, 8:16])
+    #         ax6 = plt.subplot(grid[11:22, 16:24])
+    #         ax_cbar = plt.subplot(grid[0:22, -1])
+    #
+    #         im1 = ax1.imshow(plot_data[aa][0], vmin=0, vmax=np.max(plot_data[aa][0]), cmap='viridis')
+    #         im2 = ax2.imshow(plot_data[aa][1], vmin=0, vmax=np.max(plot_data[aa][1]), cmap='viridis')
+    #         im3 = ax3.imshow(plot_data[aa][2], vmin=0, vmax=np.max(plot_data[aa][2]), cmap='viridis')
+    #         im4 = ax4.imshow(plot_data[aa][3], vmin=0, vmax=np.max(plot_data[aa][3]), cmap='viridis')
+    #         im5 = ax5.imshow(plot_data[aa][4], vmin=0, vmax=np.max(plot_data[aa][4]), cmap='viridis')
+    #         im6 = ax6.imshow(plot_data[aa][5], vmin=0, vmax=np.max(plot_data[aa][5]), cmap='viridis')
+    #         cb1 = matplotlib.colorbar.ColorbarBase(ax_cbar, cmap='viridis')
+    #         cb1.set_label('Normalized Van Rossum Distance')
+    #
+    #
+    #         ax1.set_xticks([])
+    #         ax2.set_xticks([])
+    #         ax3.set_xticks([])
+    #         ax4.set_xticks(np.arange(0, 20, 5))
+    #         ax5.set_xticks(np.arange(0, 20, 5))
+    #         ax6.set_xticks(np.arange(0, 20, 5))
+    #         ax2.set_yticks([])
+    #         ax3.set_yticks([])
+    #         ax5.set_yticks([])
+    #         ax6.set_yticks([])
+    #         ax1.set_yticks(np.arange(0, 20, 5))
+    #         ax4.set_yticks(np.arange(0, 20, 5))
+    #
+    #         # Axes Labels
+    #         fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
+    #         fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
+    #
+    #         # Subfig caps
+    #         subfig_caps = 12
+    #         label_x_pos = 0.85
+    #         label_y_pos = 0.85
+    #         subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    #         ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+    #                  color='white')
+    #         ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+    #                  color='white')
+    #         ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
+    #                  color='white')
+    #         ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
+    #                  color='white')
+    #         ax5.text(label_x_pos, label_y_pos, subfig_caps_labels[4], transform=ax5.transAxes, size=subfig_caps,
+    #                  color='white')
+    #         ax6.text(label_x_pos, label_y_pos, subfig_caps_labels[5], transform=ax6.transAxes, size=subfig_caps,
+    #                  color='white')
+    #
+    #         t1 = ax1.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[0]) + ' ms', transform=ax1.transAxes, size=6,
+    #                  color=cc)
+    #         t2 = ax1.text(0.1, 0.05, 'dur = ' + str(duration_pulses[0]) + ' ms', transform=ax1.transAxes, size=6,
+    #                  color=cc)
+    #         t3 = ax2.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[1]) + ' ms', transform=ax2.transAxes, size=6,
+    #                  color=cc)
+    #         t4 = ax2.text(0.1, 0.05, 'dur = ' + str(duration_pulses[1]) + ' ms', transform=ax2.transAxes, size=6,
+    #                  color=cc)
+    #         t5 = ax3.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[2]) + ' ms', transform=ax3.transAxes, size=6,
+    #                  color=cc)
+    #         t6 = ax3.text(0.1, 0.05, 'dur = ' + str(duration_pulses[2]) + ' ms', transform=ax3.transAxes, size=6,
+    #                  color=cc)
+    #         t7 = ax4.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[3]) + ' ms', transform=ax4.transAxes, size=6,
+    #                  color=cc)
+    #         t8 = ax4.text(0.1, 0.05, 'dur = ' + str(duration_pulses[3]) + ' ms', transform=ax4.transAxes, size=6,
+    #                  color=cc)
+    #         t9 = ax5.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[4]) + ' ms', transform=ax5.transAxes, size=6,
+    #                  color=cc)
+    #         t10 = ax5.text(0.1, 0.05, 'dur = ' + str(duration_pulses[4]) + ' ms', transform=ax5.transAxes, size=6,
+    #                  color=cc)
+    #         t11 = ax6.text(0.1, 0.1, r'$\tau$ = ' + str(taus_pulses[5]) + ' ms', transform=ax6.transAxes, size=6,
+    #                  color=cc)
+    #         t12 = ax6.text(0.1, 0.05, 'dur = ' + str(duration_pulses[5]) + ' ms', transform=ax6.transAxes, size=6,
+    #                  color=cc)
+    #
+    #         t1.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t2.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t3.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t4.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t5.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t6.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t7.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t8.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t9.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t10.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t11.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #         t12.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
+    #
+    #         fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.2, hspace=0.4)
+    #         figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[aa] + stim_type + '.pdf'
+    #         fig.savefig(figname)
+    #         plt.close(fig)
+    #
+    #     else:
+    #         fig = plt.figure(figsize=(5.9, 4.9))
+    #         grid = matplotlib.gridspec.GridSpec(nrows=82, ncols=102)
+    #         ax1 = plt.subplot(grid[0:40, 0:40])
+    #         cb1 = plt.subplot(grid[1:39, 41])
+    #
+    #         ax2 = plt.subplot(grid[0:40, 60:100])
+    #         cb2 = plt.subplot(grid[1:39, 101])
+    #
+    #         ax3 = plt.subplot(grid[41:81, 0:40])
+    #         cb3 = plt.subplot(grid[42:80, 41])
+    #
+    #         ax4 = plt.subplot(grid[41:81, 60:100])
+    #         cb4 = plt.subplot(grid[42:80, 101])
+    #
+    #         if method[aa] is 'sd':
+    #             im1 = ax1.imshow(plot_data[aa][0], vmin=0, vmax=1, cmap='viridis')
+    #             im2 = ax2.imshow(plot_data[aa][1], vmin=0, vmax=1, cmap='viridis')
+    #             im3 = ax3.imshow(plot_data[aa][2], vmin=0, vmax=np.max(plot_data[aa][2]), cmap='viridis')
+    #             im4 = ax4.imshow(plot_data[aa][3], vmin=0, vmax=np.max(plot_data[aa][3]), cmap='viridis')
+    #         else:
+    #             im1 = ax1.imshow(plot_data[aa][0][dur_d], vmin=0, vmax=1, cmap='viridis')
+    #             im2 = ax2.imshow(plot_data[aa][1][dur_d], vmin=0, vmax=1, cmap='viridis')
+    #             im3 = ax3.imshow(plot_data[aa][2][dur_d], vmin=0, vmax=np.max(plot_data[aa][2]), cmap='viridis')
+    #             im4 = ax4.imshow(plot_data[aa][3][dur_d], vmin=0, vmax=np.max(plot_data[aa][3]), cmap='viridis')
+    #
+    #         c1 = matplotlib.colorbar.ColorbarBase(cb1, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=1))
+    #         c2 = matplotlib.colorbar.ColorbarBase(cb2, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=1))
+    #         c3 = matplotlib.colorbar.ColorbarBase(cb3, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=np.max(plot_data[aa][2])))
+    #         c4 = matplotlib.colorbar.ColorbarBase(cb4, cmap='viridis', norm=matplotlib.colors.Normalize(vmin=0, vmax=np.max(plot_data[aa][3])))
+    #         c1.set_label(cbar_labels[0])
+    #         c2.set_label(cbar_labels[1])
+    #         c3.set_label(cbar_labels[2])
+    #         c4.set_label(cbar_labels[3])
+    #
+    #         # axes
+    #         ax1.set_xticks([])
+    #         ax2.set_xticks([])
+    #         ax3.set_xticks(np.arange(0, 20, 5))
+    #         ax4.set_xticks(np.arange(0, 20, 5))
+    #         ax4.set_yticks([])
+    #         ax1.set_yticks(np.arange(0, 20, 5))
+    #         ax3.set_yticks(np.arange(0, 20, 5))
+    #         ax2.set_yticks([])
+    #
+    #         # Axes Labels
+    #         fig.text(0.5, 0.025, 'Original call', ha='center', fontdict=None)
+    #         fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
+    #
+    #         # Subfig caps
+    #         subfig_caps = 12
+    #         label_x_pos = 0.85
+    #         label_y_pos = 0.85
+    #         subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    #         ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps, color='white')
+    #         ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps, color='white')
+    #         ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps, color='white')
+    #         ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps, color='white')
+    #
+    #         # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.5, hspace=0.1)
+    #         figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[aa] + stim_type + '_' + str(selected_duration) +'.pdf'
+    #         fig.savefig(figname)
+    #         plt.close(fig)
 
 if FI_OVERANIMALS:
     # Load data
