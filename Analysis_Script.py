@@ -71,7 +71,7 @@ DISTANCE_RATIOS = False
 # Other Distances Correct Matches
 PLOT_CORRECT = False
 PLOT_CORRECT_OVERALL = False
-PLOT_DISTANCES_CORRECT = False
+PLOT_DISTANCES_CORRECT = True
 
 # Ratio: within vs. between distances
 PLOT_D_RATIOS = False
@@ -100,7 +100,7 @@ PLOT_MvsB = False
 PLOT_DISTANCES = False
 
 # Pulse Train Stuff
-PULSE_TRAIN_VANROSSUM = True
+PULSE_TRAIN_VANROSSUM = False
 PULSE_TRAIN_ISI = False
 
 # FI Stuff
@@ -128,10 +128,10 @@ extended = False
 POISSON_TRAINS = False
 POISSON_TAU_CORRECT = False
 
-stim_type = 'moth_single_selected'
+stim_type = 'moth_series_selected'
 # stim_type = 'all_single'
 # stim_type = 'poisson_same'
-stim_length = 'single'
+stim_length = 'series'
 if stim_length is 'single':
     # duration = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200]
     duration = list(np.arange(0, 255, 5))
@@ -4487,8 +4487,8 @@ if PLOT_DISTANCES_CORRECT:
     print(data_name)
     p = path_names[1]
 
-    plot_distances = True
-    plot_correct = False
+    plot_distances = False
+    plot_correct = True
     # Get all data
     s_types = ['moth_series_selected', 'moth_series_selected_extended', 'moth_single_selected',
                'moth_single_selected_extended']
@@ -4549,12 +4549,18 @@ if PLOT_DISTANCES_CORRECT:
         subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
         labs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR']
         for i in range(len(ax)):
-            ax[i].plot(duration[i], data_correct_random[s_types[i]][:, 0], marker='', color='0.9', linestyle='-', linewidth=3)
+            if i < len(ax)-1:
+                ax[i].plot(duration[i], data_correct_random[s_types[i]][:, 0], marker='', color='0.75', linestyle='-', linewidth=3)
+            else:
+                ax[i].plot(duration[i], data_correct_random[s_types[i]][:, 0], marker='', color='0.75', linestyle='-', linewidth=3, label='Random')
             for k in range(5):
-                ax[i].plot(duration[i], data_correct[s_types[i]][:, k], marker=marks[k], color=cc[k], linestyle=styles[k],
-                           label=labs[k], markersize=0.5)
-                ax[i].set_ylim(0, 1)
-                ax[i].set_yticks(np.arange(0, 1.1, 0.25))
+                if labs[k] is 'SPIKE':
+                    continue
+                else:
+                    ax[i].plot(duration[i], data_correct[s_types[i]][:, k], marker=marks[k], color=cc[k], linestyle=styles[k],
+                               label=labs[k], markersize=0.5)
+                    ax[i].set_ylim(0, 1)
+                    ax[i].set_yticks(np.arange(0, 1.1, 0.25))
             ax[i].text(label_x_pos, label_y_pos, subfig_caps_labels[i], transform=ax[i].transAxes, size=subfig_caps,
                          color='black')
             # ax[i].grid(color='0.3', linestyle='-', linewidth=.5)
@@ -4578,7 +4584,7 @@ if PLOT_DISTANCES_CORRECT:
         # fig.text(0.02, 0.5, 'Correct', ha='center', fontdict=None, rotation=90)
 
         sns.despine()
-        fig.savefig(path_names[2] + 'final/Distances_Correct_TEST.pdf')
+        fig.savefig(path_names[2] + 'final/Distances_Correct.pdf')
         plt.close(fig)
         print('Distances Correct plot saved')
 
