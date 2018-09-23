@@ -71,7 +71,7 @@ DISTANCE_RATIOS = False
 # Other Distances Correct Matches
 PLOT_CORRECT = False
 PLOT_CORRECT_OVERALL = False
-PLOT_DISTANCES_CORRECT = True
+PLOT_DISTANCES_CORRECT = False
 
 # Ratio: within vs. between distances
 PLOT_D_RATIOS = False
@@ -79,6 +79,7 @@ PLOT_D_RATIOS_OVERALL = False
 
 # -------------
 # PLOTs
+CALL_OVERVIEW = True
 # Plot Stimulus Calls
 CALLSFROMMATLAB = False
 CALLSERIESFROMMATLAB = False
@@ -4059,211 +4060,221 @@ if PLOT_D_RATIOS_OVERALL:
     # fig.savefig(figname)
     # plt.close(fig)
 
-if CALL_STATS:
-
-    stims = ['naturalmothcalls/BCI1062_07x07.wav',
-             'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
-             'naturalmothcalls/agaraea_semivitrea_07x07.wav',
-             'naturalmothcalls/carales_12x12_01.wav',
-             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
-             'naturalmothcalls/creatonotos_01x01.wav',
-             'naturalmothcalls/elysius_conspersus_11x11.wav',
-             'naturalmothcalls/epidesma_oceola_06x06.wav',
-             'naturalmothcalls/eucereon_appunctata_13x13.wav',
-             'naturalmothcalls/eucereon_hampsoni_11x11.wav',
-             'naturalmothcalls/eucereon_obscurum_14x14.wav',
-             'naturalmothcalls/gl005_11x11.wav',
-             'naturalmothcalls/gl116_05x05.wav',
-             'naturalmothcalls/hypocladia_militaris_09x09.wav',
-             'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
-             'naturalmothcalls/idalus_daga_18x18.wav',
-             'naturalmothcalls/melese_12x12_01_PK1297.wav',
-             'naturalmothcalls/neritos_cotes_10x10.wav',
-             'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
-             'naturalmothcalls/syntrichura_12x12.wav']
-
-    call_stats = []
-    file_pathname = '/media/brehm/Data/MasterMoth/stimuli_backup/'
-
-    for k in range(len(stims)):
-        file_name = file_pathname + stims[k][0:-4] + '/call_stats.xls'
-        try:
-            with open(file_name, newline='') as f:
-                df = pd.read_excel(file_name)
-                call_stats.append(df.values[0])
-            with open('/media/brehm/Data/MasterMoth/outfile.csv', 'a', newline='') as csvfile:
-                writer = csv.writer(csvfile, delimiter=' ')
-                a = list(call_stats[k])
-                a.insert(0, stims[k][17:-10])
-                writer.writerow(a)
-        except:
-            print(stims[k] + ' not found')
-            with open('/media/brehm/Data/MasterMoth/outfile.csv', 'a', newline='') as csvfile:
-                writer = csv.writer(csvfile, delimiter=' ')
-                a = list([np.nan] * 18)
-                a.insert(0, stims[k][17:-10])
-                writer.writerow(a)
-    embed()
-    exit()
 
 if CALLSFROMMATLAB:
-    pd_a = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/pd_a.mat')['pd_a_py'][0]
-    pd_p = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/pd_p.mat')['pd_p_py'][0]
+    barplot = False
+    boxplot = True
+    pd_a = sio.loadmat('/media/nils/Data/Moth/CallStats/pd_a.mat')['pd_a_py'][0]
+    pd_p = sio.loadmat('/media/nils/Data/Moth/CallStats/pd_p.mat')['pd_p_py'][0]
 
-    ipi_a = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/ipi_a.mat')['ipi_a_py'][0]
-    ipi_p = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/ipi_p.mat')['ipi_p_py'][0]
+    ipi_a = sio.loadmat('/media/nils/Data/Moth/CallStats/ipi_a.mat')['ipi_a_py'][0]
+    ipi_p = sio.loadmat('/media/nils/Data/Moth/CallStats/ipi_p.mat')['ipi_p_py'][0]
 
-    freq_a = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/freq_a.mat')['freq_a_py'][0]
-    freq_p = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/freq_p.mat')['freq_p_py'][0]
+    freq_a = sio.loadmat('/media/nils/Data/Moth/CallStats/freq_a.mat')['freq_a_py'][0]
+    freq_p = sio.loadmat('/media/nils/Data/Moth/CallStats/freq_p.mat')['freq_p_py'][0]
 
-    pnr_a = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/pnr_a.mat')['pnr_a_py'][0]
-    pnr_p = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/pnr_p.mat')['pnr_p_py'][0]
+    pnr_a = sio.loadmat('/media/nils/Data/Moth/CallStats/pnr_a.mat')['pnr_a_py'][0]
+    pnr_p = sio.loadmat('/media/nils/Data/Moth/CallStats/pnr_p.mat')['pnr_p_py'][0]
 
-    ITI = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/ITI.mat')['ITI_py'][0]
-    call_dur = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/calldur.mat')['call_dur_py'][0]
+    ITI = sio.loadmat('/media/nils/Data/Moth/CallStats/ITI.mat')['ITI_py'][0]
+    call_dur = sio.loadmat('/media/nils/Data/Moth/CallStats/calldur.mat')['call_dur_py'][0]
 
-    # Bar Plot
+    if barplot:
+        # Bar Plot
+        mf.plot_settings()
+        # Create Grid
+        grid = matplotlib.gridspec.GridSpec(nrows=1, ncols=39)
+        fig = plt.figure(figsize=(5.9, 1.9))
+        ax1 = plt.subplot(grid[0, 0:10])
+        ax2 = plt.subplot(grid[0, 22:32])
 
-    mf.plot_settings()
-    # Create Grid
-    grid = matplotlib.gridspec.GridSpec(nrows=1, ncols=26)
-    fig = plt.figure(figsize=(5.9, 1.9))
-    ax1 = plt.subplot(grid[0, 0:10])
-    ax2 = plt.subplot(grid[0, 15:25])
+        hax1 = plt.subplot(grid[0, 11:16])
+        hax2 = plt.subplot(grid[0, 33:38])
 
-    # Subplot caps
-    subfig_caps = 12
-    label_x_pos = 0.05
-    label_y_pos = 0.90
-    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+        # Subplot caps
+        subfig_caps = 12
+        label_x_pos = -0.4
+        label_y_pos = 1
+        subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
 
-    width = 0.35
-    ind = np.arange(0, 20, 1)
-    ax1.bar(ind, ITI, width, label='ITI', color='black')
-    ax1.bar(ind + width, call_dur, width, label='Call dur.', color='grey')
-    ax1.set_xticks(ind + width / 2)
-    ax1.legend(frameon=False, loc=1)
+        width = 0.35
+        ind = np.arange(0, 20, 1)
+        ax1.bar(ind, ITI, width, label='ITI', color='black')
+        ax1.bar(ind + width, call_dur, width, label='Call dur.', color='grey')
+        ax1.set_xticks(ind + width / 2)
+        ax1.legend(frameon=False, loc=0)
 
-    ax2.bar(ind, pnr_a, width, label='Active', color='black')
-    ax2.bar(ind + width, pnr_p, width, label='Passive', color='grey')
-    ax2.set_xticks(ind + width / 2)
-    ax2.legend(frameon=False, loc=1)
+        ax2.bar(ind, pnr_a, width, label='Active', color='black')
+        ax2.bar(ind + width, pnr_p, width, label='Passive', color='grey')
+        ax2.set_xticks(ind + width / 2)
+        ax2.legend(frameon=False, loc=0)
 
-    xlbls = [''] * 20
-    xlbls[0], xlbls[4], xlbls[9],xlbls[14], xlbls[19] = 1, 5, 10, 15, 20
-    ax1.set_xticklabels(xlbls)
-    ax2.set_xticklabels(xlbls)
+        xlbls = [''] * 20
+        xlbls[0], xlbls[4], xlbls[9],xlbls[14], xlbls[19] = 1, 5, 10, 15, 20
+        ax1.set_xticklabels(xlbls)
+        ax2.set_xticklabels(xlbls)
 
-    fig.text(0.5, 0.05, 'Call number', ha='center', fontdict=None)
-    ax1.set_ylabel('Duration [ms]')
-    ax2.set_ylabel('Pulse count')
+        # fig.text(0.5, 0.05, 'Call ID', ha='center', fontdict=None)
+        ax1.set_ylabel('Duration [ms]')
+        ax2.set_ylabel('Pulse count')
 
-    ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
-             color='black')
-    ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
-             color='black')
+        ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+                 color='black')
+        ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+                 color='black')
 
-    ax1.set_yticks(np.arange(0, 201, 50))
-    ax1.set_ylim(0, 200)
-    ax2.set_yticks(np.arange(0, 31, 5))
-    ax2.set_ylim(0, 30)
+        ax1.set_yticks(np.arange(0, 201, 50))
+        ax1.set_ylim(0, 200)
+        ax2.set_yticks(np.arange(0, 31, 5))
+        ax2.set_ylim(0, 30)
 
-    sns.despine()
-    figname = '/media/brehm/Data/MasterMoth/CallStats/CallStats_bar.pdf'
-    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
-    fig.savefig(figname)
-    plt.close(fig)
-    exit()
+        # Histogram
+        ITI_hist, ITI_bins = np.histogram(np.concatenate(ITI), bins=20)
+        ITI_cumsum = np.cumsum(ITI_hist)
+        calldur_hist, calldur_bins = np.histogram(np.concatenate(call_dur), bins=20)
+        calldur_cumsum = np.cumsum(calldur_hist)
+        a_hist, a_bins = np.histogram(np.concatenate(pnr_a), bins=20)
+        a_cumsum = np.cumsum(a_hist)
+        p_hist, p_bins = np.histogram(np.concatenate(pnr_p), bins=20)
+        p_cumsum = np.cumsum(p_hist)
 
+        hax1.hist(np.concatenate(ITI), bins=20, orientation="horizontal", color='black', histtype='step', cumulative=True)
+        hax1.hist(np.concatenate(ITI), bins=20, orientation="horizontal", color='black', histtype='stepfilled', cumulative=True, alpha=0.8)
 
+        hax1.hist(np.concatenate(call_dur), bins=20, orientation="horizontal", color='gray', histtype='step', cumulative=True)
+        hax1.hist(np.concatenate(call_dur), bins=20, orientation="horizontal", color='gray', histtype='stepfilled', cumulative=True, alpha=0.8)
 
-    # BOXPLOT
-    mf.plot_settings()
-    # Create Grid
-    grid = matplotlib.gridspec.GridSpec(nrows=23, ncols=41)
-    fig = plt.figure(figsize=(5.9, 3.9))
-    ax1 = plt.subplot(grid[0:10, 0:10])
-    ax2 = plt.subplot(grid[0:10, 15:25])
-    ax3 = plt.subplot(grid[0:10, 30:40])
-    ax4 = plt.subplot(grid[12:22, 0:10])
-    ax5 = plt.subplot(grid[12:22, 15:25])
-    ax6 = plt.subplot(grid[12:22, 30:40])
+        # hax1.plot(ITI_cumsum, ITI_bins[:-1], color='black', label='ITI')
+        # hax1.plot(calldur_cumsum, calldur_bins[:-1], color='gray', label='Call dur.')
+        hax1.set_yticks(np.arange(0, 201, 50))
+        hax1.set_ylim(0, 200)
+        hax1.set_xticks([0, 10, 20])
+        hax2.set_xlim(0, 20)
+        hax2.set_xticks([0, 5, 10])
+        hax2.set_xlim(0, 10)
 
-    # Subplot caps
-    subfig_caps = 12
-    label_x_pos = 0.05
-    label_y_pos = 0.90
-    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+        # hax2.plot(a_hist, a_bins[:-1], color='black', label='Active')
+        # hax2.barh(a_bins[:-1], a_hist, color='black', label='Active', align='center', alpha=0.5)
 
-    ax1.boxplot(pd_a, showcaps=False, showfliers=False)
-    for k in range(len(freq_a)):
-        ax1.plot(np.zeros(len(pd_a[k]))+k+1, pd_a[k], 'ko', markersize=1)
+        hax2.hist(np.concatenate(pnr_p), bins=10, orientation="horizontal", color='gray', histtype='step')
+        hax2.hist(np.concatenate(pnr_a), bins=10, orientation="horizontal", color='black', histtype='step', linestyle='--')
 
-    ax2.boxplot(ipi_a, showcaps=False, showfliers=False)
-    for k in range(len(ipi_a)):
-        ax2.plot(np.zeros(len(ipi_a[k])) + k + 1, ipi_a[k], 'ko', markersize=1)
+        # hax2.plot(p_hist, p_bins[:-1], color='gray', label='Passive')
+        # hax2.barh(p_bins[:-1], p_hist, color='gray', label='Active', align='center', alpha=0.5)
 
-    ax3.boxplot(freq_a, showcaps=False, showfliers=False)
-    for k in range(len(freq_a)):
-        ax3.plot(np.zeros(len(freq_a[k])) + k + 1, freq_a[k], 'ko', markersize=1)
+        hax2.set_yticks(np.arange(0, 31, 5))
+        hax2.set_ylim(0, 30)
 
-    ax4.boxplot(pd_p, showcaps=False, showfliers=False)
-    for k in range(len(freq_p)):
-        ax4.plot(np.zeros(len(pd_p[k])) + k + 1, pd_p[k], 'ko', markersize=1)
+        sns.despine()
+        # sns.despine(ax=hax1, top=True, right=True, left=True, bottom=False, offset=None, trim=False)
+        # hax1.set_yticks([])
+        hax1.set_yticklabels([])
+        hax2.set_yticklabels([])
+        # hax1.legend(frameon=False, loc=0)
+        # hax2.legend(frameon=False, loc=0)
 
-    ax5.boxplot(ipi_p, showcaps=False, showfliers=False)
-    for k in range(len(ipi_p)):
-        ax5.plot(np.zeros(len(ipi_p[k])) + k + 1, ipi_p[k], 'ko', markersize=1)
+        ax1.set_xlabel('Call ID')
+        ax2.set_xlabel('Call ID')
+        hax1.set_xlabel('Cum. Count')
+        hax2.set_xlabel('Count')
 
-    ax6.boxplot(freq_p, showcaps=False, showfliers=False)
-    for k in range(len(freq_p)):
-        ax6.plot(np.zeros(len(freq_p[k])) + k + 1, freq_p[k], 'ko', markersize=1)
+        figname = '/media/nils/Data/Moth/CallStats/final/CallStats_bar.pdf'
+        fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+        fig.savefig(figname)
+        plt.close(fig)
 
-    ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
-             color='black')
-    ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
-             color='black')
-    ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
-             color='black')
-    ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
-             color='black')
-    ax5.text(label_x_pos, label_y_pos, subfig_caps_labels[4], transform=ax5.transAxes, size=subfig_caps,
-             color='black')
-    ax6.text(label_x_pos, label_y_pos, subfig_caps_labels[5], transform=ax6.transAxes, size=subfig_caps,
-             color='black')
+    if boxplot:
+        # BOXPLOT
+        mf.plot_settings()
+        # Create Grid
+        grid = matplotlib.gridspec.GridSpec(nrows=29, ncols=41)
+        fig = plt.figure(figsize=(5.9, 3.9))
+        ax1 = plt.subplot(grid[0:10, 0:10])
+        ax2 = plt.subplot(grid[0:10, 15:25])
+        ax3 = plt.subplot(grid[0:10, 30:40])
 
-    ax1.set_xticklabels([])
-    ax2.set_xticklabels([])
-    ax3.set_xticklabels([])
-    xlbls = [''] * 20
-    xlbls[0], xlbls[4], xlbls[9],xlbls[14], xlbls[19] = 1, 5, 10, 15, 20
-    ax4.set_xticklabels(xlbls)
-    ax5.set_xticklabels(xlbls)
-    ax6.set_xticklabels(xlbls)
+        ax4 = plt.subplot(grid[18:28, 0:10])
+        ax5 = plt.subplot(grid[18:28, 15:25])
+        ax6 = plt.subplot(grid[18:28, 30:40])
 
-    ax1.set_ylim(0, 0.6)
-    ax4.set_ylim(0, 0.6)
-    ax2.set_ylim(0, 20)
-    ax5.set_ylim(0, 20)
-    ax3.set_ylim(0, 80)
-    ax6.set_ylim(0, 80)
+        # Subplot caps
+        subfig_caps = 12
+        label_x_pos = -0.3
+        label_y_pos = 1.15
+        subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
 
-    fig.text(0.5, 0.05, 'Call number', ha='center', fontdict=None)
-    fig.text(0.925, 0.80, 'Active pulses', ha='center', fontdict=None, rotation=-90, color='red')
-    fig.text(0.925, 0.40, 'Passive pulses', ha='center', fontdict=None, rotation=-90, color='blue')
+        ax1.boxplot(pd_a, showcaps=False, showfliers=False)
+        for k in range(len(freq_a)):
+            ax1.plot(np.zeros(len(pd_a[k]))+k+1, pd_a[k], 'ko', markersize=1)
 
-    ax1.set_ylabel('Pulse duration [ms]')
-    ax2.set_ylabel('IPI [ms]')
-    ax3.set_ylabel('Frequency [kHz]')
-    ax4.set_ylabel('Pulse duration [ms]')
-    ax5.set_ylabel('IPI [ms]')
-    ax6.set_ylabel('Frequency [kHz]')
-    sns.despine()
+        ax2.boxplot(ipi_a, showcaps=False, showfliers=False)
+        for k in range(len(ipi_a)):
+            ax2.plot(np.zeros(len(ipi_a[k])) + k + 1, ipi_a[k], 'ko', markersize=1)
 
-    figname = '/media/brehm/Data/MasterMoth/CallStats/CallStats.pdf'
-    fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.1, hspace=0.1)
-    fig.savefig(figname)
-    plt.close(fig)
+        ax3.boxplot(freq_a, showcaps=False, showfliers=False)
+        for k in range(len(freq_a)):
+            ax3.plot(np.zeros(len(freq_a[k])) + k + 1, freq_a[k], 'ko', markersize=1)
+
+        ax4.boxplot(pd_p, showcaps=False, showfliers=False)
+        for k in range(len(freq_p)):
+            ax4.plot(np.zeros(len(pd_p[k])) + k + 1, pd_p[k], 'ko', markersize=1)
+
+        ax5.boxplot(ipi_p, showcaps=False, showfliers=False)
+        for k in range(len(ipi_p)):
+            ax5.plot(np.zeros(len(ipi_p[k])) + k + 1, ipi_p[k], 'ko', markersize=1)
+
+        ax6.boxplot(freq_p, showcaps=False, showfliers=False)
+        for k in range(len(freq_p)):
+            ax6.plot(np.zeros(len(freq_p[k])) + k + 1, freq_p[k], 'ko', markersize=1)
+
+        ax1.text(label_x_pos, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+                 color='black')
+        ax2.text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+                 color='black')
+        ax3.text(label_x_pos, label_y_pos, subfig_caps_labels[2], transform=ax3.transAxes, size=subfig_caps,
+                 color='black')
+        ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps,
+                 color='black')
+        ax5.text(label_x_pos, label_y_pos, subfig_caps_labels[4], transform=ax5.transAxes, size=subfig_caps,
+                 color='black')
+        ax6.text(label_x_pos, label_y_pos, subfig_caps_labels[5], transform=ax6.transAxes, size=subfig_caps,
+                 color='black')
+
+        ax1.set_xticklabels([])
+        ax2.set_xticklabels([])
+        ax3.set_xticklabels([])
+        xlbls = [''] * 20
+        xlbls[0], xlbls[4], xlbls[9],xlbls[14], xlbls[19] = 1, 5, 10, 15, 20
+        ax4.set_xticklabels(xlbls)
+        ax5.set_xticklabels(xlbls)
+        ax6.set_xticklabels(xlbls)
+
+        ax1.set_ylim(0, 0.6)
+        ax4.set_ylim(0, 0.6)
+        ax2.set_ylim(0, 20)
+        ax5.set_ylim(0, 20)
+        ax3.set_ylim(0, 80)
+        ax6.set_ylim(0, 80)
+
+        fig.text(0.5, 0.05, 'Call ID', ha='center', fontdict=None)
+        # fig.text(0.925, 0.80, 'Active pulses', ha='center', fontdict=None, rotation=-90, color='red')
+        # fig.text(0.925, 0.40, 'Passive pulses', ha='center', fontdict=None, rotation=-90, color='blue')
+
+        fig.text(0.1, 0.96, 'Active pulses', ha='center', fontdict=None, rotation=0, color='red')
+        fig.text(0.1, 0.5, 'Passive pulses', ha='center', fontdict=None, rotation=0, color='blue')
+
+        ax1.set_ylabel('Pulse duration [ms]')
+        ax2.set_ylabel('IPI [ms]')
+        ax3.set_ylabel('Frequency [kHz]')
+        ax4.set_ylabel('Pulse duration [ms]')
+        ax5.set_ylabel('IPI [ms]')
+        ax6.set_ylabel('Frequency [kHz]')
+        sns.despine()
+
+        figname = '/media/nils/Data/Moth/CallStats/final/CallStats.pdf'
+        # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.1, hspace=0.1)
+        fig.savefig(figname)
+        plt.close(fig)
 
 if CALLSERIESFROMMATLAB:
     # Call Series
@@ -4330,59 +4341,6 @@ if CALLSERIESFROMMATLAB:
         np.save('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_CallSeries.npy', ending)
         # np.save('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_SingleCalls.npy', ending)
 
-if CUMHIST:
-    endings_callseries = np.load('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_CallSeries.npy')
-    endings_singlecalls = np.load('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_SingleCalls.npy')
-
-    # Plot
-    mf.plot_settings()
-    fig = plt.figure(figsize=(5.9, 2.9))
-    grid = matplotlib.gridspec.GridSpec(nrows=1, ncols=46)
-    ax1 = plt.subplot(grid[0, 0:20])
-    ax2 = plt.subplot(grid[0, 25:45])
-
-    n_bins = int(0.2 / 0.005)
-    n, bins, patches = ax1.hist(endings_singlecalls, n_bins, normed=0, histtype='stepfilled', cumulative=True, label='CumHist', color='0.75')
-    n, bins, patches = ax1.hist(endings_singlecalls, n_bins, normed=0, histtype='step', cumulative=True,
-                                label='CumHist', color='k')
-
-    n_bins = int(2 / 0.005)
-    n, bins, patches = ax2.hist(endings_callseries, n_bins, normed=0, histtype='stepfilled', cumulative=True,
-                                label='CumHist', color='0.75')
-    n, bins, patches = ax2.hist(endings_callseries, n_bins, normed=0, histtype='step', cumulative=True,
-                                label='CumHist', color='k')
-
-    ax1.set_ylabel('Count of finished calls')
-    fig.text(0.5, 0.035, 'Time [s]', ha='center', fontdict=None)
-    sns.despine()
-
-    ax1.set_yticks(np.arange(0, 20.1, 5))
-    ax2.set_yticks(np.arange(0, 20.1, 5))
-    ax1.set_ylim(0, 20)
-    ax2.set_ylim(0, 20)
-
-    ax1.set_xticks(np.arange(0, 0.21, 0.05))
-    ax2.set_xticks(np.arange(0, 2.1, 0.5))
-    ax1.set_xlim(0, 0.2)
-    ax2.set_xlim(0, 2)
-
-    ax1.grid(color='0.3', linestyle='--', linewidth=.5)
-    ax2.grid(color='0.3', linestyle='--', linewidth=.5)
-
-    # Subfig caps
-    subfig_caps = 12
-    label_x_pos = -0.025
-    label_y_pos = 0.95
-    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
-    ax1.text(label_x_pos - 0.2, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
-             color='black')
-    ax2.text(label_x_pos - 0.2, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
-             color='black')
-
-    fig.subplots_adjust(left=0.2, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
-    figname = '/media/brehm/Data/MasterMoth/CallStats/CumHists.pdf'
-    fig.savefig(figname)
-    plt.close()
 
 if PLOT_VR_SPIKEMATCHING:
     data_name = '2018-02-16-aa'
@@ -4822,7 +4780,7 @@ if POISSON_TAU_CORRECT:
     labs = ['COUNT', 'ISI', 'SPIKE', 'SYNC', 'DUR']
     ax[2].plot(duration / 1000, data['random'][:, 0], marker='', color='gray', linestyle='-',
                label='Random', lw=3, alpha=0.5)
-    for i in range(5):
+    for i in [0, 1, 3, 4]:
         ax[2].plot(duration/1000, data['distances_same'][:, i], marker='', color=cc[i], linestyle=styles[i], label=labs[i])
         ax[2].plot(duration/1000, data['distances_real'][:, i], marker='', color=cc[i], linestyle=styles[i])
 
@@ -4848,7 +4806,157 @@ if TEST:
     plt.plot(data, data, 'rs--')
     plt.show()
     embed()
+
+if CALL_OVERVIEW:
+    p = os.path.join('..', 'stimuli_plotting/')
+    audio_path = p + 'callseries/moths/'
+    # name = 'carales_PK1275.wav'
+    name = 'melese_PK1300_01.wav'
+    call_audio = wav.read(audio_path + name)
+    t_audio = np.arange(0, len(call_audio[1])/call_audio[0], 1/call_audio[0])
+
+    mf.plot_settings()
+    # Create Grid
+    ax = [[]] * 5
+    grid = matplotlib.gridspec.GridSpec(nrows=53, ncols=15)
+    fig = plt.figure(figsize=(5.9, 2.9))
+    ax[0] = plt.subplot(grid[0:10, 0:10])
+    ax[1] = plt.subplot(grid[14:24, 0:10])
+    ax[2] = plt.subplot(grid[28:38, 0:10])
+    ax[3] = plt.subplot(grid[42:52, 0:10])
+    ax[4] = plt.subplot(grid[0:52, 11:14])
+
+    ax[0].plot(t_audio, call_audio[1], 'k')
+    ax[1].plot(t_audio, call_audio[1], 'k')
+    ax[1].set_xlim(1.55, 1.68)
+    ax[2].plot(t_audio, call_audio[1], 'k')
+    ax[2].set_xlim(1.006, 1.04)
+    ax[3].plot(t_audio, call_audio[1], 'k')
+    ax[3].set_xlim(1.007, 1.02)
+
+    ax[4].plot(t_audio, call_audio[1], 'k')
+    ax[4].set_xlim(1.0079, 1.0085)
+
+    # Subfig Caps
+    subfig_color = 'black'
+    subfig_caps = 12
+    label_x_pos = -0.1
+    label_y_pos = 0.9
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    sns.despine(top=True, right=True, left=True, bottom=True, offset=None, trim=False)
+
+    for k in range(len(ax)):
+        ax[k].set_xticks([])
+        ax[k].set_xticklabels([])
+        ax[k].set_yticks([])
+        ax[k].set_yticklabels([])
+        ax[k].text(label_x_pos, label_y_pos, subfig_caps_labels[k], transform=ax[k].transAxes, size=subfig_caps,
+                 color=subfig_color)
+
+    fig.savefig('/media/nils/Data/Moth/Thesis/nilsbrehm/figs/call_structure.pdf')
+    plt.close(fig)
+
 print('Analysis done!')
 print("--- Analysis took %s minutes ---" % np.round((time.time() - start_time) / 60, 2))
 
+# JUNKYARD:
+if CALL_STATS:
 
+    stims = ['naturalmothcalls/BCI1062_07x07.wav',
+             'naturalmothcalls/aclytia_gynamorpha_24x24.wav',
+             'naturalmothcalls/agaraea_semivitrea_07x07.wav',
+             'naturalmothcalls/carales_12x12_01.wav',
+             'naturalmothcalls/chrostosoma_thoracicum_05x05.wav',
+             'naturalmothcalls/creatonotos_01x01.wav',
+             'naturalmothcalls/elysius_conspersus_11x11.wav',
+             'naturalmothcalls/epidesma_oceola_06x06.wav',
+             'naturalmothcalls/eucereon_appunctata_13x13.wav',
+             'naturalmothcalls/eucereon_hampsoni_11x11.wav',
+             'naturalmothcalls/eucereon_obscurum_14x14.wav',
+             'naturalmothcalls/gl005_11x11.wav',
+             'naturalmothcalls/gl116_05x05.wav',
+             'naturalmothcalls/hypocladia_militaris_09x09.wav',
+             'naturalmothcalls/idalu_fasciipuncta_05x05.wav',
+             'naturalmothcalls/idalus_daga_18x18.wav',
+             'naturalmothcalls/melese_12x12_01_PK1297.wav',
+             'naturalmothcalls/neritos_cotes_10x10.wav',
+             'naturalmothcalls/ormetica_contraria_peruviana_09x09.wav',
+             'naturalmothcalls/syntrichura_12x12.wav']
+
+    call_stats = []
+    file_pathname = '/media/brehm/Data/MasterMoth/stimuli_backup/'
+
+    for k in range(len(stims)):
+        file_name = file_pathname + stims[k][0:-4] + '/call_stats.xls'
+        try:
+            with open(file_name, newline='') as f:
+                df = pd.read_excel(file_name)
+                call_stats.append(df.values[0])
+            with open('/media/brehm/Data/MasterMoth/outfile.csv', 'a', newline='') as csvfile:
+                writer = csv.writer(csvfile, delimiter=' ')
+                a = list(call_stats[k])
+                a.insert(0, stims[k][17:-10])
+                writer.writerow(a)
+        except:
+            print(stims[k] + ' not found')
+            with open('/media/brehm/Data/MasterMoth/outfile.csv', 'a', newline='') as csvfile:
+                writer = csv.writer(csvfile, delimiter=' ')
+                a = list([np.nan] * 18)
+                a.insert(0, stims[k][17:-10])
+                writer.writerow(a)
+    embed()
+    exit()
+
+if CUMHIST:
+    endings_callseries = np.load('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_CallSeries.npy')
+    endings_singlecalls = np.load('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_SingleCalls.npy')
+
+    # Plot
+    mf.plot_settings()
+    fig = plt.figure(figsize=(5.9, 2.9))
+    grid = matplotlib.gridspec.GridSpec(nrows=1, ncols=46)
+    ax1 = plt.subplot(grid[0, 0:20])
+    ax2 = plt.subplot(grid[0, 25:45])
+
+    n_bins = int(0.2 / 0.005)
+    n, bins, patches = ax1.hist(endings_singlecalls, n_bins, normed=0, histtype='stepfilled', cumulative=True, label='CumHist', color='0.75')
+    n, bins, patches = ax1.hist(endings_singlecalls, n_bins, normed=0, histtype='step', cumulative=True,
+                                label='CumHist', color='k')
+
+    n_bins = int(2 / 0.005)
+    n, bins, patches = ax2.hist(endings_callseries, n_bins, normed=0, histtype='stepfilled', cumulative=True,
+                                label='CumHist', color='0.75')
+    n, bins, patches = ax2.hist(endings_callseries, n_bins, normed=0, histtype='step', cumulative=True,
+                                label='CumHist', color='k')
+
+    ax1.set_ylabel('Count of finished calls')
+    fig.text(0.5, 0.035, 'Time [s]', ha='center', fontdict=None)
+    sns.despine()
+
+    ax1.set_yticks(np.arange(0, 20.1, 5))
+    ax2.set_yticks(np.arange(0, 20.1, 5))
+    ax1.set_ylim(0, 20)
+    ax2.set_ylim(0, 20)
+
+    ax1.set_xticks(np.arange(0, 0.21, 0.05))
+    ax2.set_xticks(np.arange(0, 2.1, 0.5))
+    ax1.set_xlim(0, 0.2)
+    ax2.set_xlim(0, 2)
+
+    ax1.grid(color='0.3', linestyle='--', linewidth=.5)
+    ax2.grid(color='0.3', linestyle='--', linewidth=.5)
+
+    # Subfig caps
+    subfig_caps = 12
+    label_x_pos = -0.025
+    label_y_pos = 0.95
+    subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    ax1.text(label_x_pos - 0.2, label_y_pos, subfig_caps_labels[0], transform=ax1.transAxes, size=subfig_caps,
+             color='black')
+    ax2.text(label_x_pos - 0.2, label_y_pos, subfig_caps_labels[1], transform=ax2.transAxes, size=subfig_caps,
+             color='black')
+
+    fig.subplots_adjust(left=0.2, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
+    figname = '/media/brehm/Data/MasterMoth/CallStats/CumHists.pdf'
+    fig.savefig(figname)
+    plt.close()
