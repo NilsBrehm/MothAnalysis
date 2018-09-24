@@ -62,7 +62,7 @@ VANROSSUM = False
 
 MVSB = False
 PLOT_MVSB = False
-PLOT_MVSB_DPRIME = False
+PLOT_MVSB_DPRIME = True
 
 # Compute other Distances
 ISI = False
@@ -79,7 +79,7 @@ PLOT_D_RATIOS_OVERALL = False
 
 # -------------
 # PLOTs
-CALL_OVERVIEW = True
+CALL_OVERVIEW = False
 # Plot Stimulus Calls
 CALLSFROMMATLAB = False
 CALLSERIESFROMMATLAB = False
@@ -197,10 +197,10 @@ if SELECT:
 if PLOT_CALLS:
     # Plot calls
     mf.plot_settings()
-    # p = '/media/brehm/Data/MasterMoth/stimuli_plotting/callseries/moths/'
-    # p = '/media/brehm/Data/MasterMoth/stimuli_plotting/callseries/bats/'
-    # p = '/media/brehm/Data/MasterMoth/stimuli_plotting/naturalmothcalls/'
-    p = '/media/brehm/Data/MasterMoth/stimuli_plotting/batcalls/'
+    # p = '/media/nils/Data/Moth/stimuli_plotting/callseries/moths/'
+    # p = '/media/nils/Data/Moth/stimuli_plotting/callseries/bats/'
+    # p = '/media/nils/Data/Moth/stimuli_plotting/naturalmothcalls/'
+    p = '/media/nils/Data/Moth/stimuli_plotting/batcalls/'
 
     listings = os.listdir(p)
     calls = [[]] * len(listings)
@@ -232,7 +232,7 @@ if PLOT_CALLS:
     ax.set_xlabel('Time [s]')
     # fig.set_size_inches(5.9, 1.9)
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
-    figname = "/media/brehm/Data/MasterMoth/figs/SingleCalls_Bats.pdf"
+    figname = "/media/nils/Data/Moth/figs/SingleCalls_Bats.pdf"
     fig.savefig(figname)
     plt.close(fig)
 
@@ -458,7 +458,7 @@ if PLOT_D_RATIOS:
     sns.despine()
 
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
-    # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
+    # figname = "/media/nils/Data/Moth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
 
@@ -563,7 +563,7 @@ if PLOT_D_RATIOS:
     sns.despine()
 
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
-    # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
+    # figname = "/media/nils/Data/Moth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
     fig.savefig(figname)
     plt.close(fig)
 
@@ -651,8 +651,8 @@ if PLOT_D_RATIOS:
     # sns.despine()
     #
     # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
-    # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
-    # # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/Distance_Ratios_TEST_' + stim_type + '.pdf'
+    # figname = "/media/nils/Data/Moth/figs/" + data_name + '/Distance_Ratios_' + stim_type + '.pdf'
+    # # figname = "/media/nils/Data/Moth/figs/" + data_name + '/Distance_Ratios_TEST_' + stim_type + '.pdf'
     # fig.savefig(figname)
     # plt.close(fig)
 
@@ -871,12 +871,12 @@ if POISSON:
                 _, _, vs_mean_boot, _, vs_percentile_boot, vs_ci_boot = \
                     mf.vs_range(p_spikes, pp / 1000, tmin=tmin, n_ci=0, order=vs_order)
                 vs_tmax[jj, tt] = np.nanmean(vs_mean_boot)
-        np.save('/media/brehm/Data/MasterMoth/figs/' + 'vs_tmax_' + mode + '_order_' + str(vs_order) + '.npy', vs_tmax)
+        np.save('/media/nils/Data/Moth/figs/' + 'vs_tmax_' + mode + '_order_' + str(vs_order) + '.npy', vs_tmax)
         print('Data Saved')
     else:
-        # vs_tmax = np.load('/media/brehm/Data/MasterMoth/figs/' + 'vs_tmax_' + mode + '.npy')
-        vs_rates = np.load('/media/brehm/Data/MasterMoth/figs/' + 'vs_tmax_' + 'rates' + '_order_' + str(vs_order) + '.npy')
-        vs_samples = np.load('/media/brehm/Data/MasterMoth/figs/' + 'vs_tmax_' + 'nsamples' + '_order_' + str(vs_order) + '.npy')
+        # vs_tmax = np.load('/media/nils/Data/Moth/figs/' + 'vs_tmax_' + mode + '.npy')
+        vs_rates = np.load('/media/nils/Data/Moth/figs/' + 'vs_tmax_' + 'rates' + '_order_' + str(vs_order) + '.npy')
+        vs_samples = np.load('/media/nils/Data/Moth/figs/' + 'vs_tmax_' + 'nsamples' + '_order_' + str(vs_order) + '.npy')
 
     if plot_it:
         # Fit and Plot
@@ -886,8 +886,8 @@ if POISSON:
         mf.poisson_vs_duration2(ts, vs_rates[a], vs_samples, rates[a], nsamples)
 
         # Save Plot to HDD
-        # figname = '/media/brehm/Data/MasterMoth/figs/' + 'Poisson_tmax_VS_' + info2 + '.pdf'
-        figname = '/media/brehm/Data/MasterMoth/figs/PoissonDuration_VS_order_' + str(vs_order) + '.pdf'
+        # figname = '/media/nils/Data/Moth/figs/' + 'Poisson_tmax_VS_' + info2 + '.pdf'
+        figname = '/media/nils/Data/Moth/figs/PoissonDuration_VS_order_' + str(vs_order) + '.pdf'
         fig = plt.gcf()
         fig.set_size_inches(5.9, 2.9)
         fig.savefig(figname)
@@ -1087,23 +1087,23 @@ if FIFIELD:
                 ax1.plot(d_isi[ff][:, 0], d_isi[ff][:, 2], 'ko', label='sync')
                 ax1.plot(x_d, y_d, 'k')
                 # ax1.plot([th_d_fit, th_d_fit], [0, 1], 'k--')
-                ax1.plot(x_d, d_approx, 'k--')
+                ax1.plot(x_d, d_approx, 'r--', lw=1.5)
                 ax1.set_ylabel('SYNC value')
                 ax1.set_ylim(0, 1)
                 ax1.text(label_x_pos, label_y_pos, 'c', transform=ax1.transAxes, size=subfig_caps)
                 ax1.set_xlim(x_min, x_max)
                 ax1.set_xticks(np.arange(x_min, x_max+x_step, x_step))
 
-                ax2 = plt.subplot(2, 2, 2)
+                ax2 = plt.subplot(2, 2, 1)
                 y_max = 12
                 ax2.errorbar(spike_count[ff][:, 0], spike_count[ff][:, 1], yerr=spike_count[ff][:, 2], marker='o', linestyle='', color='k', label='spike_count')
                 ax2.plot(x_r, y_r, 'k')
                 # ax2.plot([th_r_fit, th_r_fit], [0, y_max], 'k--')
-                ax2.plot(x_r, r_approx, 'k--')
+                ax2.plot(x_r, r_approx, 'r--', lw=1.5)
                 ax2.set_ylabel('Spike count')
                 ax2.set_ylim(0, y_max)
                 ax2.set_yticks(np.arange(0, y_max+2, 2))
-                ax2.text(label_x_pos, label_y_pos, 'b', transform=ax2.transAxes, size=subfig_caps)
+                ax2.text(label_x_pos, label_y_pos, 'a', transform=ax2.transAxes, size=subfig_caps)
                 ax2.set_xlim(x_min, x_max)
                 ax2.set_xticks(np.arange(x_min, x_max + x_step, x_step))
 
@@ -1121,12 +1121,12 @@ if FIFIELD:
                 ax3.set_xlim(x_min, x_max)
                 ax3.set_xticks(np.arange(x_min, x_max + x_step, x_step))
 
-                ax4 = plt.subplot(2, 2, 1)
+                ax4 = plt.subplot(2, 2, 2)
                 y_max = 600
                 ax4.errorbar(conv_rate[ff][:, 0], conv_rate[ff][:, 1], yerr=conv_rate[ff][:, 2], marker='o', linestyle='', color='k', label='firing rate')
                 ax4.plot(x_conv, y_conv, 'k')
                 # ax4.plot([th_conv_fit, th_conv_fit], [0, y_max], 'k--')
-                ax4.plot(x_conv, conv_approx, 'k--')
+                ax4.plot(x_conv, conv_approx, 'r--', lw=1.5)
                 # ax4.errorbar(instant_rate[ff][:, 0], instant_rate[ff][:, 1], yerr=instant_rate[ff][:, 2], marker='s', linestyle='', color='0.25', label='instantaneous rate')
                 # ax4.plot(x_inst, y_inst, '0.25')
                 # ax4.plot([th_inst_fit, th_inst_fit], [0, np.max(instant_rate[ff][:, 1])], '--', color='0.25')
@@ -1134,7 +1134,7 @@ if FIFIELD:
                 ax4.set_ylim(0, y_max)
                 ax4.set_yticks(np.arange(0, y_max+100, 100))
                 # plt.legend(frameon=False)
-                ax4.text(label_x_pos, label_y_pos, 'a', transform=ax4.transAxes, size=subfig_caps)
+                ax4.text(label_x_pos, label_y_pos, 'b', transform=ax4.transAxes, size=subfig_caps)
                 ax4.set_xlim(x_min, x_max)
                 ax4.set_xticks(np.arange(x_min, x_max + x_step, x_step))
 
@@ -1583,7 +1583,7 @@ if PLOT_MVSB:
     ax[2].text(15, 350, 'Single calls', ha='center', va='center', fontdict=None, size=sz_text)
     ax[3].text(15, 350, 'Sc extended', ha='center', va='center', fontdict=None, size=sz_text)
     ax[20].text(8, 0.5, 'Percentage of moth classification', ha='center', va='center', fontdict=None, rotation=-90)
-    fig.text(0.5, 0.05, 'Call number', ha='center', fontdict=None)
+    fig.text(0.5, 0.05, 'Call ID', ha='center', fontdict=None)
     fig.text(0.05, 0.5, 'Spike train duration [s]', ha='center', va='center', fontdict=None, rotation=90)
 
     sz_text = 8
@@ -1984,6 +1984,7 @@ if PLOT_MVSB_DPRIME:
     for i in range(8, 16):
         sns.despine(ax=ax[i])
 
+    fig.text(0.5, 0.025, 'Spike train duration [s]', ha='center', fontdict=None)
     # fig.subplots_adjust(left=0.1, top=0.95, bottom=0.05, right=0.9, wspace=0.1, hspace=0.1)
     fig.savefig(path_names[2] + 'final/MvsB_dprime.pdf')
     plt.close(fig)
@@ -2641,7 +2642,7 @@ if PULSE_TRAIN_ISI:
 #         fig.text(0.05, 0.55, 'Matched call', ha='center', fontdict=None, rotation=90)
 #         # Save Plot to HDD
 #         # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.7, wspace=0.4, hspace=0.4)
-#         figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[p] + stim_type + '.pdf'
+#         figname = "/media/nils/Data/Moth/figs/" + data_name + plot_name[p] + stim_type + '.pdf'
 #         fig.savefig(figname)
 #         plt.close(fig)
 #
@@ -3079,7 +3080,7 @@ if PULSE_TRAIN_VANROSSUM:
         fig.text(0.92, 0.73, 'Spike trains', ha='center', fontdict=None, rotation=-90)
 
         fig.subplots_adjust(left=0.12, top=0.9, bottom=0.12, right=0.9, wspace=0.1, hspace=0.1)
-        # figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + '/' + stim_type + '_' + str(
+        # figname = "/media/nils/Data/Moth/figs/" + data_name + '/' + stim_type + '_' + str(
         #     selected_duration) + '_comparison.pdf'
 
         # figname = "/media/nils/Data/Moth/figs/" + data_name + '/' + stim_type + '_' + str(
@@ -3184,7 +3185,7 @@ if PULSE_TRAIN_VANROSSUM:
     #         t12.set_path_effects([path_effects.Stroke(linewidth=1, foreground='black'), path_effects.Normal()])
     #
     #         fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.2, hspace=0.4)
-    #         figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[aa] + stim_type + '.pdf'
+    #         figname = "/media/nils/Data/Moth/figs/" + data_name + plot_name[aa] + stim_type + '.pdf'
     #         fig.savefig(figname)
     #         plt.close(fig)
     #
@@ -3248,7 +3249,7 @@ if PULSE_TRAIN_VANROSSUM:
     #         ax4.text(label_x_pos, label_y_pos, subfig_caps_labels[3], transform=ax4.transAxes, size=subfig_caps, color='white')
     #
     #         # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.5, hspace=0.1)
-    #         figname = "/media/brehm/Data/MasterMoth/figs/" + data_name + plot_name[aa] + stim_type + '_' + str(selected_duration) +'.pdf'
+    #         figname = "/media/nils/Data/Moth/figs/" + data_name + plot_name[aa] + stim_type + '_' + str(selected_duration) +'.pdf'
     #         fig.savefig(figname)
     #         plt.close(fig)
 
@@ -3276,12 +3277,12 @@ if FI_OVERANIMALS:
     # carales_calls = ['carales_11x11_01', 'carales_11x11_02', 'carales_12x12_01', 'carales_12x12_02', 'carales_13x13_01', 'carales_13x13_02', 'carales_19x19']
     carales_calls = ['carales_12x12_01', 'carales_12x12_02']
 
-    estigmene = wav.read('/media/brehm/Data/MasterMoth/Esitgmene/Pk13060008_m.wav')[1]
+    estigmene = wav.read('/media/nils/Data/Moth/Esitgmene/Pk13060008_m.wav')[1]
     y = estigmene[835000:996000]
     freqs_estigmene, power_estigmene = signal.welch(y, fs, scaling='spectrum')
     freqs_estigmene = freqs_estigmene / 1000
 
-    # bat = wav.read('/media/brehm/Data/MasterMoth/stimuli_backup/batcalls/Myotis_bechsteinii_1_n.wav')
+    # bat = wav.read('/media/nils/Data/Moth/stimuli_backup/batcalls/Myotis_bechsteinii_1_n.wav')
     # y_bat = bat[1]
     # fs_bat = bat[0]
     # freqs_bat, power_bat = signal.welch(y_bat, fs_bat, scaling='spectrum')
@@ -3292,7 +3293,7 @@ if FI_OVERANIMALS:
     power = [[]] * len(carales_calls)
 
     for j in range(len(carales_calls)):
-        carales[j] = wav.read('/media/brehm/Data/MasterMoth/stimuli_backup/naturalmothcalls/' + carales_calls[j] + '.wav')[1]
+        carales[j] = wav.read('/media/nils/Data/Moth/stimuli_backup/naturalmothcalls/' + carales_calls[j] + '.wav')[1]
         x = carales[j]
         # plt.plot(x)
         freqs[j], power[j] = signal.welch(x, fs, scaling='spectrum')
@@ -3306,7 +3307,7 @@ if FI_OVERANIMALS:
     freqs_bats = [[]] * len(bat_calls)
     power_bats = [[]] * len(bat_calls)
     for j in range(len(bat_calls)):
-        bats[j] = wav.read('/media/brehm/Data/MasterMoth/stimuli_backup/batcalls/' + bat_calls[j] + '.wav')
+        bats[j] = wav.read('/media/nils/Data/Moth/stimuli_backup/batcalls/' + bat_calls[j] + '.wav')
         fs = bats[j][0]
         x = bats[j][1]
         # plt.plot(x)
@@ -3452,13 +3453,13 @@ if FI_OVERANIMALS:
     ax4.set_xlim(x_min, x_max)
     ax4.set_xticks(np.arange(x_min, x_max+x_step, x_step))
 
-    ax1.set_ylabel('Intensity [dB SPL]')
-    ax3.set_ylabel('Intensity [dB SPL]')
+    ax1.set_ylabel('Threshold [dB SPL]')
+    ax3.set_ylabel('Threshold [dB SPL]')
     fig.text(0.5, 0.035, 'Frequency [kHz]', ha='center', fontdict=None)
     sns.despine()
 
     # Save Plot to HDD
-    p = "/media/brehm/Data/MasterMoth/figs/"
+    p = "/media/nils/Data/Moth/figs/"
     figname = p + 'fi_field.pdf'
     fig.set_size_inches(5.9, 5.9)
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.1, right=0.9, wspace=0.4, hspace=0.4)
@@ -3554,7 +3555,7 @@ if OVERALLVS:
     sns.despine()
 
     # Save Plot to HDD
-    p = "/media/brehm/Data/MasterMoth/figs/"
+    p = "/media/nils/Data/Moth/figs/"
     figname = p + protocol_name + '_VS.pdf'
     fig.set_size_inches(5.9, 2.9)
     fig.subplots_adjust(left=0.1, top=0.8, bottom=0.2, right=0.9, wspace=0.4, hspace=0.4)
@@ -3655,7 +3656,7 @@ if PLOT_CORRS:
     sns.despine()
 
     # Save Plot to HDD
-    ps = "/media/brehm/Data/MasterMoth/figs/"
+    ps = "/media/nils/Data/Moth/figs/"
     figname = ps + protocol_name + '_corrs.pdf'
     fig.savefig(figname)
     plt.close(fig)
@@ -3707,12 +3708,12 @@ if PLOT_VR_TAUVSDUR_OVERALL:
     X_series, Y_series = np.meshgrid(x_series, y)
 
     if stim_length is 'series':
-        figname = '/media/brehm/Data/MasterMoth/figs/VanRossum_TauVSDur_series_overall.pdf'
+        figname = '/media/nils/Data/Moth/figs/VanRossum_TauVSDur_series_overall.pdf'
         im1 = ax1.pcolormesh(X_series, Y_series, vr_series[0].T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
         im2 = ax2.pcolormesh(X_series, Y_series, vr_series[1].T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
         im3 = ax3.pcolormesh(X_series, Y_series, vr_series[2].T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
     if stim_length is 'single':
-        figname = '/media/brehm/Data/MasterMoth/figs/VanRossum_TauVSDur_single_overall.pdf'
+        figname = '/media/nils/Data/Moth/figs/VanRossum_TauVSDur_single_overall.pdf'
         im1 = ax1.pcolormesh(X_single, Y_single, vr_single[0].T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
         im2 = ax2.pcolormesh(X_single, Y_single, vr_single[1].T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
         im3 = ax3.pcolormesh(X_single, Y_single, vr_single[2].T, cmap='jet', vmin=0, vmax=1, shading='gouraud')
@@ -3821,7 +3822,7 @@ if PLOT_CORRECT_OVERALL:
     # Save Plot to HDD
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.4, hspace=0.4)
     fig.set_size_inches(5.9, 2.9)
-    figname = '/media/brehm/Data/MasterMoth/figs/Distances_Correct_' + stim_type + '_overall.pdf'
+    figname = '/media/nils/Data/Moth/figs/Distances_Correct_' + stim_type + '_overall.pdf'
     fig.savefig(figname)
     plt.close(fig)
     print('Distances Matrix Plot saved')
@@ -3946,7 +3947,7 @@ if PLOT_D_RATIOS_OVERALL:
     sns.despine()
 
     fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
-    figname = '/media/brehm/Data/MasterMoth/figs/Distance_Ratios_DUR_COUNT_' + stim_type + '_overall.pdf'
+    figname = '/media/nils/Data/Moth/figs/Distance_Ratios_DUR_COUNT_' + stim_type + '_overall.pdf'
     fig.savefig(figname)
     plt.close(fig)
 
@@ -4056,7 +4057,7 @@ if PLOT_D_RATIOS_OVERALL:
     # sns.despine()
     #
     # fig.subplots_adjust(left=0.1, top=0.9, bottom=0.2, right=0.9, wspace=0.2, hspace=0.4)
-    # figname = '/media/brehm/Data/MasterMoth/figs/Distance_Ratios_' + stim_type + '_overall.pdf'
+    # figname = '/media/nils/Data/Moth/figs/Distance_Ratios_' + stim_type + '_overall.pdf'
     # fig.savefig(figname)
     # plt.close(fig)
 
@@ -4278,10 +4279,10 @@ if CALLSFROMMATLAB:
 
 if CALLSERIESFROMMATLAB:
     # Call Series
-    # samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
+    # samples = sio.loadmat('/media/nils/Data/Moth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
     # Single Calls
-    samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
-    # samples = sio.loadmat('/media/brehm/Data/MasterMoth/CallStats/samples.mat')['samples'][0]
+    samples = sio.loadmat('/media/nils/Data/Moth/CallStats/CallSeries_Stats/samples.mat')['samples'][0]
+    # samples = sio.loadmat('/media/nils/Data/Moth/CallStats/samples.mat')['samples'][0]
 
     # Raster Plot
     mf.plot_settings()
@@ -4334,12 +4335,12 @@ if CALLSERIESFROMMATLAB:
         ax.set_xlim(0, time_limit)
 
         fig.subplots_adjust(left=0.2, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
-        figname = '/media/brehm/Data/MasterMoth/CallStats/CallSeriesRasterPlot_' + str(int(time_limit*1000)) +'.pdf'
-        # figname = '/media/brehm/Data/MasterMoth/CallStats/SingleCallsRasterPlot_' + str(int(time_limit*1000)) +'.pdf'
+        figname = '/media/nils/Data/Moth/CallStats/CallSeriesRasterPlot_' + str(int(time_limit*1000)) +'.pdf'
+        # figname = '/media/nils/Data/Moth/CallStats/SingleCallsRasterPlot_' + str(int(time_limit*1000)) +'.pdf'
         fig.savefig(figname)
         plt.close()
-        np.save('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_CallSeries.npy', ending)
-        # np.save('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_SingleCalls.npy', ending)
+        np.save('/media/nils/Data/Moth/CallStats/' + 'endings_CallSeries.npy', ending)
+        # np.save('/media/nils/Data/Moth/CallStats/' + 'endings_SingleCalls.npy', ending)
 
 
 if PLOT_VR_SPIKEMATCHING:
@@ -4884,7 +4885,7 @@ if CALL_STATS:
              'naturalmothcalls/syntrichura_12x12.wav']
 
     call_stats = []
-    file_pathname = '/media/brehm/Data/MasterMoth/stimuli_backup/'
+    file_pathname = '/media/nils/Data/Moth/stimuli_backup/'
 
     for k in range(len(stims)):
         file_name = file_pathname + stims[k][0:-4] + '/call_stats.xls'
@@ -4892,14 +4893,14 @@ if CALL_STATS:
             with open(file_name, newline='') as f:
                 df = pd.read_excel(file_name)
                 call_stats.append(df.values[0])
-            with open('/media/brehm/Data/MasterMoth/outfile.csv', 'a', newline='') as csvfile:
+            with open('/media/nils/Data/Moth/outfile.csv', 'a', newline='') as csvfile:
                 writer = csv.writer(csvfile, delimiter=' ')
                 a = list(call_stats[k])
                 a.insert(0, stims[k][17:-10])
                 writer.writerow(a)
         except:
             print(stims[k] + ' not found')
-            with open('/media/brehm/Data/MasterMoth/outfile.csv', 'a', newline='') as csvfile:
+            with open('/media/nils/Data/Moth/outfile.csv', 'a', newline='') as csvfile:
                 writer = csv.writer(csvfile, delimiter=' ')
                 a = list([np.nan] * 18)
                 a.insert(0, stims[k][17:-10])
@@ -4908,8 +4909,8 @@ if CALL_STATS:
     exit()
 
 if CUMHIST:
-    endings_callseries = np.load('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_CallSeries.npy')
-    endings_singlecalls = np.load('/media/brehm/Data/MasterMoth/CallStats/' + 'endings_SingleCalls.npy')
+    endings_callseries = np.load('/media/nils/Data/Moth/CallStats/' + 'endings_CallSeries.npy')
+    endings_singlecalls = np.load('/media/nils/Data/Moth/CallStats/' + 'endings_SingleCalls.npy')
 
     # Plot
     mf.plot_settings()
@@ -4957,6 +4958,6 @@ if CUMHIST:
              color='black')
 
     fig.subplots_adjust(left=0.2, top=0.9, bottom=0.2, right=0.9, wspace=0.1, hspace=0.1)
-    figname = '/media/brehm/Data/MasterMoth/CallStats/CumHists.pdf'
+    figname = '/media/nils/Data/Moth/CallStats/CumHists.pdf'
     fig.savefig(figname)
     plt.close()
