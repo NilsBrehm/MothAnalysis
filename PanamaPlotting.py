@@ -1,0 +1,213 @@
+import matplotlib.pyplot as plt
+import numpy as np
+from IPython import embed
+import scipy.io.wavfile as wav
+import scipy as scipy
+import myfunctions as mf
+import matplotlib
+import scipy.io.wavfile as wav
+import seaborn as sns
+
+# Color Map
+
+C = [[0, 0, 0],
+[0, 0, 0.0476190485060215],
+[0, 0, 0.0952380970120430],
+[0, 0, 0.142857149243355],
+[0, 0, 0.190476194024086],
+[0, 0, 0.238095238804817],
+[0, 0, 0.285714298486710],
+[0, 0, 0.333333343267441],
+[0, 0, 0.380952388048172],
+[0, 0, 0.428571432828903],
+[0, 0, 0.476190477609634],
+[0, 0, 0.523809552192688],
+[0, 0, 0.571428596973419],
+[0, 0, 0.619047641754150],
+[0, 0, 0.666666686534882],
+[0, 0, 0.714285731315613],
+[0, 0, 0.761904776096344],
+[0, 0, 0.809523820877075],
+[0, 0, 0.857142865657806],
+[0, 0, 0.904761910438538],
+[0, 0, 0.952380955219269],
+[0, 0, 1],
+[0, 0.0833333358168602, 0.916666686534882],
+[0, 0.166666671633720, 0.833333313465118],
+[0, 0.250000000000000, 0.750000000000000],
+[0, 0.333333343267441, 0.666666686534882],
+[0, 0.416666656732559, 0.583333313465118],
+[0, 0.500000000000000, 0.500000000000000],
+[0, 0.541666686534882, 0.458333343267441],
+[0, 0.583333313465118, 0.416666656732559],
+[0, 0.625000000000000, 0.375000000000000],
+[0, 0.666666686534882, 0.333333343267441],
+[0, 0.708333313465118, 0.291666656732559],
+[0, 0.750000000000000, 0.250000000000000],
+[0, 0.791666686534882, 0.208333328366280],
+[0, 0.833333313465118, 0.166666671633720],
+[0, 0.875000000000000, 0.125000000000000],
+[0, 0.916666686534882, 0.0833333358168602],
+[0, 0.958333313465118, 0.0416666679084301],
+[0, 1, 0],
+[0.125000000000000, 1, 0],
+[0.250000000000000, 1, 0],
+[0.375000000000000, 1, 0],
+[0.500000000000000, 1, 0],
+[0.625000000000000, 1, 0],
+[0.750000000000000, 1, 0],
+[0.875000000000000, 1, 0],
+[1, 1, 0],
+[0.990686297416687, 0.958088219165802, 0.00637254910543561],
+[0.981372535228729, 0.916176497936249, 0.0127450982108712],
+[0.972058832645416, 0.874264717102051, 0.0191176477819681],
+[0.962745070457459, 0.832352936267853, 0.0254901964217424],
+[0.953431367874146, 0.790441155433655, 0.0318627469241619],
+[0.944117665290833, 0.748529434204102, 0.0382352955639362],
+[0.934803903102875, 0.706617653369904, 0.0446078442037106],
+[0.925490200519562, 0.664705872535706, 0.0509803928434849],
+[0.916176497936249, 0.622794151306152, 0.0573529414832592],
+[0.906862735748291, 0.580882370471954, 0.0637254938483238],
+[0.897549033164978, 0.538970589637756, 0.0700980424880981],
+[0.888235330581665, 0.497058838605881, 0.0764705911278725],
+[0.878921568393707, 0.455147057771683, 0.0828431397676468],
+[0.869607865810394, 0.413235306739807, 0.0892156884074211],
+[0.860294103622437, 0.371323525905609, 0.0955882370471954],
+[0.850980401039124, 0.329411774873734, 0.101960785686970]]
+cm_selena = matplotlib.colors.ListedColormap(C)
+
+file_name = '/media/brehm/Data/Panama/Recordings/Carales_astur/PK1285/Pk12850017/call_nr_2/matrix_analysis.mat'
+audio_name = '/media/brehm/Data/Panama/Recordings/Carales_astur/PK1285/Pk12850017/call_nr_2.wav'
+mat_file = scipy.io.loadmat(file_name)
+fs, x = wav.read(audio_name)
+
+# High Pass Filter Audio
+nyqst = 0.5 * fs
+lowcut = 2000
+highcut = 100000
+low = lowcut / nyqst
+high = highcut / nyqst
+audio_call = mf.voltage_trace_filter(x, low, ftype='high', order=2, filter_on=True)
+
+# Store Data
+AvsA = mat_file['MaxCorr_AA']
+PvsP = mat_file['MaxCorr_PP']
+AvsP = mat_file['MaxCorr_AP']
+
+matrix_data = {0: mat_file['MaxCorr_AA'], 1: mat_file['MaxCorr_PP'], 2: mat_file['MaxCorr_AP']}
+
+# Pulses: 0=Active, 1=Passive
+pulses = {0: mat_file['pulses'][0][0][0], 1: mat_file['pulses'][0][0][1]}
+
+# Spectrogram
+Nx = 512
+FFT = 512
+nover = Nx-5
+w = scipy.signal.get_window('hann', Nx, fftbins=True)
+f, t, Sxx = scipy.signal.spectrogram(audio_call, fs, window=w, nperseg=None, noverlap=nover, nfft=FFT,
+                                     detrend='constant', return_onesided=True, scaling='density', axis=-1,
+                                     mode='psd')
+
+db = 20*np.log10(Sxx/np.max(Sxx))
+
+# Histogram of db values
+h, b = np.histogram(db, 100)
+bins = b[:-1]
+idx = h == np.max(h)
+min_db = np.round(bins[idx][0])
+
+# plt.figure(figsize=(10, 2.5))
+# plt.pcolormesh(t, f, db, cmap=cm_selena, vmin=-100, vmax=0, shading='gouraud')
+# plt.colorbar()
+# plt.ylim(0, 80000)
+
+mf.plot_settings()
+ax = [[]] * 6
+grid = matplotlib.gridspec.GridSpec(nrows=123, ncols=51)
+fig = plt.figure(figsize=(5.9, 3.9))
+n_active = pulses[0].shape[1]
+n_passive = pulses[1].shape[1]
+n = np.max([n_active, n_passive])
+
+# Grid Spectrogram
+ax[0] = plt.subplot(grid[0:14, 0:20])
+ax_cb_spec = plt.subplot(grid[0:14, 31:32])
+
+# Grid Matrix
+ax[1] = plt.subplot(grid[0:10, 40:50])
+ax[2] = plt.subplot(grid[20:30, 40:50])
+ax[3] = plt.subplot(grid[40:50, 40:50])
+
+# Grid Single Pulses
+ax_a = grid[30:50, 0:10]
+ax_p = grid[30:122, 12:22]
+
+# Grid Color Bar Matrix
+ax_cb = plt.subplot(grid[120:122, 0:20])
+
+
+# Single Pulses
+grid2 = matplotlib.gridspec.GridSpecFromSubplotSpec(n, 1, subplot_spec=ax_a)
+ax2 = [[]] * n
+for k in range(n):
+    ax2[k] = plt.Subplot(fig, grid2[k, 0])
+    fig.add_subplot(ax2[k])
+    ax2[k].plot(pulses[0][:, k], 'k')
+    sns.despine(ax=ax2[k], top=True, right=True, left=True, bottom=True, offset=None, trim=False)
+    ax2[k].set_yticks([])
+    ax2[k].set_xticks([])
+
+grid3 = matplotlib.gridspec.GridSpecFromSubplotSpec(n, 1, subplot_spec=ax_p)
+ax3 = [[]] * n
+for k in range(n):
+    ax3[k] = plt.Subplot(fig, grid3[k, 0])
+    fig.add_subplot(ax3[k])
+    ax3[k].plot(pulses[1][:, k], 'k')
+    sns.despine(ax=ax3[k], top=True, right=True, left=True, bottom=True, offset=None, trim=False)
+    ax3[k].set_yticks([])
+    ax3[k].set_xticks([])
+
+# Plot on axes
+XX_AP, YY_AP = np.meshgrid(np.linspace(0, n_passive, n_passive+1), np.linspace(0, n_active, n_active+1))
+XX_AA, YY_AA = np.meshgrid(np.linspace(0, n_active, n_active+1), np.linspace(0, n_active, n_active+1))
+XX_PP, YY_PP = np.meshgrid(np.linspace(0, n_passive, n_passive+1), np.linspace(0, n_passive, n_passive+1))
+
+ax[1].pcolormesh(XX_AA, YY_AA, matrix_data[0], cmap=cm_selena, rasterized=True)
+ax[1].set_xlabel('Active')
+ax[1].set_ylabel('Active')
+
+ax[2].pcolormesh(XX_PP, YY_PP, matrix_data[1], cmap=cm_selena, rasterized=True)
+ax[2].set_xlabel('Passive')
+ax[2].set_ylabel('Passive')
+
+ax[3].pcolormesh(XX_AP, YY_AP, matrix_data[2], cmap=cm_selena, rasterized=True)
+ax[3].set_xlabel('Passive')
+ax[3].set_ylabel('Active')
+
+# Spectrogram
+ax[0].pcolormesh(t*1000, f/1000, db, cmap=cm_selena, vmin=-100, vmax=0, shading='gouraud', rasterized=True)
+ax[0].set_ylim(0, 80)
+ax[0].set_xlabel('Time [ms]')
+ax[0].set_ylabel('Freq. [kHz]')
+
+# Color Bars
+norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+cb1 = matplotlib.colorbar.ColorbarBase(ax_cb, cmap=cm_selena, norm=norm, orientation='horizontal')
+norm = matplotlib.colors.Normalize(vmin=-100, vmax=0)
+cb_spec = matplotlib.colorbar.ColorbarBase(ax_cb_spec, cmap=cm_selena, norm=norm, orientation='vertical')
+# ax_cb_spec.set_xticks([0, -50, -100])
+cb_spec.set_ticks([0, -50, -100])
+
+# Axis labels
+# fig.text(0.05, 0.9, 'Freq. [kHz]', ha='center', fontdict=None, rotation=90)
+# fig.text(0.05, 0.7, 'Active', ha='center', fontdict=None, rotation=90)
+# fig.text(0.05, 0.4, 'Passive', ha='center', fontdict=None, rotation=90)
+# fig.text(0.05, 0.2, 'Passive', ha='center', fontdict=None, rotation=90)
+fig.text(0.3, 0.15, 'Cross Correlation Value', ha='center', fontdict=None, rotation=0)
+fig.text(0.96, 0.86, 'Decibel', ha='center', fontdict=None, rotation=-90)
+
+figname = '/media/brehm/Data/Panama/Recordings/Carales_astur/PK1285/Pk12850017/call_nr_2/TEST.pdf'
+fig.savefig(figname)
+plt.close(fig)
+print('Done')
+exit()
