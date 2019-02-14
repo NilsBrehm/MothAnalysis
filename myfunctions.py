@@ -15,7 +15,8 @@ import itertools as itertools
 import pyspike as spk
 import pickle
 from tqdm import tqdm
-import thunderfish.peakdetection as pk
+# import thunderfish.peakdetection as pk
+import thunderfish.eventdetection as pk
 from joblib import Parallel,delayed
 import csv
 # import pycircstat as c_stat
