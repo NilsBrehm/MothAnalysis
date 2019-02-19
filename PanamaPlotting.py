@@ -3,10 +3,62 @@ import numpy as np
 from IPython import embed
 import scipy.io.wavfile as wav
 import scipy as scipy
-import myfunctions as mf
 import matplotlib
 import scipy.io.wavfile as wav
 import seaborn as sns
+from scipy import signal as sg
+
+
+def plot_settings():
+    # Font:
+    # matplotlib.rc('font',**{'family': 'sans-serif', 'sans-serif': ['Helvetica']})
+    matplotlib.rcParams['font.sans-serif'] = 'Arial'
+    matplotlib.rcParams['font.family'] = 'sans-serif'
+    matplotlib.rcParams['font.size'] = 8
+
+    # Ticks:
+    matplotlib.rcParams['xtick.major.pad'] = '2'
+    matplotlib.rcParams['ytick.major.pad'] = '2'
+    matplotlib.rcParams['ytick.major.size'] = 4
+    matplotlib.rcParams['xtick.major.size'] = 4
+
+    # Title Size:
+    matplotlib.rcParams['axes.titlesize'] = 10
+
+    # Axes Label Size:
+    matplotlib.rcParams['axes.labelsize'] = 8
+
+    # Axes Line Width:
+    matplotlib.rcParams['axes.linewidth'] = 1
+
+    # Tick Label Size:
+    matplotlib.rcParams['xtick.labelsize'] = 6
+    matplotlib.rcParams['ytick.labelsize'] = 6
+
+    # Line Width:
+    matplotlib.rcParams['lines.linewidth'] = 1
+    matplotlib.rcParams['lines.color'] = 'k'
+
+    # Marker Size:
+    matplotlib.rcParams['lines.markersize'] = 2
+
+    # Error Bars:
+    matplotlib.rcParams['errorbar.capsize'] = 0
+
+    # Legend Font Size:
+    matplotlib.rcParams['legend.fontsize'] = 5
+
+    return matplotlib.rcParams
+
+
+def voltage_trace_filter(voltage, cutoff, order, ftype, filter_on=True):
+    if filter_on:
+        b, a = sg.butter(order, cutoff, btype=ftype, analog=False)
+        y = sg.filtfilt(b, a, voltage)
+    else:
+        y = voltage
+    return y
+
 
 # Color Map
 
@@ -76,8 +128,15 @@ C = [[0, 0, 0],
 [0.850980401039124, 0.329411774873734, 0.101960785686970]]
 cm_selena = matplotlib.colors.ListedColormap(C)
 
-file_name = '/media/brehm/Data/Panama/Recordings/Carales_astur/PK1285/Pk12850017/call_nr_2/matrix_analysis.mat'
-audio_name = '/media/brehm/Data/Panama/Recordings/Carales_astur/PK1285/Pk12850017/call_nr_2.wav'
+# Data
+data_path = '/media/nils/Data/Panama/Recordings/'
+species = 'Melese_incertus'
+animal = 'PPK1297'
+recording_nr = 'Pk12970002'
+call_nr = 4
+
+file_name = data_path + species + '/' + animal + '/' + recording_nr + '/call_nr_' + str(call_nr) + '/matrix_analysis.mat'
+audio_name = data_path + species + '/' + animal + '/' + recording_nr + '/call_nr_' + str(call_nr) + '.wav'
 mat_file = scipy.io.loadmat(file_name)
 fs, x = wav.read(audio_name)
 
@@ -87,7 +146,7 @@ lowcut = 2000
 highcut = 100000
 low = lowcut / nyqst
 high = highcut / nyqst
-audio_call = mf.voltage_trace_filter(x, low, ftype='high', order=2, filter_on=True)
+audio_call = voltage_trace_filter(x, low, ftype='high', order=2, filter_on=True)
 
 # Store Data
 AvsA = mat_file['MaxCorr_AA']
@@ -121,30 +180,35 @@ min_db = np.round(bins[idx][0])
 # plt.colorbar()
 # plt.ylim(0, 80000)
 
-mf.plot_settings()
+plot_settings()
 ax = [[]] * 6
-grid = matplotlib.gridspec.GridSpec(nrows=123, ncols=51)
+grid = matplotlib.gridspec.GridSpec(nrows=133, ncols=56)
 fig = plt.figure(figsize=(5.9, 3.9))
 n_active = pulses[0].shape[1]
 n_passive = pulses[1].shape[1]
 n = np.max([n_active, n_passive])
 
 # Grid Spectrogram
-ax[0] = plt.subplot(grid[0:14, 0:20])
-ax_cb_spec = plt.subplot(grid[0:14, 31:32])
+ax[0] = plt.subplot(grid[0:20, 0:20])
+ax_cb_spec = plt.subplot(grid[0:20, 21:22])
 
 # Grid Matrix
-ax[1] = plt.subplot(grid[0:10, 40:50])
-ax[2] = plt.subplot(grid[20:30, 40:50])
-ax[3] = plt.subplot(grid[40:50, 40:50])
+ax[1] = plt.subplot(grid[0:30, 35:45])
+ax[2] = plt.subplot(grid[50:80, 35:45])
+ax[3] = plt.subplot(grid[100:130, 35:45])
 
 # Grid Single Pulses
-ax_a = grid[30:50, 0:10]
-ax_p = grid[30:122, 12:22]
+ax_a = grid[45:130, 0:10]
+ax_p = grid[45:130, 12:22]
 
 # Grid Color Bar Matrix
-ax_cb = plt.subplot(grid[120:122, 0:20])
+ax_cb = plt.subplot(grid[0:132, 46:47])
 
+# Subplot caps
+subfig_caps = 12
+label_x_pos = -0.6
+label_y_pos = 1.1
+subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k']
 
 # Single Pulses
 grid2 = matplotlib.gridspec.GridSpecFromSubplotSpec(n, 1, subplot_spec=ax_a)
@@ -157,6 +221,7 @@ for k in range(n):
     ax2[k].set_yticks([])
     ax2[k].set_xticks([])
 
+ax2[n-1].set_xlabel('Active')
 grid3 = matplotlib.gridspec.GridSpecFromSubplotSpec(n, 1, subplot_spec=ax_p)
 ax3 = [[]] * n
 for k in range(n):
@@ -167,47 +232,62 @@ for k in range(n):
     ax3[k].set_yticks([])
     ax3[k].set_xticks([])
 
+
+ax3[n-1].set_xlabel('Passive')
+
+# MATRIX PLOTS
 # Plot on axes
 XX_AP, YY_AP = np.meshgrid(np.linspace(0, n_passive, n_passive+1), np.linspace(0, n_active, n_active+1))
 XX_AA, YY_AA = np.meshgrid(np.linspace(0, n_active, n_active+1), np.linspace(0, n_active, n_active+1))
 XX_PP, YY_PP = np.meshgrid(np.linspace(0, n_passive, n_passive+1), np.linspace(0, n_passive, n_passive+1))
 
-ax[1].pcolormesh(XX_AA, YY_AA, matrix_data[0], cmap=cm_selena, rasterized=True)
+rasterize_it = True
+
+ax[1].pcolormesh(XX_AA, YY_AA, matrix_data[0], cmap=cm_selena, rasterized=rasterize_it)
 ax[1].set_xlabel('Active')
 ax[1].set_ylabel('Active')
 
-ax[2].pcolormesh(XX_PP, YY_PP, matrix_data[1], cmap=cm_selena, rasterized=True)
+ax[2].pcolormesh(XX_PP, YY_PP, matrix_data[1], cmap=cm_selena, rasterized=rasterize_it)
 ax[2].set_xlabel('Passive')
 ax[2].set_ylabel('Passive')
 
-ax[3].pcolormesh(XX_AP, YY_AP, matrix_data[2], cmap=cm_selena, rasterized=True)
+ax[3].pcolormesh(XX_AP, YY_AP, matrix_data[2], cmap=cm_selena, rasterized=rasterize_it)
 ax[3].set_xlabel('Passive')
 ax[3].set_ylabel('Active')
 
 # Spectrogram
-ax[0].pcolormesh(t*1000, f/1000, db, cmap=cm_selena, vmin=-100, vmax=0, shading='gouraud', rasterized=True)
+ax[0].pcolormesh(t*1000, f/1000, db, cmap=cm_selena, vmin=-100, vmax=0, shading='gouraud', rasterized=rasterize_it)
 ax[0].set_ylim(0, 80)
 ax[0].set_xlabel('Time [ms]')
 ax[0].set_ylabel('Freq. [kHz]')
 
 # Color Bars
 norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
-cb1 = matplotlib.colorbar.ColorbarBase(ax_cb, cmap=cm_selena, norm=norm, orientation='horizontal')
+cb1 = matplotlib.colorbar.ColorbarBase(ax_cb, cmap=cm_selena, norm=norm, orientation='vertical')
 norm = matplotlib.colors.Normalize(vmin=-100, vmax=0)
 cb_spec = matplotlib.colorbar.ColorbarBase(ax_cb_spec, cmap=cm_selena, norm=norm, orientation='vertical')
 # ax_cb_spec.set_xticks([0, -50, -100])
 cb_spec.set_ticks([0, -50, -100])
+cb_spec.set_ticklabels([' 0', '-50', '-100'])
+
+# Sub Lables
+ax[0].text(-0.3, 1.4, subfig_caps_labels[0], transform=ax[0].transAxes, size=subfig_caps,
+              color='black')
+ax2[0].text(label_x_pos, label_y_pos, subfig_caps_labels[1], transform=ax2[0].transAxes, size=subfig_caps,
+              color='black')
+ax[1].text(label_x_pos, 1.2, subfig_caps_labels[2], transform=ax[1].transAxes, size=subfig_caps,
+              color='black')
 
 # Axis labels
 # fig.text(0.05, 0.9, 'Freq. [kHz]', ha='center', fontdict=None, rotation=90)
 # fig.text(0.05, 0.7, 'Active', ha='center', fontdict=None, rotation=90)
 # fig.text(0.05, 0.4, 'Passive', ha='center', fontdict=None, rotation=90)
 # fig.text(0.05, 0.2, 'Passive', ha='center', fontdict=None, rotation=90)
-fig.text(0.3, 0.15, 'Cross Correlation Value', ha='center', fontdict=None, rotation=0)
-fig.text(0.96, 0.86, 'Decibel', ha='center', fontdict=None, rotation=-90)
+fig.text(0.85, 0.5, 'Cross Correlation Value', ha='center', va='center', fontdict=None, rotation=-90)
+fig.text(0.5, 0.82, 'dB', ha='center', va='center', fontdict=None, rotation=-90)
 
-figname = '/media/brehm/Data/Panama/Recordings/Carales_astur/PK1285/Pk12850017/call_nr_2/TEST.pdf'
-fig.savefig(figname)
+figname = '/media/nils/Data/Panama/Recordings/Carales_astur/PK1285/Pk12850017/call_nr_' + str(call_nr) + '/TEST.pdf'
+fig.savefig(figname, dpi=400)
 plt.close(fig)
 print('Done')
 exit()
