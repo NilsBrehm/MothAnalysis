@@ -129,11 +129,13 @@ C = [[0, 0, 0],
 cm_selena = matplotlib.colors.ListedColormap(C)
 
 # Data
+# Carales_astur/PK1285/Pk12850017/call_nr_2
 data_path = '/media/nils/Data/Panama/Recordings/'
-species = 'Melese_incertus'
-animal = 'PPK1297'
-recording_nr = 'Pk12970002'
-call_nr = 4
+species = 'Carales_astur'
+animal = 'PK1285'
+recording_nr = 'Pk12850017'
+call_nr = 2
+
 
 file_name = data_path + species + '/' + animal + '/' + recording_nr + '/call_nr_' + str(call_nr) + '/matrix_analysis.mat'
 audio_name = data_path + species + '/' + animal + '/' + recording_nr + '/call_nr_' + str(call_nr) + '.wav'
@@ -227,7 +229,7 @@ ax3 = [[]] * n
 for k in range(n):
     ax3[k] = plt.Subplot(fig, grid3[k, 0])
     fig.add_subplot(ax3[k])
-    ax3[k].plot(pulses[1][:, k], 'k')
+    ax3[k].plot(pulses[1][:, n-k-1], 'k')
     sns.despine(ax=ax3[k], top=True, right=True, left=True, bottom=True, offset=None, trim=False)
     ax3[k].set_yticks([])
     ax3[k].set_xticks([])
@@ -286,7 +288,8 @@ ax[1].text(label_x_pos, 1.2, subfig_caps_labels[2], transform=ax[1].transAxes, s
 fig.text(0.85, 0.5, 'Cross Correlation Value', ha='center', va='center', fontdict=None, rotation=-90)
 fig.text(0.5, 0.82, 'dB', ha='center', va='center', fontdict=None, rotation=-90)
 
-figname = '/media/nils/Data/Panama/Recordings/Carales_astur/PK1285/Pk12850017/call_nr_' + str(call_nr) + '/TEST.pdf'
+figname = data_path + species + '/' + animal + '/' + recording_nr + '/call_nr_' + str(call_nr) + '/TEST.pdf'
+
 fig.savefig(figname, dpi=400)
 plt.close(fig)
 print('Done')
