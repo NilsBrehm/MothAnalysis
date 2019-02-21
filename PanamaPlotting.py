@@ -130,12 +130,18 @@ cm_selena = matplotlib.colors.ListedColormap(C)
 
 # Data
 # Carales_astur/PK1285/Pk12850017/call_nr_2
+# Melese_incertus/Pk1299/Pk12990020/call_nr_3
+# PP267_A80530003_50/call_nr_1
+# /GL005/BCI1349
 data_path = '/media/nils/Data/Panama/Recordings/'
-species = 'Carales_astur'
-animal = 'PK1285'
-recording_nr = 'Pk12850017'
-call_nr = 2
-
+# species = 'Melese_incertus'
+# species = 'Carales_astur'
+species = 'GL005'
+# animal = 'PK1285'
+animal = 'BCI1349'
+# recording_nr = 'Pk12850017'
+recording_nr = 'BCI13490001_m_11a11p'
+call_nr = 1
 
 file_name = data_path + species + '/' + animal + '/' + recording_nr + '/call_nr_' + str(call_nr) + '/matrix_analysis.mat'
 audio_name = data_path + species + '/' + animal + '/' + recording_nr + '/call_nr_' + str(call_nr) + '.wav'
@@ -160,8 +166,8 @@ matrix_data = {0: mat_file['MaxCorr_AA'], 1: mat_file['MaxCorr_PP'], 2: mat_file
 # Pulses: 0=Active, 1=Passive
 pulses = {0: mat_file['pulses'][0][0][0], 1: mat_file['pulses'][0][0][1]}
 
-# Spectrogram
-Nx = 512
+# Spectrogram: FFT > Nx !
+Nx = 256
 FFT = 512
 nover = Nx-5
 w = scipy.signal.get_window('hann', Nx, fftbins=True)
@@ -213,29 +219,38 @@ label_y_pos = 1.1
 subfig_caps_labels = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k']
 
 # Single Pulses
+x_lim = 0.2
+t_a = np.linspace(0, len(pulses[0][:, n-1])/fs, len(pulses[1][:, n-1])) * 1000
 grid2 = matplotlib.gridspec.GridSpecFromSubplotSpec(n, 1, subplot_spec=ax_a)
 ax2 = [[]] * n
 for k in range(n):
     ax2[k] = plt.Subplot(fig, grid2[k, 0])
     fig.add_subplot(ax2[k])
-    ax2[k].plot(pulses[0][:, k], 'k')
+    ax2[k].plot(t_a, pulses[0][:, k], 'k')
     sns.despine(ax=ax2[k], top=True, right=True, left=True, bottom=True, offset=None, trim=False)
     ax2[k].set_yticks([])
     ax2[k].set_xticks([])
+    ax2[k].set_xlim(0, x_lim)
 
+t_p = np.linspace(0, len(pulses[1][:, n-1])/fs, len(pulses[1][:, n-1])) * 1000
 ax2[n-1].set_xlabel('Active')
 grid3 = matplotlib.gridspec.GridSpecFromSubplotSpec(n, 1, subplot_spec=ax_p)
 ax3 = [[]] * n
 for k in range(n):
     ax3[k] = plt.Subplot(fig, grid3[k, 0])
     fig.add_subplot(ax3[k])
-    ax3[k].plot(pulses[1][:, n-k-1], 'k')
+    ax3[k].plot(t_p, pulses[1][:, n-k-1], 'k')
     sns.despine(ax=ax3[k], top=True, right=True, left=True, bottom=True, offset=None, trim=False)
     ax3[k].set_yticks([])
     ax3[k].set_xticks([])
+    ax3[k].set_xlim(0, x_lim)
 
-
-ax3[n-1].set_xlabel('Passive')
+sns.despine(ax=ax2[n-1], top=True, right=True, left=True, bottom=False, offset=5, trim=False)
+sns.despine(ax=ax3[n-1], top=True, right=True, left=True, bottom=False, offset=5, trim=False)
+ax2[n-1].set_xlabel('Time [ms]')
+ax3[n-1].set_xlabel('Time [ms]')
+ax2[n-1].set_xticks([0, 0.1, x_lim])
+ax3[n-1].set_xticks([0, 0.1, x_lim])
 
 # MATRIX PLOTS
 # Plot on axes
@@ -245,23 +260,51 @@ XX_PP, YY_PP = np.meshgrid(np.linspace(0, n_passive, n_passive+1), np.linspace(0
 
 rasterize_it = True
 
-ax[1].pcolormesh(XX_AA, YY_AA, matrix_data[0], cmap=cm_selena, rasterized=rasterize_it)
+ax[1].pcolormesh(XX_AA, YY_AA, matrix_data[0], cmap=cm_selena, rasterized=rasterize_it, vmin=0, vmax=1)
 ax[1].set_xlabel('Active')
 ax[1].set_ylabel('Active')
 
-ax[2].pcolormesh(XX_PP, YY_PP, matrix_data[1], cmap=cm_selena, rasterized=rasterize_it)
+ax[2].pcolormesh(XX_PP, YY_PP, matrix_data[1], cmap=cm_selena, rasterized=rasterize_it, vmin=0, vmax=1)
 ax[2].set_xlabel('Passive')
 ax[2].set_ylabel('Passive')
 
-ax[3].pcolormesh(XX_AP, YY_AP, matrix_data[2], cmap=cm_selena, rasterized=rasterize_it)
+ax[3].pcolormesh(XX_AP, YY_AP, matrix_data[2], cmap=cm_selena, rasterized=rasterize_it, vmin=0, vmax=1)
 ax[3].set_xlabel('Passive')
 ax[3].set_ylabel('Active')
 
+sns.despine(ax=ax[1], top=True, right=True, left=True, bottom=True, offset=None, trim=False)
+sns.despine(ax=ax[2], top=True, right=True, left=True, bottom=True, offset=None, trim=False)
+sns.despine(ax=ax[3], top=True, right=True, left=True, bottom=True, offset=None, trim=False)
+
+
+ax[1].set_xticks(np.arange(1.5, len(XX_AA)+0.5, 4))
+ax[1].set_xticklabels([2, 6, 10, 14, 18, 22, 26, 30])
+ax[1].set_yticks(np.arange(1.5, len(YY_AA)+0.5, 4))
+ax[1].set_yticklabels([2, 6, 10, 14, 18, 22, 26, 30])
+
+ax[2].set_xticks(np.arange(1.5, len(XX_PP)+0.5, 4))
+ax[2].set_xticklabels([2, 6, 10, 14, 18, 22, 26, 30])
+ax[2].set_yticks(np.arange(1.5, len(YY_PP)+0.5, 4))
+ax[2].set_yticklabels([2, 6, 10, 14, 18, 22, 26, 30])
+
+ax[3].set_xticks(np.arange(1.5, len(XX_AP)+0.5, 4))
+ax[3].set_xticklabels([2, 6, 10, 14, 18, 22, 26])
+ax[3].set_yticks(np.arange(1.5, len(YY_AP)+0.5, 4))
+ax[3].set_yticklabels([2, 6, 10, 14, 18, 22, 26, 30])
+
 # Spectrogram
-ax[0].pcolormesh(t*1000, f/1000, db, cmap=cm_selena, vmin=-100, vmax=0, shading='gouraud', rasterized=rasterize_it)
-ax[0].set_ylim(0, 80)
+freq = f/1000
+t_freq = t * 1000
+ax[0].pcolormesh(t_freq, freq, db, cmap=cm_selena, vmin=-100, vmax=0, shading='gouraud', rasterized=rasterize_it)
+ax[0].set_ylim(0, 150)
+ax[0].set_yticks([0, 50, 100, 150])
+ax[0].set_xlim(0, np.round(np.max(t_freq)))
 ax[0].set_xlabel('Time [ms]')
 ax[0].set_ylabel('Freq. [kHz]')
+sns.despine(ax=ax[0], top=True, right=True, left=True, bottom=True, offset=None, trim=False)
+
+# ax[0].axhline(100, color='r')
+# ax[0].plot([0, 20], [80, 80], 'r')
 
 # Color Bars
 norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
@@ -271,6 +314,8 @@ cb_spec = matplotlib.colorbar.ColorbarBase(ax_cb_spec, cmap=cm_selena, norm=norm
 # ax_cb_spec.set_xticks([0, -50, -100])
 cb_spec.set_ticks([0, -50, -100])
 cb_spec.set_ticklabels([' 0', '-50', '-100'])
+cb_spec.outline.set_visible(False)
+cb1.outline.set_visible(False)
 
 # Sub Lables
 ax[0].text(-0.3, 1.4, subfig_caps_labels[0], transform=ax[0].transAxes, size=subfig_caps,
@@ -286,9 +331,12 @@ ax[1].text(label_x_pos, 1.2, subfig_caps_labels[2], transform=ax[1].transAxes, s
 # fig.text(0.05, 0.4, 'Passive', ha='center', fontdict=None, rotation=90)
 # fig.text(0.05, 0.2, 'Passive', ha='center', fontdict=None, rotation=90)
 fig.text(0.85, 0.5, 'Cross Correlation Value', ha='center', va='center', fontdict=None, rotation=-90)
-fig.text(0.5, 0.82, 'dB', ha='center', va='center', fontdict=None, rotation=-90)
+fig.text(0.48, 0.82, 'dB', ha='center', va='center', fontdict=None, rotation=-90)
+fig.text(0.2, 0.65, 'Active', ha='center', va='center', fontdict=None, rotation=0)
+fig.text(0.36, 0.65, 'Passive', ha='center', va='center', fontdict=None, rotation=0)
 
-figname = data_path + species + '/' + animal + '/' + recording_nr + '/call_nr_' + str(call_nr) + '/TEST.pdf'
+figname = data_path + species + '/' + animal + '/' + recording_nr + '/call_nr_' + str(call_nr) + '/' + species + '_' + \
+          recording_nr + '_' + str(call_nr) + '.pdf'
 
 fig.savefig(figname, dpi=400)
 plt.close(fig)
